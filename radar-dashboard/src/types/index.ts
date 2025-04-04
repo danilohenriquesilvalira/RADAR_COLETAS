@@ -19,6 +19,7 @@ export interface VelocityChange {
   old_value: number;
   new_value: number;
   change_value: number;
+  position: number;  // Nova propriedade: posição onde a mudança foi detectada
   timestamp: number;
 }
 

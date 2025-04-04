@@ -59,6 +59,9 @@ const ChangesHistory = ({ selectedSensors }: ChangesHistoryProps) => {
               Sensor
             </th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Posição
+            </th>
+            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Anterior
             </th>
             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -87,6 +90,12 @@ const ChangesHistory = ({ selectedSensors }: ChangesHistoryProps) => {
                     </div>
                   </div>
                 </div>
+              </td>
+              <td className="px-4 py-3 whitespace-nowrap">
+                <div className="text-sm font-medium text-gray-900">
+                  {change.position !== undefined ? change.position.toFixed(2) + ' m' : 'N/A'}
+                </div>
+                <div className="text-xs text-gray-500">Distância</div>
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                 {change.old_value.toFixed(2)} m/s

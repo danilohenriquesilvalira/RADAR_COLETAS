@@ -77,6 +77,7 @@ type VelocityChange struct {
 	OldValue    float64   `json:"old_value"`    // Valor anterior
 	NewValue    float64   `json:"new_value"`    // Valor novo
 	ChangeValue float64   `json:"change_value"` // Diferença
+	Position    float64   `json:"position"`     // Posição em metros onde a mudança foi detectada
 	Timestamp   time.Time `json:"timestamp"`    // Momento da mudança
 }
 
@@ -462,12 +463,13 @@ func DetectVelocityChanges(metrics *RadarMetrics, lastVelocities [7]float64) {
 				OldValue:    lastVelocities[i],
 				NewValue:    metrics.Velocities[i],
 				ChangeValue: change,
+				Position:    metrics.Positions[i], // Incluir a posição onde a mudança foi detectada
 				Timestamp:   metrics.Timestamp,
 			})
 
 			if DebuggingEnabled {
-				fmt.Printf("Mudança detectada na velocidade %d: %.3f -> %.3f (Δ%.3f)\n",
-					i+1, lastVelocities[i], metrics.Velocities[i], change)
+				fmt.Printf("Mudança detectada na velocidade %d: %.3f -> %.3f (Δ%.3f) na posição %.3f m\n",
+					i+1, lastVelocities[i], metrics.Velocities[i], change, metrics.Positions[i])
 			}
 		}
 	}
@@ -954,6 +956,7 @@ func (r *RedisWriter) WriteVelocityChanges(changes []VelocityChange) error {
 			"old_value":    change.OldValue,
 			"new_value":    change.NewValue,
 			"change_value": change.ChangeValue,
+			"position":     change.Position, // Incluir a posição na estrutura
 			"timestamp":    change.Timestamp.UnixNano() / int64(time.Millisecond),
 		}
 
