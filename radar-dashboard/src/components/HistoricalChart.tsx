@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, memo, useCallback } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { formatTime } from '../utils/format';
 import useRadarStore from '../stores/radarStore';
@@ -9,10 +9,87 @@ interface HistoricalChartProps {
   selectedSensors: number[];
 }
 
-const HistoricalChart = ({ timeRange, selectedSensors }: HistoricalChartProps) => {
+const HistoricalChart = memo(({ timeRange, selectedSensors }: HistoricalChartProps) => {
   const { historicalData } = useRadarStore();
   const [chartType, setChartType] = useState<'line' | 'area'>('line');
   
+  // Processar dados do gráfico apenas quando necessário
+  const chartData = useMemo(() => {
+    if (historicalData.timestamps.length === 0) {
+      return [];
+    }
+
+    // Filtrar dados conforme o período selecionado
+    let filteredData = [...historicalData.timestamps];
+    let startIndex = 0;
+    
+    if (timeRange !== 'all') {
+      // Obter timestamp atual
+      const now = Date.now();
+      let timeWindowMs = 0;
+      
+      // Converter intervalo selecionado para milissegundos
+      switch (timeRange) {
+        case '1m': timeWindowMs = 60 * 1000; break;
+        case '5m': timeWindowMs = 5 * 60 * 1000; break;
+        case '15m': timeWindowMs = 15 * 60 * 1000; break;
+        case '30m': timeWindowMs = 30 * 60 * 1000; break;
+        case '1h': timeWindowMs = 60 * 60 * 1000; break;
+        case '6h': timeWindowMs = 6 * 60 * 60 * 1000; break;
+        case '12h': timeWindowMs = 12 * 60 * 60 * 1000; break;
+        case '24h': timeWindowMs = 24 * 60 * 60 * 1000; break;
+        default: break;
+      }
+      
+      // Encontrar o índice de corte
+      const cutoffTime = now - timeWindowMs;
+      startIndex = filteredData.findIndex(timestamp => timestamp >= cutoffTime);
+      
+      if (startIndex === -1) startIndex = 0;
+    }
+    
+    // Cortar o array de timestamps
+    filteredData = filteredData.slice(startIndex);
+    
+    // Preparar dados para o gráfico
+    return filteredData.map((timestamp, idx) => {
+      const realIdx = idx + startIndex;
+      const dataPoint: { [key: string]: any } = {
+        time: formatTime(timestamp)
+      };
+      
+      // Adicionar valores apenas para os sensores selecionados
+      selectedSensors.forEach(sensorIdx => {
+        const velocityData = historicalData.velocityData[sensorIdx];
+        if (velocityData && realIdx < velocityData.length) {
+          dataPoint[`sensor${sensorIdx + 1}`] = velocityData[realIdx];
+        }
+      });
+      
+      return dataPoint;
+    });
+  }, [historicalData, timeRange, selectedSensors]);
+
+  // Gerar cores para cada linha
+  const getLineColor = useCallback((index: number) => {
+    const colors = [
+      '#2563eb', // azul
+      '#16a34a', // verde
+      '#d97706', // âmbar
+      '#dc2626', // vermelho
+      '#7c3aed', // roxo
+      '#0891b2', // ciano
+      '#db2777', // rosa
+    ];
+    return colors[index % colors.length];
+  }, []);
+
+  // Handler para mudar o tipo de gráfico
+  const toggleChartType = useCallback(() => {
+    setChartType(prev => prev === 'line' ? 'area' : 'line');
+  }, []);
+
+  // Renderizar mensagem se não houver dados
   if (historicalData.timestamps.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg">
@@ -29,83 +106,27 @@ const HistoricalChart = ({ timeRange, selectedSensors }: HistoricalChartProps) =
     );
   }
 
-  // Filtrar dados conforme o período selecionado
-  let filteredData = [...historicalData.timestamps];
-  let startIndex = 0;
-  
-  if (timeRange !== 'all') {
-    // Obter timestamp atual
-    const now = Date.now();
-    let timeWindowMs = 0;
-    
-    // Converter intervalo selecionado para milissegundos
-    switch (timeRange) {
-      case '1m': timeWindowMs = 60 * 1000; break;
-      case '5m': timeWindowMs = 5 * 60 * 1000; break;
-      case '15m': timeWindowMs = 15 * 60 * 1000; break;
-      case '30m': timeWindowMs = 30 * 60 * 1000; break;
-      case '1h': timeWindowMs = 60 * 60 * 1000; break;
-      case '6h': timeWindowMs = 6 * 60 * 60 * 1000; break;
-      case '12h': timeWindowMs = 12 * 60 * 60 * 1000; break;
-      case '24h': timeWindowMs = 24 * 60 * 60 * 1000; break;
-    }
-    
-    // Encontrar o índice de corte
-    const cutoffTime = now - timeWindowMs;
-    startIndex = filteredData.findIndex(timestamp => timestamp >= cutoffTime);
-    
-    if (startIndex === -1) startIndex = 0;
+  // Renderizar mensagem se não houver dados para o período selecionado
+  if (chartData.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg">
+        <p className="text-gray-500">Sem dados disponíveis para o período selecionado.</p>
+      </div>
+    );
   }
-  
-  // Cortar o array de timestamps
-  filteredData = filteredData.slice(startIndex);
-  
-  // Preparar dados para o gráfico
-  const chartData = filteredData.map((timestamp, idx) => {
-    const realIdx = idx + startIndex;
-    const dataPoint: { [key: string]: any } = {
-      time: formatTime(timestamp)
-    };
-    
-    // Adicionar valores apenas para os sensores selecionados
-    selectedSensors.forEach(sensorIdx => {
-      if (historicalData.velocityData[sensorIdx] && 
-          realIdx < historicalData.velocityData[sensorIdx].length) {
-        dataPoint[`sensor${sensorIdx + 1}`] = historicalData.velocityData[sensorIdx][realIdx];
-      }
-    });
-    
-    return dataPoint;
-  });
-
-  // Gerar cores para cada linha
-  const getLineColor = (index: number) => {
-    const colors = [
-      '#2563eb', // azul
-      '#16a34a', // verde
-      '#d97706', // âmbar
-      '#dc2626', // vermelho
-      '#7c3aed', // roxo
-      '#0891b2', // ciano
-      '#db2777', // rosa
-    ];
-    return colors[index % colors.length];
-  };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-3">
         <div className="text-sm text-gray-500">
-          {chartData.length > 0 
-            ? `Exibindo ${chartData.length} pontos de dados ${timeRange === 'all' ? 'de todo o período' : `dos últimos ${timeRange}`}`
-            : 'Nenhum dado disponível para o período selecionado'}
+          Exibindo {chartData.length} pontos de dados {timeRange === 'all' ? 'de todo o período' : `dos últimos ${timeRange}`}
         </div>
         
         <div className="inline-flex rounded-md shadow-sm">
           <button
             type="button"
-            onClick={() => setChartType('line')}
-            className={`relative inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-l-md ${
+            onClick={toggleChartType}
+            className={`relative inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md ${
               chartType === 'line'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -118,8 +139,8 @@ const HistoricalChart = ({ timeRange, selectedSensors }: HistoricalChartProps) =
           </button>
           <button
             type="button"
-            onClick={() => setChartType('area')}
-            className={`relative inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-r-md ${
+            onClick={toggleChartType}
+            className={`relative inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md ${
               chartType === 'area'
                 ? 'bg-blue-600 text-white'
                 : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -136,7 +157,10 @@ const HistoricalChart = ({ timeRange, selectedSensors }: HistoricalChartProps) =
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           {chartType === 'line' ? (
-            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <LineChart 
+              data={chartData} 
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
               <XAxis 
                 dataKey="time" 
@@ -182,11 +206,15 @@ const HistoricalChart = ({ timeRange, selectedSensors }: HistoricalChartProps) =
                   activeDot={{ r: 6 }}
                   dot={false}
                   strokeWidth={1.5}
+                  isAnimationActive={false} // Desativar animação para melhor desempenho
                 />
               ))}
             </LineChart>
           ) : (
-            <AreaChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <AreaChart 
+              data={chartData} 
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+            >
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
               <XAxis 
                 dataKey="time" 
@@ -222,7 +250,7 @@ const HistoricalChart = ({ timeRange, selectedSensors }: HistoricalChartProps) =
                 wrapperStyle={{ fontSize: '11px' }}
               />
               
-              {selectedSensors.map((sensorIdx, idx) => (
+              {selectedSensors.map((sensorIdx) => (
                 <Area
                   key={`sensor-${sensorIdx}`}
                   type="monotone"
@@ -234,6 +262,7 @@ const HistoricalChart = ({ timeRange, selectedSensors }: HistoricalChartProps) =
                   activeDot={{ r: 6 }}
                   dot={false}
                   strokeWidth={1.5}
+                  isAnimationActive={false} // Desativar animação para melhor desempenho
                 />
               ))}
             </AreaChart>
@@ -242,6 +271,8 @@ const HistoricalChart = ({ timeRange, selectedSensors }: HistoricalChartProps) =
       </div>
     </div>
   );
-};
+});
+
+HistoricalChart.displayName = 'HistoricalChart';
 
 export default HistoricalChart;

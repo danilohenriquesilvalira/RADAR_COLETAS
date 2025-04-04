@@ -1,11 +1,14 @@
+// Header.tsx
 import { useState } from 'react';
 
 interface HeaderProps {
   onToggleFilters: () => void;
   showFilters: boolean;
+  onToggleView: () => void;
+  isCompactView: boolean;
 }
 
-const Header = ({ onToggleFilters, showFilters }: HeaderProps) => {
+const Header = ({ onToggleFilters, showFilters, onToggleView, isCompactView }: HeaderProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
@@ -13,15 +16,14 @@ const Header = ({ onToggleFilters, showFilters }: HeaderProps) => {
       <div className="container mx-auto px-4 py-3">
         <div className="flex justify-between items-center">
           <div className="flex items-center">
-            <img 
-              src="/logo.png" 
-              alt="RLS Automação" 
-              className="h-8 w-auto mr-4"
-              onError={(e) => {
-                // Fallback caso a imagem não exista
-                e.currentTarget.style.display = 'none';
-              }}
-            />
+            <div className="bg-white p-1 rounded mr-3">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                   className="w-6 h-6 text-blue-700" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                <path d="M2 12h20"></path>
+              </svg>
+            </div>
             <h1 className="text-xl font-bold">RLS Automação Industrial</h1>
           </div>
           
@@ -42,22 +44,26 @@ const Header = ({ onToggleFilters, showFilters }: HeaderProps) => {
             </button>
             
             <button 
+              onClick={onToggleView}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center ${
+                isCompactView 
+                  ? 'bg-blue-800 text-white' 
+                  : 'bg-blue-600 hover:bg-blue-800 text-white'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+              {isCompactView ? 'Visualização Expandida' : 'Visualização Compacta'}
+            </button>
+            
+            <button 
               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-800 rounded-md text-sm font-medium text-white transition-colors flex items-center"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
               </svg>
               Exportar Dados
-            </button>
-            
-            <button 
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-800 rounded-md text-sm font-medium text-white transition-colors flex items-center"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Configurações
             </button>
           </div>
           
@@ -103,22 +109,22 @@ const Header = ({ onToggleFilters, showFilters }: HeaderProps) => {
           <div className="mt-4 md:hidden">
             <div className="flex flex-col space-y-2">
               <button 
+                onClick={onToggleView}
+                className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-800 rounded-md text-sm font-medium text-white transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+                {isCompactView ? 'Visualização Expandida' : 'Visualização Compacta'}
+              </button>
+              
+              <button 
                 className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-800 rounded-md text-sm font-medium text-white transition-colors"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
                 Exportar Dados
-              </button>
-              
-              <button 
-                className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-800 rounded-md text-sm font-medium text-white transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Configurações
               </button>
             </div>
           </div>

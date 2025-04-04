@@ -9,9 +9,16 @@ class WebSocketService {
   private statusCallbacks: StatusCallback[] = []
   private reconnectTimeout: number | null = null
   private url: string
+  private messageQueue: RadarData[] = []
+  private processingQueue: boolean = false
+  private lastProcessedTime: number = 0
+  private reconnectAttempts: number = 0
+  private maxReconnectAttempts: number = 10
+  private baseReconnectDelay: number = 1000
 
   constructor(url: string = `ws://${window.location.hostname}:8080/ws`) {
     this.url = url
+    this.startQueueProcessor()
   }
 
   // Conectar ao WebSocket
@@ -21,10 +28,12 @@ class WebSocketService {
     }
 
     try {
+      console.log('Tentando conectar ao WebSocket...')
       this.socket = new WebSocket(this.url)
 
       this.socket.onopen = () => {
         console.log('WebSocket conectado')
+        this.reconnectAttempts = 0
         this.notifyStatusChange('connected')
         if (this.reconnectTimeout) {
           clearTimeout(this.reconnectTimeout)
@@ -35,7 +44,7 @@ class WebSocketService {
       this.socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data) as RadarData
-          this.notifyMessageCallbacks(data)
+          this.messageQueue.push(data)
         } catch (error) {
           console.error('Erro ao processar mensagem:', error)
         }
@@ -57,13 +66,69 @@ class WebSocketService {
     }
   }
 
-  // Agendar reconexão automática
+  // Processa a fila de mensagens usando throttling para não sobrecarregar
+  private startQueueProcessor(): void {
+    const processQueue = () => {
+      // Limitar a frequência de processamento para no máximo uma vez a cada 100ms
+      const now = Date.now()
+      const timeSinceLastProcess = now - this.lastProcessedTime
+      
+      if (this.messageQueue.length > 0 && !this.processingQueue && timeSinceLastProcess >= 100) {
+        this.processingQueue = true
+        this.lastProcessedTime = now
+        
+        // Usar requestAnimationFrame para sincronizar com a renderização do navegador
+        requestAnimationFrame(() => {
+          // Se houver mais de uma mensagem na fila, pegar apenas a mais recente
+          if (this.messageQueue.length > 1) {
+            const latestMessage = this.messageQueue.pop()
+            this.messageQueue = [] // Limpar fila antiga
+            if (latestMessage) {
+              this.notifyMessageCallbacks(latestMessage)
+            }
+          } else if (this.messageQueue.length === 1) {
+            const message = this.messageQueue.pop()
+            if (message) {
+              this.notifyMessageCallbacks(message)
+            }
+          }
+          
+          this.processingQueue = false
+        })
+      }
+      
+      // Agendar próxima verificação
+      setTimeout(processQueue, 50)
+    }
+    
+    // Iniciar o processador
+    processQueue()
+  }
+
+  // Agendar reconexão com backoff exponencial
   private scheduleReconnect(): void {
-    if (!this.reconnectTimeout) {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout)
+    }
+    
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      // Aplicar backoff exponencial com jitter
+      const delay = Math.min(
+        30000, // Limitar a no máximo 30 segundos
+        this.baseReconnectDelay * Math.pow(1.5, this.reconnectAttempts) * 
+          (0.9 + Math.random() * 0.2) // Jitter de ±10%
+      )
+      
+      this.reconnectAttempts++
+      
+      console.log(`Tentando reconectar em ${Math.round(delay)}ms (tentativa ${this.reconnectAttempts})`)
+      
       this.reconnectTimeout = window.setTimeout(() => {
         console.log('Tentando reconectar...')
         this.connect()
-      }, 3000)
+      }, delay)
+    } else {
+      console.error('Número máximo de tentativas de reconexão atingido')
     }
   }
 
@@ -85,12 +150,24 @@ class WebSocketService {
 
   // Notificar todos os callbacks de mensagem
   private notifyMessageCallbacks(data: RadarData): void {
-    this.messageCallbacks.forEach(callback => callback(data))
+    this.messageCallbacks.forEach(callback => {
+      try {
+        callback(data)
+      } catch (error) {
+        console.error('Erro ao processar callback de mensagem:', error)
+      }
+    })
   }
 
   // Notificar todos os callbacks de status
   private notifyStatusChange(status: 'connected' | 'disconnected' | 'error'): void {
-    this.statusCallbacks.forEach(callback => callback(status))
+    this.statusCallbacks.forEach(callback => {
+      try {
+        callback(status)
+      } catch (error) {
+        console.error('Erro ao processar callback de status:', error)
+      }
+    })
   }
 
   // Desconectar WebSocket

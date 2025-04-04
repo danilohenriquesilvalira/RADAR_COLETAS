@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState, useCallback, memo } from 'react';
 
 interface RadarVisualizationProps {
   positions: number[];
@@ -7,13 +6,14 @@ interface RadarVisualizationProps {
   selectedSensors: number[];
 }
 
-const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVisualizationProps) => {
+const RadarVisualization = memo(({ positions, velocities, selectedSensors }: RadarVisualizationProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [showDistanceLabels, setShowDistanceLabels] = useState(true);
   const [zoom, setZoom] = useState(1);
+  const animationFrameRef = useRef<number | null>(null);
   
-  // Função para desenhar o radar
-  useEffect(() => {
+  // Desenhar o radar em um callback memoizado
+  const drawRadar = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
@@ -35,7 +35,7 @@ const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVis
     ctx.fillStyle = '#f8f9fa';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Desenhar círculos concêntricos (escala) - similar ao radar da imagem de referência
+    // Desenhar círculos concêntricos (escala)
     const distances = [12.5, 25, 37.5, 50, 62.5, 75, 87.5];
     distances.forEach(distance => {
       const radius = (distance / 87.5) * maxRadius * scale;
@@ -58,7 +58,7 @@ const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVis
       }
     });
     
-    // Desenhar linhas radiais (ângulos) - como no radar de referência
+    // Desenhar linhas radiais (ângulos)
     const numAngles = 8; // 8 linhas radiais
     for (let i = 0; i < numAngles; i++) {
       const angle = (i * Math.PI * 2) / numAngles;
@@ -74,7 +74,7 @@ const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVis
       ctx.stroke();
     }
     
-    // Adicionar eixos principais (horizontal e vertical) um pouco mais fortes
+    // Adicionar eixos principais (horizontal e vertical)
     ctx.beginPath();
     ctx.moveTo(centerX - maxRadius * scale, centerY);
     ctx.lineTo(centerX + maxRadius * scale, centerY);
@@ -84,7 +84,7 @@ const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVis
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // Desenhar gráfico lateral de intensidade (como na referência)
+    // Desenhar gráfico lateral de intensidade
     const barWidth = 15;
     const barHeight = canvas.height * 0.8;
     const barX = 30;
@@ -125,8 +125,8 @@ const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVis
     ctx.restore();
     
     // Desenhar valores no gráfico lateral (simulando os valores de posição)
-    ctx.fillStyle = 'rgba(30, 144, 255, 0.7)';
-    const maxPosition = Math.max(...positions.filter((_, i) => selectedSensors.includes(i)), 1);
+    const filteredPositions = positions.filter((_, i) => selectedSensors.includes(i));
+    const maxPosition = Math.max(...filteredPositions, 1);
     positions.forEach((position, index) => {
       if (!selectedSensors.includes(index)) return;
       
@@ -138,7 +138,7 @@ const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVis
       ctx.fillRect(barX, barPosY, barWidth, normalizedHeight);
     });
     
-    // Desenhar pontos para cada sensor (posições) como na imagem do radar
+    // Desenhar pontos para cada sensor (posições)
     positions.forEach((position, index) => {
       if (!selectedSensors.includes(index)) return;
       
@@ -238,7 +238,7 @@ const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVis
     ctx.lineWidth = 2;
     ctx.stroke();
     
-    // Adicionar texto "RADAR" no centro
+    // Adicionar texto "R" no centro
     ctx.fillStyle = 'white';
     ctx.font = 'bold 7px Arial';
     ctx.textAlign = 'center';
@@ -247,12 +247,41 @@ const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVis
     
   }, [positions, velocities, selectedSensors, showDistanceLabels, zoom]);
   
+  // Efeito para desenhar o radar quando os dados mudarem
+  useEffect(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    
+    // Usar requestAnimationFrame para sincronizar com a renderização
+    animationFrameRef.current = requestAnimationFrame(drawRadar);
+    
+    // Limpar na desmontagem
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [drawRadar]);
+  
+  const handleZoomOut = useCallback(() => {
+    setZoom(prev => Math.max(prev - 0.2, 0.5));
+  }, []);
+  
+  const handleZoomIn = useCallback(() => {
+    setZoom(prev => Math.min(prev + 0.2, 2));
+  }, []);
+  
+  const toggleDistanceLabels = useCallback(() => {
+    setShowDistanceLabels(prev => !prev);
+  }, []);
+  
   return (
     <div className="flex flex-col h-full">
       <div className="flex justify-between items-center mb-3">
         <div className="flex items-center space-x-2">
           <button
-            onClick={() => setZoom(prev => Math.max(prev - 0.2, 0.5))}
+            onClick={handleZoomOut}
             className="p-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -261,7 +290,7 @@ const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVis
           </button>
           <span className="text-xs font-medium text-gray-600">Zoom: {(zoom * 100).toFixed(0)}%</span>
           <button
-            onClick={() => setZoom(prev => Math.min(prev + 0.2, 2))}
+            onClick={handleZoomIn}
             className="p-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -274,7 +303,7 @@ const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVis
             <input
               type="checkbox"
               checked={showDistanceLabels}
-              onChange={() => setShowDistanceLabels(!showDistanceLabels)}
+              onChange={toggleDistanceLabels}
               className="form-checkbox h-3 w-3 text-blue-600 rounded"
             />
             <span className="ml-1">Distâncias</span>
@@ -282,12 +311,7 @@ const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVis
         </div>
       </div>
       
-      <motion.div
-        className="relative flex-grow bg-white rounded-lg overflow-hidden"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
+      <div className="relative flex-grow bg-white rounded-lg overflow-hidden">
         <canvas 
           ref={canvasRef} 
           width={600} 
@@ -300,9 +324,11 @@ const RadarVisualization = ({ positions, velocities, selectedSensors }: RadarVis
           <div>Monitoramento em tempo real</div>
           <div>Total de sensores: {selectedSensors.length} / 7</div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
-};
+});
+
+RadarVisualization.displayName = 'RadarVisualization';
 
 export default RadarVisualization;
