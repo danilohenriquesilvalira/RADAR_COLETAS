@@ -65,6 +65,10 @@ type RadarMetrics struct {
 	Timestamp       time.Time
 	Status          string
 	VelocityChanges []VelocityChange // Registra quais velocidades mudaram
+	// Novos campos
+	RealVelocity float64 // Velocidade real calculada do barco
+	Direction    string  // Direção do movimento (entrando/saindo)
+	BoatSize     string  // Tamanho estimado (pequeno/médio/grande)
 }
 
 // VelocityChange representa uma mudança específica em uma velocidade
@@ -85,6 +89,10 @@ type HistoryStats struct {
 	ChangeFrequency float64                 `json:"change_frequency"`
 	LastUpdated     time.Time               `json:"last_updated"`
 	VelocityHistory map[int][]VelocityPoint `json:"velocity_history"`
+	// Novos campos
+	RealVelocity float64 `json:"real_velocity"`
+	Direction    string  `json:"direction"`
+	BoatSize     string  `json:"boat_size"`
 }
 
 // VelocityPoint representa um ponto histórico de velocidade
@@ -312,7 +320,129 @@ func (r *SickRadar) DecodeValues(response string) (*RadarMetrics, error) {
 		fmt.Println("Bloco de Velocidade (V3DX1) não encontrado ou formato inesperado.")
 	}
 
+	// Calcular velocidade real e direção do barco
+	realVelocity, direction := CalculateRealVelocity(metrics.Velocities, metrics.Positions)
+	metrics.RealVelocity = realVelocity
+	metrics.Direction = direction
+
+	// Estimar tamanho do barco
+	metrics.BoatSize = EstimateBoatSize(metrics.Positions, metrics.Velocities)
+
 	return metrics, nil
+}
+
+// CalculateRealVelocity determina a velocidade real do barco com base nos 7 sensores
+func CalculateRealVelocity(velocities [7]float64, positions [7]float64) (float64, string) {
+	// Ângulos aproximados de cada sensor (baseado na documentação SICK)
+	sensorAngles := [7]float64{
+		-30 * math.Pi / 180, // -30 graus
+		-20 * math.Pi / 180, // -20 graus
+		-10 * math.Pi / 180, // -10 graus
+		0,                   // 0 graus (central)
+		10 * math.Pi / 180,  // 10 graus
+		20 * math.Pi / 180,  // 20 graus
+		30 * math.Pi / 180,  // 30 graus
+	}
+
+	// Filtrar sensores com leituras válidas
+	validVelocities := []float64{}
+	validAngles := []float64{}
+	validPositions := []float64{}
+
+	for i, velocity := range velocities {
+		// Ignorar leituras muito distantes ou com velocidade zero
+		if positions[i] > 0 && positions[i] < 90 && math.Abs(velocity) > 0.05 {
+			validVelocities = append(validVelocities, velocity)
+			validAngles = append(validAngles, sensorAngles[i])
+			validPositions = append(validPositions, positions[i])
+		}
+	}
+
+	if len(validVelocities) == 0 {
+		return 0, "parado" // Sem movimento detectado
+	}
+
+	// Determinar direção dominante
+	positiveCount := 0
+	negativeCount := 0
+	for _, vel := range validVelocities {
+		if vel > 0 {
+			positiveCount++
+		} else {
+			negativeCount++
+		}
+	}
+
+	direction := "indefinido"
+	if positiveCount > negativeCount {
+		direction = "entrando" // Aproximando do radar
+	} else if negativeCount > positiveCount {
+		direction = "saindo" // Afastando do radar
+	}
+
+	// Calcular velocidade real com correção angular (fórmula do cosseno)
+	var sumWeightedVelocity float64
+	var sumWeights float64
+
+	for i, velocity := range validVelocities {
+		angle := validAngles[i]
+		// Peso maior para sensores centrais e com menor distância
+		weight := math.Cos(angle) * math.Cos(angle) * (100 - validPositions[i]) / 100
+
+		// Correção do cosseno - projeta velocidade radial para velocidade real
+		correctedVelocity := velocity / math.Cos(angle)
+
+		sumWeightedVelocity += math.Abs(correctedVelocity) * weight
+		sumWeights += weight
+	}
+
+	realVelocity := 0.0
+	if sumWeights > 0 {
+		realVelocity = sumWeightedVelocity / sumWeights
+	}
+
+	return realVelocity, direction
+}
+
+// EstimateBoatSize estima o tamanho da embarcação com base nos padrões de detecção
+func EstimateBoatSize(positions [7]float64, velocities [7]float64) string {
+	// Conta quantos sensores estão detectando movimento significativo
+	var activeSensors int
+	var minPos float64 = 100
+	var maxPos float64 = 0
+
+	for i, vel := range velocities {
+		if math.Abs(vel) > 0.1 && positions[i] > 0 && positions[i] < 90 {
+			activeSensors++
+
+			// Atualizar posição mínima e máxima
+			if positions[i] < minPos {
+				minPos = positions[i]
+			}
+			if positions[i] > maxPos {
+				maxPos = positions[i]
+			}
+		}
+	}
+
+	// Se não houver sensores ativos ou a diferença for pequena
+	if activeSensors < 2 || maxPos-minPos < 5 {
+		return "indefinido"
+	}
+
+	// Classificação por número de sensores ativos e dispersão
+	dispersao := maxPos - minPos
+
+	switch {
+	case activeSensors >= 6 || dispersao > 40:
+		return "grande" // Embarcação grande (>40m)
+	case activeSensors >= 4 || dispersao > 20:
+		return "medio" // Embarcação média (20-40m)
+	case activeSensors >= 2:
+		return "pequeno" // Embarcação pequena (<20m)
+	default:
+		return "indefinido"
+	}
 }
 
 // DetectVelocityChanges detecta mudanças nas velocidades
@@ -492,6 +622,11 @@ func (r *RedisWriter) WriteMetrics(metrics *RadarMetrics) error {
 	// Armazena o status do radar
 	pipe.Set(r.ctx, fmt.Sprintf("%s:status", r.prefix), metrics.Status, 0)
 	pipe.Set(r.ctx, fmt.Sprintf("%s:timestamp", r.prefix), timestamp, 0)
+
+	// Armazenar velocidade real, direção e tamanho
+	pipe.Set(r.ctx, fmt.Sprintf("%s:real_velocity", r.prefix), metrics.RealVelocity, 0)
+	pipe.Set(r.ctx, fmt.Sprintf("%s:direction", r.prefix), metrics.Direction, 0)
+	pipe.Set(r.ctx, fmt.Sprintf("%s:boat_size", r.prefix), metrics.BoatSize, 0)
 
 	// Adiciona posições ao Redis
 	for i := 0; i < 7; i++ {
@@ -706,6 +841,26 @@ func (r *RedisWriter) CalculateHistoryStats() (*HistoryStats, error) {
 		log.Printf("Erro ao obter total de mudanças: %v", err)
 	}
 
+	// Obter velocidade real, direção e tamanho
+	realVelKey := fmt.Sprintf("%s:real_velocity", r.prefix)
+	directionKey := fmt.Sprintf("%s:direction", r.prefix)
+	boatSizeKey := fmt.Sprintf("%s:boat_size", r.prefix)
+
+	realVel, err := r.client.Get(r.ctx, realVelKey).Float64()
+	if err == nil {
+		stats.RealVelocity = realVel
+	}
+
+	direction, err := r.client.Get(r.ctx, directionKey).Result()
+	if err == nil {
+		stats.Direction = direction
+	}
+
+	boatSize, err := r.client.Get(r.ctx, boatSizeKey).Result()
+	if err == nil {
+		stats.BoatSize = boatSize
+	}
+
 	// Inicia coleta de dados para cada sensor
 	for i := 0; i < 7; i++ {
 		// Chaves para estatísticas
@@ -883,6 +1038,10 @@ type WSMessage struct {
 	Velocities   []float64        `json:"velocities"`
 	Changes      []VelocityChange `json:"changes,omitempty"`
 	HistoryStats *HistoryStats    `json:"history_stats,omitempty"`
+	// Novos campos para informações do barco
+	RealVelocity float64 `json:"real_velocity"`
+	Direction    string  `json:"direction"`
+	BoatSize     string  `json:"boat_size"`
 }
 
 // WebSocketServer gerencia as conexões WebSocket
@@ -1032,6 +1191,9 @@ func (server *WebSocketServer) BroadcastMetrics(metrics *RadarMetrics, redis *Re
 		Positions:    metrics.Positions[:],
 		Velocities:   metrics.Velocities[:],
 		HistoryStats: historyStats,
+		RealVelocity: metrics.RealVelocity,
+		Direction:    metrics.Direction,
+		BoatSize:     metrics.BoatSize,
 	}
 
 	// Se houver mudanças, inclui na mensagem
@@ -1085,6 +1247,7 @@ func main() {
 	fmt.Printf("3. Mudanças recentes: %s:velocity_changes (últimas %d mudanças)\n", RedisPrefix, MaxVelocityHistorySize)
 	fmt.Printf("4. Mudanças por velocidade: %s:vel1:changes, %s:vel2:changes, ...\n", RedisPrefix, RedisPrefix)
 	fmt.Printf("5. Contador de mudanças: %s:vel1:change_count, %s:vel2:change_count, ...\n", RedisPrefix, RedisPrefix)
+	fmt.Printf("6. Velocidade real: %s:real_velocity, Direção: %s:direction, Tamanho: %s:boat_size\n", RedisPrefix, RedisPrefix, RedisPrefix)
 	fmt.Println("=============================================")
 
 	// Informações do PLC
@@ -1105,6 +1268,9 @@ func main() {
 	fmt.Println("    \"positions\": [valor1, valor2, ...],")
 	fmt.Println("    \"velocities\": [valor1, valor2, ...],")
 	fmt.Println("    \"changes\": [{ ... }] (opcional),")
+	fmt.Println("    \"real_velocity\": 2.5,")
+	fmt.Println("    \"direction\": \"entrando\",")
+	fmt.Println("    \"boat_size\": \"medio\",")
 	fmt.Println("    \"history_stats\": {")
 	fmt.Println("      \"total_changes\": 100,")
 	fmt.Println("      \"max_velocity\": 12.5,")

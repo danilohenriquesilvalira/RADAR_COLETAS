@@ -1,3 +1,4 @@
+// radar-dashboard/src/stores/radarStore.ts
 import { create } from 'zustand';
 import { RadarData, RadarState } from '../types';
 // Removendo o import não utilizado de VelocityChange e importando corretamente o lodash
@@ -14,6 +15,11 @@ const useRadarStore = create<RadarState>((set, get) => ({
   velocityChangesHistory: [],
   historyStats: null,
   maxHistorySize: 100,
+  
+  // Novos campos para informações da embarcação
+  realVelocity: 0,
+  direction: 'indefinido',
+  boatSize: 'indefinido',
   
   // Dados históricos inicializados vazios
   historicalData: {
@@ -47,9 +53,13 @@ const useRadarStore = create<RadarState>((set, get) => ({
     const hasChanges = data.changes && data.changes.length > 0;
     const isNewTimestamp = !currentState.timestamp || 
                           Math.abs(currentState.timestamp - data.timestamp) > 1000;
+    const isNewVelocity = Math.abs((data.real_velocity || 0) - currentState.realVelocity) > 0.1;
+    const isNewDirection = data.direction !== currentState.direction;
+    const isNewBoatSize = data.boat_size !== currentState.boatSize;
     
     // Se não houver mudanças significativas, não atualize o estado
-    if (!velocitiesChanged && !positionsChanged && !hasChanges && !isNewTimestamp) {
+    if (!velocitiesChanged && !positionsChanged && !hasChanges && !isNewTimestamp &&
+        !isNewVelocity && !isNewDirection && !isNewBoatSize) {
       return;
     }
 
@@ -94,6 +104,10 @@ const useRadarStore = create<RadarState>((set, get) => ({
         timestamp: data.timestamp,
         velocityChangesHistory: updatedHistory,
         historyStats: data.history_stats || state.historyStats,
+        // Campos novos para informações da embarcação
+        realVelocity: data.real_velocity !== undefined ? data.real_velocity : state.realVelocity,
+        direction: data.direction || state.direction,
+        boatSize: data.boat_size || state.boatSize,
         historicalData: {
           timestamps,
           velocityData
@@ -110,6 +124,10 @@ const useRadarStore = create<RadarState>((set, get) => ({
     timestamp: null,
     velocityChangesHistory: [],
     historyStats: null,
+    // Resetar informações da embarcação
+    realVelocity: 0,
+    direction: 'indefinido',
+    boatSize: 'indefinido',
     historicalData: {
       timestamps: [],
       velocityData: {

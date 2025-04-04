@@ -1,3 +1,5 @@
+// radar-dashboard/src/types/index.ts
+
 // Tipos de dados recebidos via WebSocket
 export interface RadarData {
   type: string;
@@ -6,6 +8,10 @@ export interface RadarData {
   velocities: number[];
   changes?: VelocityChange[];
   history_stats?: HistoryStats;
+  // Novos campos
+  real_velocity?: number;
+  direction?: string;
+  boat_size?: string;
 }
 
 export interface VelocityChange {
@@ -26,6 +32,10 @@ export interface HistoryStats {
   velocity_history: {
     [key: number]: VelocityPoint[];
   };
+  // Novos campos
+  real_velocity?: number;
+  direction?: string;
+  boat_size?: string;
 }
 
 export interface VelocityPoint {
@@ -47,6 +57,11 @@ export interface RadarState {
   velocityChangesHistory: VelocityChange[];
   historyStats: HistoryStats | null;
   maxHistorySize: number;
+  
+  // Novos campos para informações do barco
+  realVelocity: number;
+  direction: string;
+  boatSize: string;
   
   // Dados históricos
   historicalData: {
