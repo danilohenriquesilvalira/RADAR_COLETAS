@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #0F172A;
+    --color-card: #1E293B;
+    --color-text: #F1F5F9;
+  }
+
+  html {
+    @apply text-gray-100;
+    background-color: var(--color-bg);
+  }
+
+  body {
+    @apply antialiased min-h-screen;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-slate-800 rounded-lg shadow-lg overflow-hidden;
+  }
+
+  .btn {
+    @apply px-4 py-2 rounded-md font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-dark focus:ring-primary;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-white hover:bg-secondary-dark focus:ring-secondary;
+  }
+
+  .btn-danger {
+    @apply bg-danger text-white hover:bg-danger-dark focus:ring-danger;
+  }
+
+  .radar-dot {
+    @apply absolute rounded-full transform -translate-x-1/2 -translate-y-1/2;
+    transition: all 0.3s ease;
+  }
+
+  .input {
+    @apply bg-slate-700 border border-slate-600 text-white rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent;
+  }
+}

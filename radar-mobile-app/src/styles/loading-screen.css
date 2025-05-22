@@ -1,0 +1,370 @@
+/* CORREÇÕES CRÍTICAS PARA MOBILE */
+.loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  /* Fallback para dispositivos que não suportam inset */
+  min-height: 100vh;
+  min-height: -webkit-fill-available; /* Safari iOS fix */
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  z-index: 9999;
+  /* Garantir que sempre apareça */
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  /* Prevenir scroll */
+  overflow: hidden;
+  /* Mobile viewport fix */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Fix para iOS Safari - altura da viewport */
+@supports (-webkit-touch-callout: none) {
+  .loading-screen {
+    height: -webkit-fill-available;
+  }
+}
+
+.loading-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.1;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.radar-sweep {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300px; /* Reduzido para mobile */
+  height: 300px;
+  border: 2px solid #22c55e;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: radar-sweep 3s linear infinite;
+  will-change: transform, opacity; /* Otimização para animação */
+}
+
+.radar-sweep::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 600px; /* Reduzido para mobile */
+  height: 600px;
+  border: 1px solid #22c55e;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: radar-sweep 3s linear infinite 1s;
+  will-change: transform, opacity;
+}
+
+.grid-pattern {
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(#cbd5e1 1px, transparent 1px),
+    linear-gradient(90deg, #cbd5e1 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: grid-move 20s linear infinite;
+  will-change: transform;
+}
+
+@keyframes radar-sweep {
+  0% { 
+    transform: translate(-50%, -50%) scale(0.3); 
+    opacity: 1; 
+  }
+  50% { 
+    transform: translate(-50%, -50%) scale(1); 
+    opacity: 0.5; 
+  }
+  100% { 
+    transform: translate(-50%, -50%) scale(1.5); 
+    opacity: 0; 
+  }
+}
+
+@keyframes grid-move {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(40px, 40px); }
+}
+
+.loading-content {
+  text-align: center;
+  z-index: 10;
+  position: relative;
+  max-width: 500px;
+  width: 100%;
+  padding: 0 20px;
+  /* Garantir que o conteúdo apareça */
+  visibility: visible;
+  opacity: 1;
+}
+
+.loading-logo {
+  margin-bottom: 40px;
+}
+
+.logo {
+  width: 160px;
+  height: auto;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+  animation: logo-pulse 2s ease-in-out infinite alternate;
+  will-change: transform;
+  /* Garantir que a imagem carregue */
+  display: block;
+  margin: 0 auto;
+}
+
+@keyframes logo-pulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.05); }
+}
+
+.loading-info h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.5px;
+}
+
+.loading-info h2 {
+  font-size: 18px;
+  font-weight: 500;
+  color: #64748b;
+  margin: 0 0 50px 0;
+}
+
+.loading-progress {
+  width: 100%;
+}
+
+.progress-container {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
+  border-radius: 8px;
+  transition: width 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  will-change: width;
+}
+
+.progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: progress-shine 1.5s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes progress-shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.progress-text {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progress-step {
+  font-size: 16px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.progress-percent {
+  font-size: 16px;
+  color: #22c55e;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* MEDIA QUERIES CORRIGIDAS */
+@media screen and (max-width: 768px) {
+  .loading-screen {
+    /* Força exibição no tablet */
+    display: flex !important;
+    visibility: visible !important;
+  }
+  
+  .radar-sweep {
+    width: 250px;
+    height: 250px;
+  }
+  
+  .radar-sweep::before {
+    width: 500px;
+    height: 500px;
+  }
+  
+  .loading-content {
+    padding: 0 30px;
+    max-width: 90%;
+  }
+  
+  .logo {
+    width: 140px;
+  }
+  
+  .loading-info h1 {
+    font-size: 28px;
+  }
+  
+  .loading-info h2 {
+    font-size: 16px;
+    margin-bottom: 40px;
+  }
+  
+  .progress-step {
+    font-size: 14px;
+  }
+  
+  .progress-percent {
+    font-size: 14px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .loading-screen {
+    /* Força exibição no mobile */
+    display: flex !important;
+    visibility: visible !important;
+    /* Fix para dispositivos muito pequenos */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+  }
+  
+  .radar-sweep {
+    width: 200px;
+    height: 200px;
+  }
+  
+  .radar-sweep::before {
+    width: 400px;
+    height: 400px;
+  }
+  
+  .loading-content {
+    padding: 0 20px;
+    max-width: 95%;
+  }
+  
+  .logo {
+    width: 120px;
+  }
+  
+  .loading-info h1 {
+    font-size: 24px;
+    line-height: 1.2;
+  }
+  
+  .loading-info h2 {
+    font-size: 15px;
+    margin-bottom: 35px;
+    line-height: 1.3;
+  }
+  
+  .progress-text {
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+  }
+  
+  .progress-step {
+    font-size: 13px;
+    text-align: center;
+  }
+  
+  .progress-percent {
+    font-size: 13px;
+  }
+}
+
+/* CORREÇÕES ADICIONAIS PARA DISPOSITIVOS PROBLEMÁTICOS */
+
+/* Android Chrome fix */
+@media screen and (max-width: 480px) and (-webkit-min-device-pixel-ratio: 1) {
+  .loading-screen {
+    height: 100vh;
+    height: calc(100vh - env(safe-area-inset-bottom));
+  }
+}
+
+/* iPhone X+ fix para safe areas */
+@supports (padding: max(0px)) {
+  .loading-screen {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Landscape mobile fix */
+@media screen and (max-height: 480px) and (orientation: landscape) {
+  .loading-content {
+    transform: scale(0.8);
+    margin: 0 auto;
+  }
+  
+  .loading-info h1 {
+    font-size: 20px;
+  }
+  
+  .loading-info h2 {
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  
+  .loading-logo {
+    margin-bottom: 20px;
+  }
+  
+  .logo {
+    width: 100px;
+  }
+}
+
+/* DEBUG: Classe para forçar visibilidade durante testes */
+.loading-screen.debug {
+  background: red !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
+  z-index: 99999 !important;
+}

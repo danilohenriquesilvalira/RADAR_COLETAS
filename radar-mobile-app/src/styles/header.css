@@ -1,0 +1,357 @@
+/* Header principal */
+.sick-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+  min-height: 60px;
+  position: relative;
+  transition: transform 0.3s ease;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.sick-header.hidden {
+  transform: translateY(-100%);
+}
+
+.sick-header.visible {
+  transform: translateY(0);
+}
+
+/* Header esquerda */
+.sick-header-left {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.sick-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sick-logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+}
+
+.sick-title-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sick-logo-image {
+  height: 32px;
+  width: auto;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.1));
+}
+
+.sick-brand {
+  font-size: 24px;
+  font-weight: 900;
+  color: #dc2626;
+  letter-spacing: -0.5px;
+}
+
+.sick-divider {
+  font-size: 20px;
+  color: #6b7280;
+  font-weight: 300;
+}
+
+.sick-title {
+  font-size: 16px;
+  color: #374151;
+  font-weight: 600;
+}
+
+/* Header centro */
+.sick-header-center {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
+  justify-content: center;
+  min-width: fit-content;
+  white-space: nowrap;
+}
+
+.sick-device-id {
+  font-size: 13px;
+  color: #6b7280;
+  font-weight: 500;
+  padding: 6px 10px;
+  background: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.sick-timestamp {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.sick-connection-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.sick-connection-status.connected {
+  color: #059669;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.sick-connection-status.connecting {
+  color: #d97706;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.sick-connection-status.error {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.sick-connection-status.disconnected {
+  color: #6b7280;
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+/* Header direita */
+.sick-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.sick-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  color: #374151;
+}
+
+.sick-user-info span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sick-user-info strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: #dc2626;
+  line-height: 1;
+}
+
+.sick-user-info small {
+  font-size: 12px;
+  color: #6b7280;
+  text-transform: capitalize;
+  line-height: 1;
+}
+
+.sick-logout-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+  white-space: nowrap;
+}
+
+.sick-logout-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
+  background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+}
+
+.sick-logout-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.2);
+}
+
+/* MOBILE RESPONSIVO - Layout Limpo */
+@media (max-width: 1024px) {
+  .sick-header {
+    padding: 12px 16px;
+    min-height: 50px;
+    justify-content: space-between;
+  }
+
+  /* Mobile: Esconder elementos desnecessários */
+  .sick-title-container {
+    display: none; /* Esconder "| Radar Monitor RMS1000" */
+  }
+  
+  .sick-device-id {
+    display: none; /* Esconder "SN 23490050" */
+  }
+  
+  .sick-timestamp {
+    display: none; /* Esconder "Atualizado: ..." */
+  }
+  
+  .sick-user-info {
+    display: none; /* Esconder info do usuário */
+  }
+
+  /* Mobile: Reorganizar layout */
+  .sick-header-left {
+    flex-shrink: 0;
+  }
+
+  .sick-header-center {
+    flex: none;
+    justify-content: center;
+    min-width: auto;
+    margin: 0 16px;
+  }
+
+  .sick-header-right {
+    flex-shrink: 0;
+  }
+
+  /* Ajustar tamanhos para mobile */
+  .sick-logo-image {
+    height: 28px;
+  }
+
+  .sick-connection-status {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .sick-logout-button {
+    padding: 8px 12px;
+    font-size: 13px;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sick-header {
+    padding: 10px 12px;
+  }
+
+  .sick-logo-image {
+    height: 26px;
+  }
+
+  .sick-connection-status {
+    font-size: 11px;
+    padding: 5px 7px;
+  }
+
+  .sick-logout-button {
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .sick-header-center {
+    margin: 0 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sick-header {
+    padding: 8px 10px;
+  }
+
+  .sick-logo-image {
+    height: 24px;
+  }
+
+  .sick-connection-status {
+    font-size: 10px;
+    padding: 4px 6px;
+  }
+
+  .sick-logout-button {
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+
+  .sick-header-center {
+    margin: 0 8px;
+  }
+
+  /* Mobile muito pequeno: Esconder texto do botão, manter apenas ícone */
+  .logout-text {
+    display: none;
+  }
+
+  .sick-logout-button {
+    gap: 0;
+    padding: 8px;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    justify-content: center;
+  }
+}
+
+/* Ultra mobile: Layout mínimo */
+@media (max-width: 320px) {
+  .sick-header {
+    padding: 6px 8px;
+  }
+
+  .sick-logo-image {
+    height: 20px;
+  }
+
+  .sick-connection-status {
+    font-size: 9px;
+    padding: 3px 5px;
+  }
+
+  .sick-logout-button {
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+  }
+
+  .sick-header-center {
+    margin: 0 6px;
+  }
+}
