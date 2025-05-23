@@ -443,7 +443,7 @@ const RadarMonitorApp: React.FC<RadarMonitorAppProps> = ({
     deviceId: (stableRadarData as ExtendedRadarData)?.systemStatus?.deviceId || 'SN 23490050',
     temperature: (stableRadarData as ExtendedRadarData)?.systemStatus?.temperature || '38.5',
     operatingHours: (stableRadarData as ExtendedRadarData)?.systemStatus?.operatingHours || '2374',
-    firmwareVersion: (stableRadarData as ExtendedRadarData)?.systemStatus?.firmwareVersion || '1.2.5',
+    firmwareVersion: (stableRadarData as ExtendedRadarData)?.systemStatus?.firmwareVersion || '2.1.1.281R',
     lastParametrization: (stableRadarData as ExtendedRadarData)?.systemStatus?.lastParametrization || '21/05/2025 15:25'
   }), [stableRadarData]);
   

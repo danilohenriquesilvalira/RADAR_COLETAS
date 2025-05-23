@@ -68,6 +68,11 @@ func (r *SICKRadar) IsConnected() bool {
 	return r.Connected
 }
 
+// SetConnected define status de conexão (para recovery)
+func (r *SICKRadar) SetConnected(connected bool) {
+	r.Connected = connected
+}
+
 // SendCommand envia um comando para o radar e retorna a resposta
 func (r *SICKRadar) SendCommand(command string) ([]byte, error) {
 	if !r.Connected || r.conn == nil {

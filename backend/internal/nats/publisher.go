@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"backend/pkg/models"
-
 	"github.com/nats-io/nats.go"
 )
 
@@ -62,7 +60,7 @@ func (p *Publisher) Connect(natsURL string) error {
 }
 
 // Publish publica dados do radar no NATS
-func (p *Publisher) Publish(data models.RadarData) error {
+func (p *Publisher) Publish(data interface{}) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -84,6 +82,67 @@ func (p *Publisher) Publish(data models.RadarData) error {
 	}
 
 	return nil
+}
+
+// PublishWithSubject publica em um tópico específico
+func (p *Publisher) PublishWithSubject(subject string, data interface{}) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if !p.enabled || p.conn == nil {
+		return nil
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("erro ao serializar dados: %v", err)
+	}
+
+	err = p.conn.Publish(subject, jsonData)
+	if err != nil {
+		return fmt.Errorf("erro ao publicar no NATS em %s: %v", subject, err)
+	}
+
+	return nil
+}
+
+// PublishRaw publica dados brutos (bytes) em um tópico específico
+func (p *Publisher) PublishRaw(subject string, data []byte) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if !p.enabled || p.conn == nil {
+		return nil
+	}
+
+	err := p.conn.Publish(subject, data)
+	if err != nil {
+		return fmt.Errorf("erro ao publicar no NATS em %s: %v", subject, err)
+	}
+
+	return nil
+}
+
+// Request envia uma solicitação e aguarda resposta
+func (p *Publisher) Request(subject string, data interface{}, timeout time.Duration) ([]byte, error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if !p.enabled || p.conn == nil {
+		return nil, fmt.Errorf("não conectado ao NATS")
+	}
+
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao serializar dados: %v", err)
+	}
+
+	msg, err := p.conn.Request(subject, jsonData, timeout)
+	if err != nil {
+		return nil, fmt.Errorf("erro na requisição NATS: %v", err)
+	}
+
+	return msg.Data, nil
 }
 
 // Disconnect desconecta do NATS
