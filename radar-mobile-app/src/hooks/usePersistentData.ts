@@ -27,6 +27,9 @@ export const usePersistentData = (initialData: RadarData | null = null) => {
     // Se não temos dados anteriores, usar os novos (se válidos)
     if (!prevData) {
       return isValidData(newData) ? newData : {
+        radarId: newData.radarId || 'caldeira',
+        radarName: newData.radarName || 'Radar Caldeira',
+        connected: newData.connected !== undefined ? newData.connected : true,
         positions: [],
         velocities: [],
         azimuths: [],
@@ -39,6 +42,11 @@ export const usePersistentData = (initialData: RadarData | null = null) => {
     
     // Mesclar mantendo dados válidos
     return {
+      // Manter informações do radar
+      radarId: newData.radarId || prevData.radarId,
+      radarName: newData.radarName || prevData.radarName,
+      connected: newData.connected !== undefined ? newData.connected : prevData.connected,
+      
       // Só usar novos arrays se eles tiverem dados, senão manter os anteriores
       positions: (Array.isArray(newData.positions) && newData.positions.length > 0) 
         ? [...newData.positions] 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -12,7 +13,7 @@ import (
 	"backend/pkg/models"
 )
 
-// PLCController gerencia comunicação bidirecional com o PLC
+// PLCController gerencia comunicação bidirecional com o PLC (MULTI-RADAR)
 type PLCController struct {
 	plc    PLCClient
 	reader *PLCReader
@@ -27,16 +28,31 @@ type PLCController struct {
 	debugMode        bool
 	emergencyStop    bool
 
+	// Estados individuais dos radares
+	radarCaldeiraEnabled     bool
+	radarPortaJusanteEnabled bool
+	radarPortaMontanteEnabled bool
+
 	// Estatísticas
 	startTime   time.Time
 	packetCount int32
 	errorCount  int32
 	wsClients   int
 
-	// Status dos componentes
-	radarConnected bool
-	natsConnected  bool
-	wsRunning      bool
+	// Status de conexão dos radares
+	radarCaldeiraConnected     bool
+	radarPortaJusanteConnected bool
+	radarPortaMontanteConnected bool
+	natsConnected              bool
+	wsRunning                  bool
+
+	// Contadores individuais por radar
+	radarCaldeiraPackets     int32
+	radarPortaJusantePackets int32
+	radarPortaMontantePackets int32
+	radarCaldeiraErrors      int32
+	radarPortaJusanteErrors  int32
+	radarPortaMontanteErrors int32
 
 	// Controle de live bit
 	liveBitTicker *time.Ticker
@@ -69,25 +85,44 @@ type FILETIME struct {
 	dwHighDateTime uint32
 }
 
-// NewPLCController cria um novo controlador PLC
+// NewPLCController cria um novo controlador PLC (MULTI-RADAR)
 func NewPLCController(plcClient PLCClient) *PLCController {
 	controller := &PLCController{
 		plc:              plcClient,
 		reader:           NewPLCReader(plcClient),
 		writer:           NewPLCWriter(plcClient),
-		commandChan:      make(chan models.SystemCommand, 10),
+		commandChan:      make(chan models.SystemCommand, 20), // Aumentado para mais comandos
 		collectionActive: true,
 		debugMode:        false,
 		emergencyStop:    false,
-		startTime:        time.Now(),
-		packetCount:      0,
-		errorCount:       0,
-		wsClients:        0,
-		radarConnected:   false,
-		natsConnected:    false,
-		wsRunning:        false,
-		stopChan:         make(chan bool),
-		kernel32:         syscall.NewLazyDLL("kernel32.dll"),
+		
+		// Inicializar radares como habilitados por padrão
+		radarCaldeiraEnabled:     true,
+		radarPortaJusanteEnabled: true,
+		radarPortaMontanteEnabled: true,
+		
+		startTime:   time.Now(),
+		packetCount: 0,
+		errorCount:  0,
+		wsClients:   0,
+		
+		// Status de conexão dos radares
+		radarCaldeiraConnected:     false,
+		radarPortaJusanteConnected: false,
+		radarPortaMontanteConnected: false,
+		natsConnected:              false,
+		wsRunning:                  false,
+		
+		// Contadores individuais zerados
+		radarCaldeiraPackets:     0,
+		radarPortaJusantePackets: 0,
+		radarPortaMontantePackets: 0,
+		radarCaldeiraErrors:      0,
+		radarPortaJusanteErrors:  0,
+		radarPortaMontanteErrors: 0,
+		
+		stopChan: make(chan bool),
+		kernel32: syscall.NewLazyDLL("kernel32.dll"),
 	}
 
 	return controller
@@ -184,11 +219,12 @@ func (pc *PLCController) commandReadLoop() {
 	}
 }
 
-// processCommands processa comandos recebidos do PLC
+// processCommands processa comandos recebidos do PLC (MULTI-RADAR)
 func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 	// Verificar se algum comando foi ativado
 	commandsProcessed := false
 
+	// ========== COMANDOS GLOBAIS ==========
 	if commands.StartCollection && !pc.IsCollectionActive() {
 		pc.commandChan <- models.CmdStartCollection
 		commandsProcessed = true
@@ -199,39 +235,65 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 		commandsProcessed = true
 	}
 
-	if commands.RestartSystem {
-		pc.commandChan <- models.CmdRestartSystem
-		commandsProcessed = true
-	}
-
-	if commands.RestartNATS {
-		pc.commandChan <- models.CmdRestartNATS
-		commandsProcessed = true
-	}
-
-	if commands.RestartWebSocket {
-		pc.commandChan <- models.CmdRestartWebSocket
-		commandsProcessed = true
-	}
 
 	if commands.ResetErrors {
 		pc.commandChan <- models.CmdResetErrors
 		commandsProcessed = true
 	}
 
-	if commands.EnableDebugMode != pc.IsDebugMode() {
-		if commands.EnableDebugMode {
-			pc.commandChan <- models.CmdEnableDebug
-		} else {
-			pc.commandChan <- models.CmdDisableDebug
-		}
-		commandsProcessed = true
-	}
 
 	if commands.Emergency {
 		pc.commandChan <- models.CmdEmergencyStop
 		commandsProcessed = true
 	}
+
+	// ========== COMANDOS INDIVIDUAIS DOS RADARES ==========
+	// Radar Caldeira
+	if commands.EnableRadarCaldeira != pc.IsRadarEnabled("caldeira") {
+		if commands.EnableRadarCaldeira {
+			pc.commandChan <- models.CmdEnableRadarCaldeira
+		} else {
+			pc.commandChan <- models.CmdDisableRadarCaldeira
+		}
+		commandsProcessed = true
+	}
+
+	// Radar Porta Jusante
+	if commands.EnableRadarPortaJusante != pc.IsRadarEnabled("porta_jusante") {
+		if commands.EnableRadarPortaJusante {
+			pc.commandChan <- models.CmdEnableRadarPortaJusante
+		} else {
+			pc.commandChan <- models.CmdDisableRadarPortaJusante
+		}
+		commandsProcessed = true
+	}
+
+	// Radar Porta Montante
+	if commands.EnableRadarPortaMontante != pc.IsRadarEnabled("porta_montante") {
+		if commands.EnableRadarPortaMontante {
+			pc.commandChan <- models.CmdEnableRadarPortaMontante
+		} else {
+			pc.commandChan <- models.CmdDisableRadarPortaMontante
+		}
+		commandsProcessed = true
+	}
+
+	// ========== COMANDOS ESPECÍFICOS POR RADAR ==========
+	if commands.RestartRadarCaldeira {
+		pc.commandChan <- models.CmdRestartRadarCaldeira
+		commandsProcessed = true
+	}
+
+	if commands.RestartRadarPortaJusante {
+		pc.commandChan <- models.CmdRestartRadarPortaJusante
+		commandsProcessed = true
+	}
+
+	if commands.RestartRadarPortaMontante {
+		pc.commandChan <- models.CmdRestartRadarPortaMontante
+		commandsProcessed = true
+	}
+
 
 	// Se algum comando foi processado, resetar comandos no PLC
 	if commandsProcessed {
@@ -249,12 +311,13 @@ func (pc *PLCController) commandProcessor() {
 	}
 }
 
-// executeCommand executa um comando específico
+// executeCommand executa um comando específico (MULTI-RADAR)
 func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
 
 	switch cmd {
+	// ========== COMANDOS GLOBAIS ==========
 	case models.CmdStartCollection:
 		pc.collectionActive = true
 		pc.emergencyStop = false
@@ -275,7 +338,10 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 
 	case models.CmdResetErrors:
 		pc.errorCount = 0
-		fmt.Println("PLC Controller: 🧹 Erros RESETADOS via comando PLC")
+		pc.radarCaldeiraErrors = 0
+		pc.radarPortaJusanteErrors = 0
+		pc.radarPortaMontanteErrors = 0
+		fmt.Println("PLC Controller: 🧹 Erros RESETADOS (todos os radares) via comando PLC")
 
 	case models.CmdEnableDebug:
 		pc.debugMode = true
@@ -289,6 +355,53 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 		pc.emergencyStop = true
 		pc.collectionActive = false
 		fmt.Println("PLC Controller: 🚨 PARADA DE EMERGÊNCIA ativada via PLC")
+
+	// ========== COMANDOS INDIVIDUAIS DOS RADARES ==========
+	case models.CmdEnableRadarCaldeira:
+		pc.radarCaldeiraEnabled = true
+		fmt.Println("PLC Controller: 🎯 Radar CALDEIRA HABILITADO via comando PLC")
+
+	case models.CmdDisableRadarCaldeira:
+		pc.radarCaldeiraEnabled = false
+		fmt.Println("PLC Controller: ⭕ Radar CALDEIRA DESABILITADO via comando PLC")
+
+	case models.CmdEnableRadarPortaJusante:
+		pc.radarPortaJusanteEnabled = true
+		fmt.Println("PLC Controller: 🎯 Radar PORTA JUSANTE HABILITADO via comando PLC")
+
+	case models.CmdDisableRadarPortaJusante:
+		pc.radarPortaJusanteEnabled = false
+		fmt.Println("PLC Controller: ⭕ Radar PORTA JUSANTE DESABILITADO via comando PLC")
+
+	case models.CmdEnableRadarPortaMontante:
+		pc.radarPortaMontanteEnabled = true
+		fmt.Println("PLC Controller: 🎯 Radar PORTA MONTANTE HABILITADO via comando PLC")
+
+	case models.CmdDisableRadarPortaMontante:
+		pc.radarPortaMontanteEnabled = false
+		fmt.Println("PLC Controller: ⭕ Radar PORTA MONTANTE DESABILITADO via comando PLC")
+
+	// ========== COMANDOS ESPECÍFICOS POR RADAR ==========
+	case models.CmdRestartRadarCaldeira:
+		fmt.Println("PLC Controller: 🔄 Reconexão RADAR CALDEIRA solicitada via PLC")
+
+	case models.CmdRestartRadarPortaJusante:
+		fmt.Println("PLC Controller: 🔄 Reconexão RADAR PORTA JUSANTE solicitada via PLC")
+
+	case models.CmdRestartRadarPortaMontante:
+		fmt.Println("PLC Controller: 🔄 Reconexão RADAR PORTA MONTANTE solicitada via PLC")
+
+	case models.CmdResetErrorsRadarCaldeira:
+		pc.radarCaldeiraErrors = 0
+		fmt.Println("PLC Controller: 🧹 Erros RADAR CALDEIRA resetados via comando PLC")
+
+	case models.CmdResetErrorsRadarPortaJusante:
+		pc.radarPortaJusanteErrors = 0
+		fmt.Println("PLC Controller: 🧹 Erros RADAR PORTA JUSANTE resetados via comando PLC")
+
+	case models.CmdResetErrorsRadarPortaMontante:
+		pc.radarPortaMontanteErrors = 0
+		fmt.Println("PLC Controller: 🧹 Erros RADAR PORTA MONTANTE resetados via comando PLC")
 	}
 }
 
@@ -296,8 +409,6 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 func (pc *PLCController) writeSystemStatus() error {
 	pc.mutex.RLock()
 
-	// Calcular uptime em segundos
-	uptime := int32(time.Since(pc.startTime).Seconds())
 
 	// Obter dados REAIS do Windows
 	cpuUsage := pc.getWindowsCPUUsage()
@@ -310,24 +421,16 @@ func (pc *PLCController) writeSystemStatus() error {
 			cpuUsage, memUsage, diskUsage)
 	}
 
-	// Construir status
-	status := pc.writer.BuildPLCSystemStatus(
-		pc.liveBit,
-		pc.radarConnected,
-		true, // PLC sempre conectado se chegou aqui
-		pc.natsConnected,
-		pc.wsRunning,
-		pc.collectionActive,
-		pc.isSystemHealthy(),
-		pc.debugMode,
-		pc.wsClients,
-		pc.packetCount,
-		pc.errorCount,
-		uptime,
-		cpuUsage,
-		memUsage,
-		diskUsage,
-	)
+	// Construir status simplificado para DB100
+	status := &models.PLCSystemStatus{
+		LiveBit:                     pc.liveBit,
+		CollectionActive:            pc.collectionActive,
+		SystemHealthy:               pc.isSystemHealthy(),
+		EmergencyActive:             pc.emergencyStop,
+		RadarCaldeiraConnected:      pc.radarCaldeiraConnected,
+		RadarPortaJusanteConnected:  pc.radarPortaJusanteConnected,
+		RadarPortaMontanteConnected: pc.radarPortaMontanteConnected,
+	}
 
 	pc.mutex.RUnlock()
 
@@ -335,18 +438,74 @@ func (pc *PLCController) writeSystemStatus() error {
 	return pc.writer.WriteSystemStatus(status)
 }
 
-// WriteRadarData escreve dados do radar no PLC
+// WriteRadarData escreve dados do radar no PLC usando DB100
 func (pc *PLCController) WriteRadarData(data models.RadarData) error {
 	// Converter dados para formato PLC
 	plcData := pc.writer.BuildPLCRadarData(data)
 
-	// Escrever no PLC
-	err := pc.writer.WriteRadarData(plcData)
-	if err != nil {
-		pc.incrementErrorCount()
-		return fmt.Errorf("erro ao escrever dados do radar no PLC: %v", err)
+	// Determinar offset na DB100 baseado no RadarID
+	var baseOffset int
+	switch data.RadarID {
+	case "caldeira":
+		baseOffset = 6 // DB100.6
+	case "porta_jusante": 
+		baseOffset = 102 // DB100.102
+	case "porta_montante":
+		baseOffset = 198 // DB100.198
+	default:
+		return fmt.Errorf("RadarID desconhecido: %s", data.RadarID)
 	}
 
+	// Escrever na DB100 no offset correto
+	err := pc.writer.WriteRadarDataToDB100(plcData, baseOffset)
+	if err != nil {
+		pc.incrementErrorCount()
+		return fmt.Errorf("erro ao escrever dados do radar %s na DB100: %v", data.RadarID, err)
+	}
+
+	return nil
+}
+
+// WriteMultiRadarData escreve dados de múltiplos radares no PLC
+func (pc *PLCController) WriteMultiRadarData(data models.MultiRadarData) error {
+	var errors []string
+	
+	for _, radarData := range data.Radars {
+		// Verificar se o radar está habilitado
+		if !pc.IsRadarEnabled(radarData.RadarID) {
+			continue // Pular radares desabilitados
+		}
+		
+		// Converter dados para formato PLC
+		plcData := pc.writer.BuildPLCRadarData(radarData)
+		
+		// Determinar offset na DB100 baseado no RadarID
+		var baseOffset int
+		switch radarData.RadarID {
+		case "caldeira":
+			baseOffset = 6 // DB100.6
+		case "porta_jusante":
+			baseOffset = 102 // DB100.102
+		case "porta_montante":
+			baseOffset = 198 // DB100.198
+		default:
+			continue // ID desconhecido
+		}
+		
+		// Escrever na DB100 no offset correto
+		err := pc.writer.WriteRadarDataToDB100(plcData, baseOffset)
+		if err != nil {
+			pc.IncrementRadarErrors(radarData.RadarID)
+			errors = append(errors, fmt.Sprintf("erro ao escrever dados do radar %s: %v", radarData.RadarName, err))
+		} else {
+			pc.IncrementRadarPackets(radarData.RadarID)
+		}
+	}
+	
+	if len(errors) > 0 {
+		return fmt.Errorf("erros ao escrever dados dos radares: %s", strings.Join(errors, "; "))
+	}
+	
 	return nil
 }
 
@@ -376,10 +535,107 @@ func (pc *PLCController) IncrementPacketCount() {
 	pc.mutex.Unlock()
 }
 
+// ========== MÉTODOS PARA MÚLTIPLOS RADARES ==========
+
+// SetRadarConnected - compatibilidade com código antigo
 func (pc *PLCController) SetRadarConnected(connected bool) {
 	pc.mutex.Lock()
-	pc.radarConnected = connected
+	pc.radarCaldeiraConnected = connected // Para compatibilidade
 	pc.mutex.Unlock()
+}
+
+// SetRadarsConnected atualiza status de conexão de todos os radares
+func (pc *PLCController) SetRadarsConnected(status map[string]bool) {
+	pc.mutex.Lock()
+	defer pc.mutex.Unlock()
+	
+	if caldeira, exists := status["caldeira"]; exists {
+		pc.radarCaldeiraConnected = caldeira
+	}
+	if portaJusante, exists := status["porta_jusante"]; exists {
+		pc.radarPortaJusanteConnected = portaJusante
+	}
+	if portaMontante, exists := status["porta_montante"]; exists {
+		pc.radarPortaMontanteConnected = portaMontante
+	}
+}
+
+// SetRadarConnectedByID atualiza status de um radar específico
+func (pc *PLCController) SetRadarConnectedByID(radarID string, connected bool) {
+	pc.mutex.Lock()
+	defer pc.mutex.Unlock()
+	
+	switch radarID {
+	case "caldeira":
+		pc.radarCaldeiraConnected = connected
+	case "porta_jusante":
+		pc.radarPortaJusanteConnected = connected
+	case "porta_montante":
+		pc.radarPortaMontanteConnected = connected
+	}
+}
+
+// IsRadarEnabled verifica se um radar está habilitado
+func (pc *PLCController) IsRadarEnabled(radarID string) bool {
+	pc.mutex.RLock()
+	defer pc.mutex.RUnlock()
+	
+	switch radarID {
+	case "caldeira":
+		return pc.radarCaldeiraEnabled
+	case "porta_jusante":
+		return pc.radarPortaJusanteEnabled
+	case "porta_montante":
+		return pc.radarPortaMontanteEnabled
+	default:
+		return false
+	}
+}
+
+// GetRadarsEnabled retorna mapa com status de habilitação de todos os radares
+func (pc *PLCController) GetRadarsEnabled() map[string]bool {
+	pc.mutex.RLock()
+	defer pc.mutex.RUnlock()
+	
+	return map[string]bool{
+		"caldeira":      pc.radarCaldeiraEnabled,
+		"porta_jusante": pc.radarPortaJusanteEnabled,
+		"porta_montante": pc.radarPortaMontanteEnabled,
+	}
+}
+
+// IncrementRadarPackets incrementa contador de um radar específico
+func (pc *PLCController) IncrementRadarPackets(radarID string) {
+	pc.mutex.Lock()
+	defer pc.mutex.Unlock()
+	
+	pc.packetCount++ // Contador global
+	
+	switch radarID {
+	case "caldeira":
+		pc.radarCaldeiraPackets++
+	case "porta_jusante":
+		pc.radarPortaJusantePackets++
+	case "porta_montante":
+		pc.radarPortaMontantePackets++
+	}
+}
+
+// IncrementRadarErrors incrementa contador de erros de um radar específico
+func (pc *PLCController) IncrementRadarErrors(radarID string) {
+	pc.mutex.Lock()
+	defer pc.mutex.Unlock()
+	
+	pc.errorCount++ // Contador global
+	
+	switch radarID {
+	case "caldeira":
+		pc.radarCaldeiraErrors++
+	case "porta_jusante":
+		pc.radarPortaJusanteErrors++
+	case "porta_montante":
+		pc.radarPortaMontanteErrors++
+	}
 }
 
 func (pc *PLCController) SetNATSConnected(connected bool) {
@@ -560,7 +816,23 @@ func (pc *PLCController) incrementErrorCount() {
 }
 
 func (pc *PLCController) isSystemHealthy() bool {
-	return pc.radarConnected &&
+	// Sistema está saudável se:
+	// - Pelo menos 1 radar habilitado está conectado
+	// - Não está em parada de emergência  
+	// - Contador de erros não está muito alto
+	
+	atLeastOneRadarHealthy := false
+	if pc.radarCaldeiraEnabled && pc.radarCaldeiraConnected {
+		atLeastOneRadarHealthy = true
+	}
+	if pc.radarPortaJusanteEnabled && pc.radarPortaJusanteConnected {
+		atLeastOneRadarHealthy = true
+	}
+	if pc.radarPortaMontanteEnabled && pc.radarPortaMontanteConnected {
+		atLeastOneRadarHealthy = true
+	}
+	
+	return atLeastOneRadarHealthy &&
 		!pc.emergencyStop &&
-		pc.errorCount < 10
+		pc.errorCount < 20 // Aumentado para múltiplos radares
 }

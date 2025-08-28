@@ -8,29 +8,46 @@ import (
 	"strings"
 	"time"
 
-	"backend/internal/nats"
 	"backend/internal/plc"
 	"backend/internal/radar"
 	"backend/internal/websocket"
-	"backend/pkg/models"
 )
 
 func main() {
 	// Configurações
-	radarIP := "192.168.1.84"          // IP do radar
-	plcIP := "192.168.1.33"            // IP do PLC
-	natsURL := "nats://localhost:4222" // URL do NATS (opcional)
 	webDir := "./web"
 
-	fmt.Println("\n===== RADAR SICK RMS1000 com AUTO-RECOVERY =====")
+	fmt.Println("\n===== SISTEMA RADAR SICK - 3 RADARES com AUTO-RECOVERY =====")
 	fmt.Println("Servidor Web/WebSocket iniciado em http://localhost:8080")
-	fmt.Println("Sistema com reconexão automática e controle PLC bidirecional")
+	fmt.Println("Sistema com reconexão automática para múltiplos radares")
 
-	// Criar instâncias dos componentes
-	radarSick := radar.NewSICKRadar(radarIP, 2111)
-	plcSiemens := plc.NewSiemensPLC(plcIP)
+	// Criar gerenciador de radares
+	radarManager := radar.NewRadarManager()
+	
+	// Adicionar os 3 radares
+	radarManager.AddRadar(radar.RadarConfig{
+		ID:   "caldeira",
+		Name: "Radar Caldeira",
+		IP:   "192.168.1.84",
+		Port: 2111,
+	})
+	
+	radarManager.AddRadar(radar.RadarConfig{
+		ID:   "porta_jusante",
+		Name: "Radar Porta Jusante",
+		IP:   "192.168.1.85",
+		Port: 2111,
+	})
+	
+	radarManager.AddRadar(radar.RadarConfig{
+		ID:   "porta_montante",
+		Name: "Radar Porta Montante",
+		IP:   "192.168.1.86",
+		Port: 2111,
+	})
+
+	// Criar instâncias dos outros componentes
 	wsManager := websocket.NewWebSocketManager()
-	natsPublisher := nats.NewPublisher("radar.data")
 
 	// Criar diretório para arquivos web se não existir
 	if _, err := os.Stat(webDir); os.IsNotExist(err) {
@@ -43,109 +60,62 @@ func main() {
 	// Iniciar servidor HTTP/WebSocket em uma goroutine
 	go wsManager.ServeHTTP(webDir)
 
-	// Tentar conectar ao NATS (opcional - não crítico)
-	fmt.Println("Tentando conectar ao NATS...")
-	err := natsPublisher.Connect(natsURL)
-	if err != nil {
-		fmt.Printf("Aviso: %v - Continuando sem NATS\n", err)
-	}
 
-	// ========== CONEXÃO INICIAL COM RETRY ==========
-	fmt.Println("Conectando ao radar com retry automático...")
-	err = connectRadarWithRetry(radarSick, 3)
-	if err != nil {
-		fmt.Printf("❌ Não foi possível conectar ao radar após tentativas: %v\n", err)
+	// ========== CONEXÃO INICIAL DOS RADARES ==========
+	fmt.Println("Conectando aos radares com retry automático...")
+	connectionErrors := radarManager.ConnectAll()
+	if len(connectionErrors) > 0 {
+		fmt.Printf("❌ Alguns radares falharam na conexão inicial:\n")
+		for id, err := range connectionErrors {
+			config, _ := radarManager.GetRadarConfig(id)
+			fmt.Printf("   - %s: %v\n", config.Name, err)
+		}
 		fmt.Println("Sistema continuará tentando reconectar automaticamente...")
 	}
-	// ===============================================
+	// ==================================================
 
-	// Tentar conectar ao PLC
-	fmt.Println("Conectando ao PLC Siemens...")
-	err = plcSiemens.Connect()
+	// ========== INICIALIZAR CONTROLADOR PLC REAL ==========
+	fmt.Println("Conectando ao PLC Siemens 192.168.1.33...")
+	plcSiemens := plc.NewSiemensPLC("192.168.1.33")
+	
+	err := plcSiemens.Connect()
 	if err != nil {
-		fmt.Printf("Aviso: %v - Continuando sem conexão com o PLC\n", err)
+		fmt.Printf("Erro ao conectar PLC: %v - Sistema continuará sem PLC\n", err)
 	}
-
-	// ========== INICIALIZAR CONTROLADOR PLC ==========
+	
 	var plcController *plc.PLCController
-
 	if plcSiemens.IsConnected() {
 		fmt.Println("Inicializando controlador PLC bidirecional...")
-
-		// Criar controlador PLC
 		plcController = plc.NewPLCController(plcSiemens.Client)
-
+		
 		// Iniciar controlador PLC em goroutine
 		go plcController.Start()
-
-		fmt.Println("✅ Controlador PLC iniciado - Sistema pode ser controlado via supervisório")
+		
+		fmt.Println("✅ Controlador PLC REAL iniciado - Sistema controlado via DB100")
 	}
 	// ================================================
 
 	// Limpar conexões WebSocket anteriores
 	wsManager.LimparConexoesAnteriores()
 
-	fmt.Println("\n🚀 Sistema iniciado com AUTO-RECOVERY")
+	fmt.Println("\n🚀 Sistema iniciado com AUTO-RECOVERY para 3 radares")
 	fmt.Println("📡 Monitoramento contínuo ativo")
 	fmt.Println("🔄 Reconexão automática habilitada")
-	fmt.Println("🎛️ Controle via PLC operacional")
+	if plcController != nil {
+		fmt.Println("🎛️ PLC REAL conectado - dados sendo escritos na DB100")
+	} else {
+		fmt.Println("⚠️  PLC desconectado")
+	}
 	fmt.Println("\nPressione Ctrl+C para parar.")
 
+	// Iniciar monitor de reconexão automática
+	radarManager.StartReconnectionMonitor()
+
 	// ========== LOOP PRINCIPAL COM AUTO-RECOVERY ==========
-	radarSick.SetDebugMode(false)
-	consecutiveErrors := 0
-	isReconnecting := false
-	plcConsecutiveErrors := 0
-	isPLCReconnecting := false
-
 	for {
-		// ========== VERIFICAR E RECONECTAR PLC SE NECESSÁRIO ==========
-		if plcSiemens != nil && !plcSiemens.IsConnected() && !isPLCReconnecting {
-			fmt.Println("🔄 PLC desconectado - iniciando reconexão...")
-			isPLCReconnecting = true
-
-			// Tentar reconectar PLC em goroutine
-			go func() {
-				defer func() { isPLCReconnecting = false }()
-
-				for attempt := 1; attempt <= 5; attempt++ {
-					fmt.Printf("🔄 PLC: Tentativa de reconexão %d/5\n", attempt)
-
-					// Desconectar conexão atual
-					plcSiemens.Disconnect()
-					time.Sleep(2 * time.Second)
-
-					// Tentar reconectar
-					err := plcSiemens.Connect()
-					if err != nil {
-						fmt.Printf("❌ PLC: Tentativa %d falhou: %v\n", attempt, err)
-						continue
-					}
-
-					// Sucesso!
-					fmt.Printf("✅ PLC reconectado com sucesso na tentativa %d\n", attempt)
-					plcConsecutiveErrors = 0
-
-					// Recriar controlador PLC
-					if plcController != nil {
-						plcController.Stop()
-					}
-					plcController = plc.NewPLCController(plcSiemens.Client)
-					go plcController.Start()
-					fmt.Println("✅ Controlador PLC reiniciado")
-
-					return
-				}
-
-				fmt.Println("❌ PLC: Falha ao reconectar após 5 tentativas - continuando sem PLC")
-			}()
-		}
-		// ===============================================================
-
-		// Verificar comandos do PLC primeiro (só se conectado)
+		// Verificar comandos do PLC
 		collectionActive := true
-
-		if plcController != nil && plcSiemens.IsConnected() {
+		if plcController != nil {
 			// Verificar se coleta está ativa
 			collectionActive = plcController.IsCollectionActive()
 
@@ -155,9 +125,6 @@ func main() {
 				time.Sleep(2 * time.Second)
 				continue
 			}
-
-			// Atualizar modo debug
-			radarSick.SetDebugMode(plcController.IsDebugMode())
 		}
 
 		// Se coleta não está ativa, aguardar
@@ -166,155 +133,49 @@ func main() {
 			continue
 		}
 
-		// ========== VERIFICAR CONEXÃO E RECONECTAR RADAR SE NECESSÁRIO ==========
-		if !radarSick.IsConnected() {
-			if !isReconnecting {
-				fmt.Println("🔄 Radar desconectado - iniciando reconexão...")
-				isReconnecting = true
-
-				// Tentar reconectar em goroutine
-				go func() {
-					defer func() { isReconnecting = false }()
-
-					for attempt := 1; attempt <= 10; attempt++ {
-						fmt.Printf("🔄 RADAR: Tentativa de reconexão %d/10\n", attempt)
-
-						// Desconectar conexão atual
-						radarSick.Disconnect()
-						time.Sleep(3 * time.Second)
-
-						// Tentar reconectar
-						err := radarSick.Connect()
-						if err != nil {
-							fmt.Printf("❌ RADAR: Tentativa %d falhou: %v\n", attempt, err)
-							continue
-						}
-
-						// Tentar reiniciar medição
-						err = radarSick.StartMeasurement()
-						if err != nil {
-							fmt.Printf("❌ RADAR: Falha ao reiniciar medição: %v\n", err)
-							radarSick.Disconnect()
-							continue
-						}
-
-						// Sucesso!
-						fmt.Printf("✅ RADAR: Reconectado com sucesso na tentativa %d\n", attempt)
-						consecutiveErrors = 0
-						return
-					}
-
-					fmt.Println("❌ RADAR: Falha ao reconectar após 10 tentativas")
-				}()
+		// ========== COLETAR DADOS DE TODOS OS RADARES ==========
+		multiRadarData := radarManager.CollectAllData()
+		
+		// Exibir status de conexão dos radares
+		connectionStatus := radarManager.GetConnectionStatus()
+		connectedCount := 0
+		for id, connected := range connectionStatus {
+			config, _ := radarManager.GetRadarConfig(id)
+			if connected {
+				connectedCount++
 			}
-			time.Sleep(1 * time.Second)
-			continue
+			status := "🔴 DESCONECTADO"
+			if connected {
+				status = "🟢 CONECTADO"
+			}
+			fmt.Printf("📡 %s: %s\n", config.Name, status)
 		}
+		
+		fmt.Printf("📊 Radares conectados: %d/3 | WebSocket clientes: %d\n",
+			connectedCount,
+			wsManager.GetConnectedCount(),
+		)
 
-		// ========== LEITURA COM DETECÇÃO DE ERRO ==========
-		data, err := radarSick.ReadData()
+		// Enviar dados via WebSocket (SEMPRE funciona)
+		wsManager.BroadcastMultiRadarData(multiRadarData)
 
-		if err != nil {
-			consecutiveErrors++
-
-			// Verificar se é erro de conexão perdida
-			if isConnectionError(err) {
-				if consecutiveErrors >= 5 {
-					fmt.Printf("🔴 RADAR: Conexão perdida detectada após %d erros consecutivos\n", consecutiveErrors)
-					fmt.Printf("🔴 RADAR: Último erro: %v\n", err)
-
-					// Marcar radar como desconectado para trigger reconexão
-					radarSick.Connected = false
-					consecutiveErrors = 0
-				}
+		// ========== ATUALIZAR PLC DB100 ==========
+		if plcController != nil {
+			// Escrever dados dos radares na DB100
+			err := plcController.WriteMultiRadarData(multiRadarData)
+			if err != nil {
+				log.Printf("Erro ao escrever dados dos radares na DB100: %v", err)
 			}
-			continue
+
+			// Atualizar status dos componentes
+			plcController.SetRadarsConnected(connectionStatus)
+			plcController.SetNATSConnected(false)
+			plcController.SetWebSocketRunning(true)
+			plcController.UpdateWebSocketClients(wsManager.GetConnectedCount())
 		}
+		// ================================================
 
-		// Reset contador de erros se leitura bem sucedida
-		if consecutiveErrors > 0 {
-			fmt.Println("✅ RADAR: Conexão estável - resetando contador de erros")
-			consecutiveErrors = 0
-		}
-		// ===============================================
-
-		if data != nil && len(data) > 0 {
-			// Incrementar contador no PLC (só se conectado)
-			if plcController != nil && plcSiemens.IsConnected() {
-				plcController.IncrementPacketCount()
-			}
-
-			// Processar dados recebidos
-			positions, velocities, azimuths, amplitudes, objPrincipal := radarSick.ProcessData(data)
-
-			// Exibir dados no terminal
-			radarSick.DisplayData(
-				positions, velocities, azimuths, amplitudes, objPrincipal,
-				plcSiemens.IsConnected(), plcIP,
-				wsManager.GetConnectedCount(),
-				natsPublisher.IsConnected(),
-			)
-
-			// Criar estrutura de dados
-			radarData := models.RadarData{
-				Positions:  positions,
-				Velocities: velocities,
-				Azimuths:   azimuths,
-				Amplitudes: amplitudes,
-				MainObject: objPrincipal,
-				PLCStatus:  plcSiemens.GetConnectionStatus(),
-				Timestamp:  time.Now().UnixNano() / int64(time.Millisecond),
-			}
-
-			// Enviar dados via WebSocket (SEMPRE funciona)
-			wsManager.BroadcastData(radarData)
-
-			// Enviar dados via NATS (se conectado)
-			if natsPublisher.IsEnabled() {
-				err := natsPublisher.Publish(radarData)
-				if err != nil {
-					log.Printf("Erro ao publicar no NATS: %v", err)
-				}
-			}
-
-			// ========== ATUALIZAR PLC (COM PROTEÇÃO) ==========
-			if plcController != nil && plcSiemens.IsConnected() {
-				// Escrever dados do radar no PLC
-				err := plcController.WriteRadarData(radarData)
-				if err != nil {
-					plcConsecutiveErrors++
-					log.Printf("Erro ao escrever dados do radar no PLC: %v", err)
-
-					// Se muitos erros consecutivos, marcar PLC como desconectado
-					if plcConsecutiveErrors >= 3 {
-						fmt.Printf("🔴 PLC: Conexão perdida detectada após %d erros consecutivos\n", plcConsecutiveErrors)
-						plcSiemens.Connected = false // Trigger reconexão PLC
-						plcConsecutiveErrors = 0
-					}
-				} else {
-					// Reset contador de erros PLC se escrita bem sucedida
-					if plcConsecutiveErrors > 0 {
-						fmt.Println("✅ PLC: Conexão estável - resetando contador de erros")
-						plcConsecutiveErrors = 0
-					}
-
-					// Atualizar status dos componentes
-					plcController.SetRadarConnected(radarSick.IsConnected())
-					plcController.SetNATSConnected(natsPublisher.IsConnected())
-					plcController.SetWebSocketRunning(true)
-					plcController.UpdateWebSocketClients(wsManager.GetConnectedCount())
-				}
-			} else if plcSiemens != nil && !plcSiemens.IsConnected() {
-				// PLC desconectado, mas radar funcionando
-				if plcConsecutiveErrors == 0 {
-					fmt.Println("⚠️ PLC desconectado - dados do radar continuam sendo coletados")
-					plcConsecutiveErrors = 1 // Marcar que já avisou
-				}
-			}
-			// ================================================
-		}
-
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond) // Aumentei um pouco o delay para 3 radares
 	}
 
 	// Cleanup
@@ -323,16 +184,14 @@ func main() {
 	if plcController != nil {
 		plcController.Stop()
 	}
-
-	if radarSick.IsConnected() {
-		radarSick.Disconnect()
-	}
+	
 	if plcSiemens.IsConnected() {
 		plcSiemens.Disconnect()
 	}
-	if natsPublisher.IsConnected() {
-		natsPublisher.Disconnect()
-	}
+
+	// Desconectar todos os radares
+	radarManager.DisconnectAll()
+
 }
 
 // connectRadarWithRetry tenta conectar ao radar com retry

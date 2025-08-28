@@ -2,8 +2,11 @@ package models
 
 import "time"
 
-// RadarData representa a estrutura de dados do radar enviada via WebSocket
+// RadarData representa a estrutura de dados de um radar específico
 type RadarData struct {
+	RadarID    string        `json:"radarId"`
+	RadarName  string        `json:"radarName"`
+	Connected  bool          `json:"connected"`
 	Positions  []float64     `json:"positions,omitempty"`
 	Velocities []float64     `json:"velocities,omitempty"`
 	Azimuths   []float64     `json:"azimuths,omitempty"`
@@ -11,6 +14,12 @@ type RadarData struct {
 	MainObject *ObjPrincipal `json:"mainObject,omitempty"`
 	PLCStatus  *PLCStatus    `json:"plcStatus,omitempty"`
 	Timestamp  int64         `json:"timestamp"`
+}
+
+// MultiRadarData representa dados de todos os radares
+type MultiRadarData struct {
+	Radars    []RadarData `json:"radars"`
+	Timestamp int64       `json:"timestamp"`
 }
 
 // PLCStatus representa o status da conexão com o PLC

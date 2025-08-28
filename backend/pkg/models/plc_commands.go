@@ -2,74 +2,84 @@ package models
 
 import "time"
 
-// PLCCommands - Comandos que o PLC envia (DB100)
+// PLCCommands - Comandos PLC → Servidor (DB100) - ESTRUTURA SIMPLES
 type PLCCommands struct {
-	StartCollection  bool `json:"startCollection"`  // DB100.0.0
-	StopCollection   bool `json:"stopCollection"`   // DB100.0.1
-	RestartSystem    bool `json:"restartSystem"`    // DB100.0.2
-	RestartNATS      bool `json:"restartNATS"`      // DB100.0.3
-	RestartWebSocket bool `json:"restartWebSocket"` // DB100.0.4
-	ResetErrors      bool `json:"resetErrors"`      // DB100.0.5
-	EnableDebugMode  bool `json:"enableDebugMode"`  // DB100.0.6
-	Emergency        bool `json:"emergency"`        // DB100.0.7
+	// ========== COMANDOS ESSENCIAIS ==========
+	StartCollection bool `json:"startCollection"` // DB100.0.0 - Iniciar coleta
+	StopCollection  bool `json:"stopCollection"`  // DB100.0.1 - Parar coleta
+	Emergency       bool `json:"emergency"`       // DB100.0.2 - Parada emergência
+	ResetErrors     bool `json:"resetErrors"`     // DB100.0.3 - Reset erros
+	
+	// ========== CONTROLE INDIVIDUAL RADARES ==========
+	EnableRadarCaldeira      bool `json:"enableRadarCaldeira"`      // DB100.1.0 - Enable Caldeira
+	EnableRadarPortaJusante  bool `json:"enableRadarPortaJusante"`  // DB100.1.1 - Enable Porta Jusante
+	EnableRadarPortaMontante bool `json:"enableRadarPortaMontante"` // DB100.1.2 - Enable Porta Montante
+	
+	// ========== RESTART INDIVIDUAL ==========
+	RestartRadarCaldeira     bool `json:"restartRadarCaldeira"`     // DB100.2.0 - Restart Caldeira
+	RestartRadarPortaJusante bool `json:"restartRadarPortaJusante"` // DB100.2.1 - Restart Porta Jusante
+	RestartRadarPortaMontante bool `json:"restartRadarPortaMontante"` // DB100.2.2 - Restart Porta Montante
 }
 
-// PLCSystemStatus - Status enviado para o PLC (DB200)
+// PLCSystemStatus - Status Servidor → PLC - ESTRUTURA SUPER SIMPLES  
 type PLCSystemStatus struct {
-	// Byte 0 - Status bits
-	LiveBit          bool `json:"liveBit"`          // DB200.0.0
-	RadarConnected   bool `json:"radarConnected"`   // DB200.0.1
-	PLCConnected     bool `json:"plcConnected"`     // DB200.0.2
-	NATSConnected    bool `json:"natsConnected"`    // DB200.0.3
-	WebSocketRunning bool `json:"webSocketRunning"` // DB200.0.4
-	CollectionActive bool `json:"collectionActive"` // DB200.0.5
-	SystemHealthy    bool `json:"systemHealthy"`    // DB200.0.6
-	DebugModeActive  bool `json:"debugModeActive"`  // DB200.0.7
+	// ========== STATUS ESSENCIAL ==========
+	LiveBit          bool `json:"liveBit"`          // DB100.4.0 - Bit de vida
+	CollectionActive bool `json:"collectionActive"` // DB100.4.1 - Coleta ativa
+	SystemHealthy    bool `json:"systemHealthy"`    // DB100.4.2 - Sistema OK
+	EmergencyActive  bool `json:"emergencyActive"`  // DB100.4.3 - Emergência ativa
 
-	// Contadores DINT (4 bytes cada)
-	WebSocketClients  int32 `json:"webSocketClients"`  // DB200.2
-	RadarPacketsTotal int32 `json:"radarPacketsTotal"` // DB200.6
-	ErrorCount        int32 `json:"errorCount"`        // DB200.10
-	UptimeSeconds     int32 `json:"uptimeSeconds"`     // DB200.14
+	// ========== STATUS DOS RADARES ==========
+	RadarCaldeiraConnected     bool `json:"radarCaldeiraConnected"`     // DB100.5.0 - Caldeira OK
+	RadarPortaJusanteConnected bool `json:"radarPortaJusanteConnected"` // DB100.5.1 - Porta Jusante OK
+	RadarPortaMontanteConnected bool `json:"radarPortaMontanteConnected"` // DB100.5.2 - Porta Montante OK
 
-	// Dados do servidor REAL (4 bytes cada)
-	CPUUsage    float32 `json:"cpuUsage"`    // DB200.18
-	MemoryUsage float32 `json:"memoryUsage"` // DB200.22
-	DiskUsage   float32 `json:"diskUsage"`   // DB200.26
-
-	// Timestamp dividido em duas palavras DINT
-	TimestampHigh int32 `json:"timestampHigh"` // DB200.30
-	TimestampLow  int32 `json:"timestampLow"`  // DB200.34
+	// ========== RESERVA ==========
+	Reserved2 int32 `json:"reserved2"` // DB100.8  - Reservado
+	Reserved3 int32 `json:"reserved3"` // DB100.12 - Reservado
 }
 
-// PLCRadarData - Dados do radar para o PLC (DB300)
+// PLCRadarData - Dados de um radar individual para o PLC
 type PLCRadarData struct {
 	// Objeto principal
-	MainObjectDetected  bool    `json:"mainObjectDetected"`  // DB300.0.0
-	MainObjectAmplitude float32 `json:"mainObjectAmplitude"` // DB300.2
-	MainObjectDistance  float32 `json:"mainObjectDistance"`  // DB300.6
-	MainObjectVelocity  float32 `json:"mainObjectVelocity"`  // DB300.10
-	MainObjectAngle     float32 `json:"mainObjectAngle"`     // DB300.14
+	MainObjectDetected  bool    `json:"mainObjectDetected"`  // X.0.0
+	MainObjectAmplitude float32 `json:"mainObjectAmplitude"` // X.2
+	MainObjectDistance  float32 `json:"mainObjectDistance"`  // X.6
+	MainObjectVelocity  float32 `json:"mainObjectVelocity"`  // X.10
+	MainObjectAngle     float32 `json:"mainObjectAngle"`     // X.14
 
 	// Estatísticas
-	ObjectsDetected int16   `json:"objectsDetected"` // DB300.18
-	MaxAmplitude    float32 `json:"maxAmplitude"`    // DB300.20
-	MinDistance     float32 `json:"minDistance"`     // DB300.24
-	MaxDistance     float32 `json:"maxDistance"`     // DB300.28
+	ObjectsDetected int16   `json:"objectsDetected"` // X.18
+	MaxAmplitude    float32 `json:"maxAmplitude"`    // X.20
+	MinDistance     float32 `json:"minDistance"`     // X.24
+	MaxDistance     float32 `json:"maxDistance"`     // X.28
 
 	// Arrays (primeiros 5 objetos)
-	Positions  [5]float32 `json:"positions"`  // DB300.32-48
-	Velocities [5]float32 `json:"velocities"` // DB300.52-68
+	Positions  [5]float32 `json:"positions"`  // X.32-48
+	Velocities [5]float32 `json:"velocities"` // X.52-68
 
 	// Timestamp dividido
-	DataTimestampHigh int32 `json:"dataTimestampHigh"` // DB300.72
-	DataTimestampLow  int32 `json:"dataTimestampLow"`  // DB300.76
+	DataTimestampHigh int32 `json:"dataTimestampHigh"` // X.72
+	DataTimestampLow  int32 `json:"dataTimestampLow"`  // X.76
 }
 
-// SystemCommand - Comandos internos
+// PLCMultiRadarData - Dados de todos os radares para o PLC
+type PLCMultiRadarData struct {
+	// Radar Caldeira - DB300 (80 bytes)
+	RadarCaldeira PLCRadarData `json:"radarCaldeira"`
+
+	// Radar Porta Jusante - DB400 (80 bytes) 
+	RadarPortaJusante PLCRadarData `json:"radarPortaJusante"`
+
+	// Radar Porta Montante - DB500 (80 bytes)
+	RadarPortaMontante PLCRadarData `json:"radarPortaMontante"`
+}
+
+// SystemCommand - Comandos internos (expandido para múltiplos radares)
 type SystemCommand int
 
 const (
+	// Comandos globais
 	CmdStartCollection SystemCommand = iota
 	CmdStopCollection
 	CmdRestartSystem
@@ -79,6 +89,22 @@ const (
 	CmdEnableDebug
 	CmdDisableDebug
 	CmdEmergencyStop
+	
+	// Comandos de controle individual de radares
+	CmdEnableRadarCaldeira
+	CmdDisableRadarCaldeira
+	CmdEnableRadarPortaJusante
+	CmdDisableRadarPortaJusante
+	CmdEnableRadarPortaMontante
+	CmdDisableRadarPortaMontante
+	
+	// Comandos específicos por radar
+	CmdRestartRadarCaldeira
+	CmdRestartRadarPortaJusante
+	CmdRestartRadarPortaMontante
+	CmdResetErrorsRadarCaldeira
+	CmdResetErrorsRadarPortaJusante
+	CmdResetErrorsRadarPortaMontante
 )
 
 // SystemError - Estrutura de erro

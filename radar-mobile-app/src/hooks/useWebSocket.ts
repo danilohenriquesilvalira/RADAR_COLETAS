@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { RadarData, ConnectionStatus } from '../types/radarTypes';
+import { RadarData, MultiRadarData, ConnectionStatus } from '../types/radarTypes';
 import { usePersistentData } from './usePersistentData';
 
 interface UseWebSocketOptions {
-  onMessage?: (data: RadarData) => void;
+  onMessage?: (data: RadarData | MultiRadarData) => void;
   onOpen?: () => void;
   onClose?: () => void;
   onError?: (error: Event) => void;
@@ -87,31 +87,66 @@ export const useWebSocket = (initialUrl: string, options?: UseWebSocketOptions) 
     try {
       console.log("Dados recebidos do WebSocket:", data);
       
-      // Garantir que os objetos são arrays, mesmo que vazios
-      const safeData: RadarData = {
-        positions: Array.isArray(data.positions) ? data.positions : [],
-        velocities: Array.isArray(data.velocities) ? data.velocities : [],
-        azimuths: Array.isArray(data.azimuths) ? data.azimuths : [],
-        amplitudes: Array.isArray(data.amplitudes) ? data.amplitudes : [],
-        mainObject: data.mainObject,
-        plcStatus: data.plcStatus,
-        timestamp: data.timestamp || Date.now()
-      };
-      
-      // Debug do PLC status
-      if (data.plcStatus) {
-        console.log("Status do PLC recebido:", data.plcStatus);
+      // Verificar se são dados de múltiplos radares
+      if (data.radars && Array.isArray(data.radars)) {
+        // Dados de múltiplos radares
+        const safeMultiData: MultiRadarData = {
+          radars: data.radars.map((radar: any) => ({
+            radarId: radar.radarId || '',
+            radarName: radar.radarName || '',
+            connected: radar.connected || false,
+            positions: Array.isArray(radar.positions) ? radar.positions : [],
+            velocities: Array.isArray(radar.velocities) ? radar.velocities : [],
+            azimuths: Array.isArray(radar.azimuths) ? radar.azimuths : [],
+            amplitudes: Array.isArray(radar.amplitudes) ? radar.amplitudes : [],
+            mainObject: radar.mainObject,
+            plcStatus: radar.plcStatus,
+            timestamp: radar.timestamp || Date.now()
+          })),
+          timestamp: data.timestamp || Date.now()
+        };
+        
+        // Marcar que recebemos uma mensagem
+        messageReceivedRef.current = true;
+        
+        // Atualizar dados persistentes com o primeiro radar (compatibilidade)
+        if (safeMultiData.radars.length > 0) {
+          updateData(safeMultiData.radars[0]);
+        }
+        updateLastUpdated();
+        
+        // Notificar callback com dados multi-radar
+        if (options?.onMessage) options.onMessage(safeMultiData);
+      } else {
+        // Dados de radar único (formato antigo)
+        const safeData: RadarData = {
+          radarId: data.radarId || 'caldeira',
+          radarName: data.radarName || 'Radar Caldeira',
+          connected: data.connected !== undefined ? data.connected : true,
+          positions: Array.isArray(data.positions) ? data.positions : [],
+          velocities: Array.isArray(data.velocities) ? data.velocities : [],
+          azimuths: Array.isArray(data.azimuths) ? data.azimuths : [],
+          amplitudes: Array.isArray(data.amplitudes) ? data.amplitudes : [],
+          mainObject: data.mainObject,
+          plcStatus: data.plcStatus,
+          timestamp: data.timestamp || Date.now()
+        };
+        
+        // Debug do PLC status
+        if (data.plcStatus) {
+          console.log("Status do PLC recebido:", data.plcStatus);
+        }
+        
+        // Marcar que recebemos uma mensagem
+        messageReceivedRef.current = true;
+        
+        // Atualizar dados persistentes
+        updateData(safeData);
+        updateLastUpdated();
+        
+        // Notificar callback, se existir
+        if (options?.onMessage) options.onMessage(safeData);
       }
-      
-      // Marcar que recebemos uma mensagem
-      messageReceivedRef.current = true;
-      
-      // Atualizar dados persistentes
-      updateData(safeData);
-      updateLastUpdated();
-      
-      // Notificar callback, se existir
-      if (options?.onMessage) options.onMessage(safeData);
     } catch (err) {
       console.error('Erro ao processar mensagem WebSocket:', err);
     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Info, Settings, AlertCircle, ChevronDown, ChevronUp, BarChart2, 
-  Zap, Wifi, WifiOff, Activity, Layers, Server, TrendingUp, Gauge, 
-  Radio, Target, Eye, EyeOff, ChevronLeft, ChevronRight } from 'lucide-react';
+  Zap, Wifi, WifiOff, Activity, Layers, Server, TrendingUp,  
+  Radio, Target, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ConnectionStatus, RadarData } from '../types/radarTypes';
 import Header from './Header';
 
@@ -93,13 +93,27 @@ const MainObjectDisplay: React.FC<{
         color="info"
         subtitle="Movimento detectado"
       />
-      <StatusCard
-        title="Ângulo"
-        value={formatValue(mainObject.angulo, 2, "°")}
-        icon={<Gauge size={24} />}
-        color="warning"
-        subtitle="Direção angular"
-      />
+        {/*
+          A exibição do ângulo foi inibida conforme solicitado. Caso queira reativar, basta descomentar o bloco abaixo.
+          // <StatusCard
+          //   title="Ângulo"
+          //   value={formatValue(mainObject.angulo, 2, "°")}
+          //   icon={<Gauge size={24} />}
+          //   color="warning"
+          //   subtitle="Direção angular"
+          // />
+        */}
+        {/*
+          Exibe a velocidade convertida para nós náuticos (knots), pois é a unidade relevante para navegação marítima.
+          1 m/s = 1.94384 nós
+        */}
+        <StatusCard
+          title="Velocidade (nós náuticos)"
+          value={formatValue(mainObject.velocidade ? mainObject.velocidade * 1.94384 : 0, 2, " kn")}
+          icon={<TrendingUp size={24} />}
+          color="info"
+          subtitle="Velocidade real em nós náuticos"
+        />
     </div>
   );
 });
@@ -190,7 +204,9 @@ const DetectedObjectsTable: React.FC<{
               <th>#</th>
               <th>Distância</th>
               <th>Velocidade</th>
-              <th>Ângulo</th>
+              {/* Ângulo inibido, veja comentário no código */}
+              {/* <th>Ângulo</th> */}
+              <th>Velocidade (nós náuticos)</th>
               <th>Amplitude</th>
               <th>Status</th>
             </tr>
@@ -220,7 +236,15 @@ const DetectedObjectsTable: React.FC<{
                   <td className="row-number">{globalIndex}</td>
                   <td className="metric-value">{formatValue(obj.position, 2)} <span className="unit">m</span></td>
                   <td className="metric-value">{formatValue(obj.velocity, 2)} <span className="unit">m/s</span></td>
-                  <td className="metric-value">{formatValue(obj.azimuth, 2)} <span className="unit">°</span></td>
+                  {/*
+                    A exibição do ângulo foi inibida conforme solicitado. Caso queira reativar, basta descomentar a linha abaixo.
+                    <td className="metric-value">{formatValue(obj.azimuth, 2)} <span className="unit">°</span></td>
+                  */}
+                  {/*
+                    Exibe a velocidade convertida para nós náuticos (knots), pois é a unidade relevante para navegação marítima.
+                    1 m/s = 1.94384 nós
+                  */}
+                  <td className="metric-value">{formatValue(obj.velocity ? obj.velocity * 1.94384 : 0, 2)} <span className="unit">kn</span></td>
                   <td className="amplitude-cell">
                     <div className="amplitude-bar-mini">
                       <div className="amplitude-fill" style={{ width: `${(obj.amplitude / 1000) * 100}%` }}></div>
@@ -285,10 +309,10 @@ const RadarMonitorApp: React.FC<RadarMonitorAppProps> = ({
   onUrlChange,
   onConnect,
   onDisconnect,
-  isCollecting,
-  isLoading,
-  onStartCollection,
-  onStopCollection,
+  // isCollecting,  // Temporarily commented out
+  // isLoading,     // Temporarily commented out
+  // onStartCollection, // Temporarily commented out
+  // onStopCollection,  // Temporarily commented out
   radarData,
   onLogout,
   currentUser
@@ -504,7 +528,7 @@ const RadarMonitorApp: React.FC<RadarMonitorAppProps> = ({
                 <button
                   className="modern-button primary"
                   onClick={handleConnect}
-                  disabled={status === ConnectionStatus.CONNECTING || isLoading}
+                  disabled={status === ConnectionStatus.CONNECTING}
                 >
                   <Wifi size={18} />
                   {status === ConnectionStatus.CONNECTING ? 'Conectando...' : 'Conectar'}
@@ -513,7 +537,7 @@ const RadarMonitorApp: React.FC<RadarMonitorAppProps> = ({
                 <button
                   className="modern-button danger"
                   onClick={onDisconnect}
-                  disabled={isLoading}
+                  disabled={false}
                 >
                   <WifiOff size={18} />
                   Desconectar

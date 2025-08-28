@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useWebSocket } from './hooks/useWebSocket';
-import { useRadarApi } from './hooks/useRadarApi';
 import { useAuth } from './hooks/useAuth';
-import RadarMonitorApp from './components/RadarMonitorApp';
+import { MultiRadarData } from './types/radarTypes';
+import ModernRadarDisplay from './components/ModernRadarDisplay';
 import LoginPage from './page/LoginPage';
 import LoadingScreen from './components/LoadingScreen';
 
@@ -28,41 +28,36 @@ function App() {
   } = useAuth();
 
   // Estado para URL do WebSocket
-  const [url, setUrl] = useState(DEFAULT_WS_URL);
+  const [url] = useState(DEFAULT_WS_URL);
   
   // Estado simples para controlar loading após login
   const [justLoggedIn, setJustLoggedIn] = useState(false);
   
+  // Estado para dados de múltiplos radares
+  const [multiRadarData, setMultiRadarData] = useState<MultiRadarData | null>(null);
+  
   // Hook de WebSocket com gestão de dados
   const {
-    status,
-    error: wsError,
-    lastMessage: radarData,
-    lastUpdated,
-    connect,
-    disconnect
+    connect
   } = useWebSocket(url, {
     autoReconnect: true,
     maxReconnectAttempts: 5,
-    reconnectInterval: 3000
+    reconnectInterval: 3000,
+    onMessage: (data) => {
+      // Se recebemos dados de múltiplos radares, atualizar o estado
+      if ('radars' in data) {
+        setMultiRadarData(data as MultiRadarData);
+      } else {
+        // Dados de radar único - converter para multi-radar para compatibilidade
+        const singleData = data as any;
+        const multiData: MultiRadarData = {
+          radars: [singleData],
+          timestamp: singleData.timestamp
+        };
+        setMultiRadarData(multiData);
+      }
+    }
   });
-  
-  // Hook da API para controle de coleta
-  const {
-    isCollecting,
-    isLoading,
-    error: apiError,
-    startCollection,
-    stopCollection
-  } = useRadarApi(url);
-  
-  // Manipulador para alteração de URL
-  const handleUrlChange = (newUrl: string) => {
-    setUrl(newUrl);
-  };
-  
-  // Erro combinado (WebSocket ou API)
-  const error = wsError || apiError;
   
   // Função de login simplificada
   const handleLogin = async (username: string, password: string) => {
@@ -130,30 +125,16 @@ function App() {
 
   // Está autenticado e pronto - mostrar app principal
   return (
-    <div className="app-container">
-      <RadarMonitorApp
-        // Props de conexão
-        url={url}
-        status={status}
-        error={error}
-        lastUpdated={lastUpdated}
-        onUrlChange={handleUrlChange}
-        onConnect={connect}
-        onDisconnect={disconnect}
-        
-        // Props de coleta de dados
-        isCollecting={isCollecting}
-        isLoading={isLoading}
-        onStartCollection={startCollection}
-        onStopCollection={stopCollection}
-        
-        // Dados do radar
-        radarData={radarData}
-        
-        // Props de autenticação
-        onLogout={logout}
-        currentUser={user || undefined}
-      />
+    <div className="min-h-screen bg-gray-50">
+      <ModernRadarDisplay multiRadarData={multiRadarData} />
+      
+      {/* Logout Button */}
+      <button
+        onClick={logout}
+        className="fixed top-4 right-4 z-50 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg shadow-md border border-gray-200 text-sm font-medium transition-colors duration-200"
+      >
+        Sair ({user?.username})
+      </button>
     </div>
   );
 }

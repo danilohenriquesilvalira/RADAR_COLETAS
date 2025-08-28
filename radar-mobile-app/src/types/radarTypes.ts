@@ -13,12 +13,20 @@ export interface PLCStatus {
 }
 
 export interface RadarData {
+  radarId: string;
+  radarName: string;
+  connected: boolean;
   positions: number[];
   velocities: number[];
   azimuths: number[];
   amplitudes: number[];
   mainObject?: ObjPrincipal;
   plcStatus?: PLCStatus; // Status do PLC adicionado aqui
+  timestamp: number;
+}
+
+export interface MultiRadarData {
+  radars: RadarData[];
   timestamp: number;
 }
 

@@ -14,22 +14,24 @@ import (
 
 // WebSocketManager gerencia as conexões WebSocket
 type WebSocketManager struct {
-	clients    map[*websocket.Conn]bool
-	broadcast  chan models.RadarData
-	register   chan *websocket.Conn
-	unregister chan *websocket.Conn
-	mutex      sync.Mutex
-	connCount  int // Contador de conexões ativas
+	clients         map[*websocket.Conn]bool
+	broadcast       chan models.RadarData
+	multiBroadcast  chan models.MultiRadarData
+	register        chan *websocket.Conn
+	unregister      chan *websocket.Conn
+	mutex           sync.Mutex
+	connCount       int // Contador de conexões ativas
 }
 
 // NewWebSocketManager cria um novo gerenciador de WebSockets
 func NewWebSocketManager() *WebSocketManager {
 	return &WebSocketManager{
-		clients:    make(map[*websocket.Conn]bool),
-		broadcast:  make(chan models.RadarData),
-		register:   make(chan *websocket.Conn),
-		unregister: make(chan *websocket.Conn),
-		connCount:  0,
+		clients:        make(map[*websocket.Conn]bool),
+		broadcast:      make(chan models.RadarData),
+		multiBroadcast: make(chan models.MultiRadarData),
+		register:       make(chan *websocket.Conn),
+		unregister:     make(chan *websocket.Conn),
+		connCount:      0,
 	}
 }
 
@@ -69,6 +71,19 @@ func (manager *WebSocketManager) Run() {
 				}
 			}
 			manager.mutex.Unlock()
+
+		case multiMessage := <-manager.multiBroadcast:
+			manager.mutex.Lock()
+			for client := range manager.clients {
+				err := client.WriteJSON(multiMessage)
+				if err != nil {
+					log.Printf("Erro ao enviar mensagem multi-radar: %v. Removendo cliente: %p", err, client)
+					client.Close()
+					delete(manager.clients, client)
+					manager.connCount--
+				}
+			}
+			manager.mutex.Unlock()
 		}
 	}
 }
@@ -81,6 +96,17 @@ func (manager *WebSocketManager) BroadcastData(data models.RadarData) {
 
 	if clientCount > 0 {
 		manager.broadcast <- data
+	}
+}
+
+// BroadcastMultiRadarData envia dados de múltiplos radares para todos os clientes conectados
+func (manager *WebSocketManager) BroadcastMultiRadarData(data models.MultiRadarData) {
+	manager.mutex.Lock()
+	clientCount := len(manager.clients)
+	manager.mutex.Unlock()
+
+	if clientCount > 0 {
+		manager.multiBroadcast <- data
 	}
 }
 

@@ -1,0 +1,127 @@
+================================================================================
+                           UDT_DB100_SIMPLES
+                  ESTRUTURA DIRETA - PLC ↔ SERVIDOR ↔ RADARES  
+================================================================================
+
+Nome UDT: UDT_DB100_SIMPLES  
+Tamanho: 294 bytes
+
+--------------------------------------------------------------------------------
+                            COMANDOS (3 bytes)
+--------------------------------------------------------------------------------
+
+STRUCT
+  // ========== COMANDOS PLC → SERVIDOR ==========
+  Comandos_Servidor : STRUCT
+    StartCollection          : BOOL;  // DB100.0.0 - Iniciar coleta
+    StopCollection           : BOOL;  // DB100.0.1 - Parar coleta  
+    Emergency                : BOOL;  // DB100.0.2 - Parada emergência
+    ResetErrors              : BOOL;  // DB100.0.3 - Reset erros
+    EnableRadarCaldeira      : BOOL;  // DB100.0.4 - Enable Caldeira
+    EnableRadarPortaJusante  : BOOL;  // DB100.0.5 - Enable Porta Jusante
+    EnableRadarPortaMontante : BOOL;  // DB100.0.6 - Enable Porta Montante
+    RestartRadarCaldeira     : BOOL;  // DB100.0.7 - Restart Caldeira
+    RestartRadarPortaJusante : BOOL;  // DB100.1.0 - Restart Porta Jusante
+    RestartRadarPortaMontante: BOOL;  // DB100.1.1 - Restart Porta Montante
+  END_STRUCT;
+
+  ReservedByte : STRUCT
+    Reserva : BYTE;  // DB100.2.0 - Reserva
+  END_STRUCT;
+
+--------------------------------------------------------------------------------
+                            STATUS (2 bytes)
+--------------------------------------------------------------------------------
+
+  // ========== STATUS SERVIDOR → PLC ==========
+  Status_Servidor : STRUCT
+    LiveBit                     : BOOL;  // DB100.4.0 - Bit de vida
+    CollectionActive            : BOOL;  // DB100.4.1 - Coleta ativa
+    SystemHealthy               : BOOL;  // DB100.4.2 - Sistema OK
+    EmergencyActive             : BOOL;  // DB100.4.3 - Emergência
+    RadarCaldeiraConnected      : BOOL;  // DB100.4.4 - Caldeira conectado
+    RadarPortaJusanteConnected  : BOOL;  // DB100.4.5 - Porta Jusante conectado
+    RadarPortaMontanteConnected : BOOL;  // DB100.4.6 - Porta Montante conectado
+  END_STRUCT;
+
+--------------------------------------------------------------------------------
+                        DADOS DOS RADARES (288 bytes)
+--------------------------------------------------------------------------------
+
+  // ========== RADAR CALDEIRA (192.168.1.84) - 96 bytes ==========
+  RadarCaldeira : STRUCT
+    ObjectDetected : BOOL;                  // DB100.6.0 - Objeto detectado
+    Amplitude      : REAL;                  // DB100.8.0 - Amplitude principal
+    Distance       : REAL;                  // DB100.12.0 - Distância (m)
+    Velocity       : REAL;                  // DB100.16.0 - Velocidade (m/s)
+    ObjectsCount   : INT;                   // DB100.20.0 - Qtd objetos
+    Positions_Caldeira  : ARRAY[0..9] OF REAL;  // DB100.22.0-61.3 - 10 posições
+    Velocities_Caldeira : ARRAY[0..9] OF REAL;  // DB100.62.0-101.3 - 10 velocidades
+  END_STRUCT;
+
+  // ========== RADAR PORTA JUSANTE (192.168.1.85) - 96 bytes ==========  
+  RadarPortaJusante : STRUCT
+    ObjectDetected : BOOL;                  // DB100.102.0 - Objeto detectado
+    Amplitude      : REAL;                  // DB100.104.0 - Amplitude principal
+    Distance       : REAL;                  // DB100.108.0 - Distância (m)
+    Velocity       : REAL;                  // DB100.112.0 - Velocidade (m/s)
+    ObjectsCount   : INT;                   // DB100.116.0 - Qtd objetos
+    Positions_Caldeira  : ARRAY[0..9] OF REAL;  // DB100.118.0-157.3 - 10 posições
+    Velocities_Caldeira : ARRAY[0..9] OF REAL;  // DB100.158.0-197.3 - 10 velocidades
+  END_STRUCT;
+
+  // ========== RADAR PORTA MONTANTE (192.168.1.86) - 96 bytes ==========
+  RadarPortaMontante : STRUCT
+    ObjectDetected : BOOL;                  // DB100.198.0 - Objeto detectado  
+    Amplitude      : REAL;                  // DB100.200.0 - Amplitude principal
+    Distance       : REAL;                  // DB100.204.0 - Distância (m)
+    Velocity       : REAL;                  // DB100.208.0 - Velocidade (m/s)
+    ObjectsCount   : INT;                   // DB100.212.0 - Qtd objetos
+    Positions_Caldeira  : ARRAY[0..9] OF REAL;  // DB100.214.0-253.3 - 10 posições
+    Velocities_Caldeira : ARRAY[0..9] OF REAL;  // DB100.254.0-293.3 - 10 velocidades
+  END_STRUCT;
+
+END_STRUCT;
+
+================================================================================
+                              RESUMO TOTAL
+================================================================================
+
+🎯 FOCO: PLC ↔ SERVIDOR ↔ 3 RADARES
+
+📋 CONTROLES ESSENCIAIS:
+  ✅ StartCollection/StopCollection
+  ✅ Enable/Disable cada radar individual
+  ✅ Restart cada radar individual  
+  ✅ Emergency stop
+  ✅ Reset de erros
+
+📊 STATUS SIMPLES:
+  ✅ LiveBit do sistema
+  ✅ Status de conexão individual de cada radar
+  ✅ Estado da coleta
+  ✅ Status de emergência
+
+📈 CONTADORES:
+  ✅ Pacotes totais e por radar
+  ✅ Erros totais
+  ✅ Uptime do sistema
+  ✅ Timestamp
+
+🏗️ NO TIA PORTAL:
+1. Criar UDT → UDT_DB100_SIMPLES
+2. Criar DB100 do tipo UDT_DB100_SIMPLES  
+3. Usar: DB100.Commands.EnableRadarCaldeira := TRUE;
+
+🎯 RADARES:
+  - Caldeira: 192.168.1.84:2111
+  - Porta Jusante: 192.168.1.85:2111
+  - Porta Montante: 192.168.1.86:2111
+
+TOTAL: 304 bytes
+
+🎯 ESTRUTURA:
+  - Comandos: 4 bytes  
+  - Status: 8 bytes
+  - Dados 3 Radares: 3×96 = 288 bytes
+  - Reserva: 4 bytes

@@ -1,0 +1,195 @@
+================================================================================
+                       UDT_DB100_MultiRadar 
+           ESTRUTURA PADRÃO PARA TIA PORTAL - 3 RADARES SICK
+================================================================================
+
+Nome da UDT: UDT_DB100_MultiRadar
+Tamanho Total: 304 bytes
+
+--------------------------------------------------------------------------------
+                            SECTION 1: COMANDOS
+                              (Bytes 0-2)
+--------------------------------------------------------------------------------
+
+STRUCT
+  // ========== COMANDOS GLOBAIS DO SISTEMA ==========
+  GlobalCommands : STRUCT
+    StartCollection  : BOOL;  // DB100.0.0 - Iniciar coleta geral
+    StopCollection   : BOOL;  // DB100.0.1 - Parar coleta geral  
+    RestartSystem    : BOOL;  // DB100.0.2 - Reiniciar sistema completo
+    ResetErrors      : BOOL;  // DB100.0.3 - Reset todos os erros
+    EnableDebugMode  : BOOL;  // DB100.0.4 - Ativar modo debug
+    Emergency        : BOOL;  // DB100.0.5 - Parada de emergência
+    RestartNATS      : BOOL;  // DB100.0.6 - Reiniciar NATS
+    RestartWebSocket : BOOL;  // DB100.0.7 - Reiniciar WebSocket
+  END_STRUCT;
+
+  // ========== CONTROLE INDIVIDUAL DOS RADARES ==========
+  RadarControl : STRUCT
+    EnableRadarCaldeira      : BOOL;  // DB100.1.0 - Habilitar Caldeira
+    EnableRadarPortaJusante  : BOOL;  // DB100.1.1 - Habilitar Porta Jusante
+    EnableRadarPortaMontante : BOOL;  // DB100.1.2 - Habilitar Porta Montante
+    RestartRadarCaldeira     : BOOL;  // DB100.1.3 - Reconectar Caldeira
+    RestartRadarPortaJusante : BOOL;  // DB100.1.4 - Reconectar Porta Jusante
+    RestartRadarPortaMontante: BOOL;  // DB100.1.5 - Reconectar Porta Montante
+    ResetErrorsCaldeira      : BOOL;  // DB100.1.6 - Reset erros Caldeira
+    ResetErrorsPortaJusante  : BOOL;  // DB100.1.7 - Reset erros Porta Jusante
+  END_STRUCT;
+
+  // ========== RESERVA/EXPANSÃO ==========
+  ReservedCommands : STRUCT
+    ResetErrorsPortaMontante : BOOL;  // DB100.2.0 - Reset erros Porta Montante
+    Reserved1                : BOOL;  // DB100.2.1 - Reservado
+    Reserved2                : BOOL;  // DB100.2.2 - Reservado  
+    Reserved3                : BOOL;  // DB100.2.3 - Reservado
+    Reserved4                : BOOL;  // DB100.2.4 - Reservado
+    Reserved5                : BOOL;  // DB100.2.5 - Reservado
+    Reserved6                : BOOL;  // DB100.2.6 - Reservado
+    Reserved7                : BOOL;  // DB100.2.7 - Reservado
+  END_STRUCT;
+
+  ReservedByte : BYTE;  // DB100.3 - Byte de reserva
+
+--------------------------------------------------------------------------------
+                           SECTION 2: STATUS SISTEMA
+                              (Bytes 4-63)
+--------------------------------------------------------------------------------
+
+  // ========== STATUS GERAL DO SISTEMA ==========
+  SystemStatus : STRUCT
+    LiveBit          : BOOL;  // DB100.4.0 - Bit de vida
+    PLCConnected     : BOOL;  // DB100.4.1 - PLC conectado
+    NATSConnected    : BOOL;  // DB100.4.2 - NATS conectado
+    WebSocketRunning : BOOL;  // DB100.4.3 - WebSocket ativo
+    CollectionActive : BOOL;  // DB100.4.4 - Coleta ativa
+    SystemHealthy    : BOOL;  // DB100.4.5 - Sistema saudável
+    DebugModeActive  : BOOL;  // DB100.4.6 - Debug ativo
+    EmergencyActive  : BOOL;  // DB100.4.7 - Emergência ativa
+  END_STRUCT;
+
+  // ========== STATUS CONEXÃO DOS RADARES ==========
+  RadarConnectionStatus : STRUCT
+    RadarCaldeiraConnected     : BOOL;  // DB100.5.0 - Caldeira conectado
+    RadarPortaJusanteConnected : BOOL;  // DB100.5.1 - Porta Jusante conectado  
+    RadarPortaMontanteConnected: BOOL;  // DB100.5.2 - Porta Montante conectado
+    Reserved1                  : BOOL;  // DB100.5.3 - Reservado
+    Reserved2                  : BOOL;  // DB100.5.4 - Reservado
+    Reserved3                  : BOOL;  // DB100.5.5 - Reservado
+    Reserved4                  : BOOL;  // DB100.5.6 - Reservado
+    Reserved5                  : BOOL;  // DB100.5.7 - Reservado
+  END_STRUCT;
+
+  // ========== CONTADORES E MÉTRICAS ==========
+  SystemCounters : STRUCT
+    WebSocketClients         : DINT;  // DB100.6  - Clientes conectados
+    PacketsTotal             : DINT;  // DB100.10 - Total de pacotes
+    ErrorsTotal              : DINT;  // DB100.14 - Total de erros
+    UptimeSeconds            : DINT;  // DB100.18 - Tempo ativo (segundos)
+    PacketsCaldeira          : DINT;  // DB100.22 - Pacotes Caldeira
+    PacketsPortaJusante      : DINT;  // DB100.26 - Pacotes Porta Jusante
+    PacketsPortaMontante     : DINT;  // DB100.30 - Pacotes Porta Montante
+    ErrorsCaldeira           : DINT;  // DB100.34 - Erros Caldeira
+    ErrorsPortaJusante       : DINT;  // DB100.38 - Erros Porta Jusante
+    ErrorsPortaMontante      : DINT;  // DB100.42 - Erros Porta Montante
+    CPUUsage                 : REAL;  // DB100.46 - Uso CPU (%)
+    MemoryUsage              : REAL;  // DB100.50 - Uso Memória (%)
+    DiskUsage                : REAL;  // DB100.54 - Uso Disco (%)
+    TimestampHigh            : DINT;  // DB100.58 - Timestamp (high)
+    TimestampLow             : DINT;  // DB100.62 - Timestamp (low)
+  END_STRUCT;
+
+--------------------------------------------------------------------------------
+                          SECTION 3: DADOS DOS RADARES  
+                             (Bytes 64-303)
+--------------------------------------------------------------------------------
+
+  // ========== RADAR CALDEIRA (192.168.1.84) ==========
+  RadarCaldeira : STRUCT
+    MainObjectDetected  : BOOL;       // DB100.64.0 - Objeto detectado
+    Reserved1           : BOOL;       // DB100.64.1 - Reservado  
+    MainObjectAmplitude : REAL;       // DB100.66   - Amplitude
+    MainObjectDistance  : REAL;       // DB100.70   - Distância (m)
+    MainObjectVelocity  : REAL;       // DB100.74   - Velocidade (m/s)
+    MainObjectAngle     : REAL;       // DB100.78   - Ângulo (°)
+    ObjectsDetected     : INT;        // DB100.82   - Qtd objetos detectados
+    MaxAmplitude        : REAL;       // DB100.84   - Amplitude máxima
+    MinDistance         : REAL;       // DB100.88   - Distância mínima
+    MaxDistance         : REAL;       // DB100.92   - Distância máxima
+    Positions           : ARRAY[0..4] OF REAL;  // DB100.96-115  - Posições
+    Velocities          : ARRAY[0..4] OF REAL;  // DB100.116-135 - Velocidades
+    DataTimestampHigh   : DINT;       // DB100.136  - Timestamp dados (high)
+    DataTimestampLow    : DINT;       // DB100.140  - Timestamp dados (low)
+  END_STRUCT;
+
+  // ========== RADAR PORTA JUSANTE (192.168.1.85) ==========  
+  RadarPortaJusante : STRUCT
+    MainObjectDetected  : BOOL;       // DB100.144.0 - Objeto detectado
+    Reserved1           : BOOL;       // DB100.144.1 - Reservado
+    MainObjectAmplitude : REAL;       // DB100.146   - Amplitude
+    MainObjectDistance  : REAL;       // DB100.150   - Distância (m)
+    MainObjectVelocity  : REAL;       // DB100.154   - Velocidade (m/s)
+    MainObjectAngle     : REAL;       // DB100.158   - Ângulo (°)
+    ObjectsDetected     : INT;        // DB100.162   - Qtd objetos detectados
+    MaxAmplitude        : REAL;       // DB100.164   - Amplitude máxima
+    MinDistance         : REAL;       // DB100.168   - Distância mínima
+    MaxDistance         : REAL;       // DB100.172   - Distância máxima
+    Positions           : ARRAY[0..4] OF REAL;  // DB100.176-195 - Posições
+    Velocities          : ARRAY[0..4] OF REAL;  // DB100.196-215 - Velocidades
+    DataTimestampHigh   : DINT;       // DB100.216  - Timestamp dados (high)
+    DataTimestampLow    : DINT;       // DB100.220  - Timestamp dados (low)
+  END_STRUCT;
+
+  // ========== RADAR PORTA MONTANTE (192.168.1.86) ==========
+  RadarPortaMontante : STRUCT  
+    MainObjectDetected  : BOOL;       // DB100.224.0 - Objeto detectado
+    Reserved1           : BOOL;       // DB100.224.1 - Reservado
+    MainObjectAmplitude : REAL;       // DB100.226   - Amplitude
+    MainObjectDistance  : REAL;       // DB100.230   - Distância (m)
+    MainObjectVelocity  : REAL;       // DB100.234   - Velocidade (m/s)
+    MainObjectAngle     : REAL;       // DB100.238   - Ângulo (°)
+    ObjectsDetected     : INT;        // DB100.242   - Qtd objetos detectados
+    MaxAmplitude        : REAL;       // DB100.244   - Amplitude máxima
+    MinDistance         : REAL;       // DB100.248   - Distância mínima
+    MaxDistance         : REAL;       // DB100.252   - Distância máxima
+    Positions           : ARRAY[0..4] OF REAL;  // DB100.256-275 - Posições
+    Velocities          : ARRAY[0..4] OF REAL;  // DB100.276-295 - Velocidades
+    DataTimestampHigh   : DINT;       // DB100.296  - Timestamp dados (high)
+    DataTimestampLow    : DINT;       // DB100.300  - Timestamp dados (low)
+  END_STRUCT;
+
+END_STRUCT;
+
+================================================================================
+                              RESUMO FINAL
+================================================================================
+
+📋 TAMANHO TOTAL UDT: 304 bytes
+
+🎛️ CONTROLES PRINCIPAIS:
+  ✅ Enable/Disable individual por radar
+  ✅ Restart individual por radar  
+  ✅ Reset de erros por radar
+  ✅ Comandos globais (start/stop/emergency)
+
+📊 STATUS COMPLETO:
+  ✅ Conexão individual de cada radar
+  ✅ Contadores separados de pacotes/erros
+  ✅ Métricas do sistema (CPU/RAM/Disk)
+  ✅ Status geral do sistema
+
+📡 DADOS DETALHADOS:
+  ✅ Cada radar tem 80 bytes de dados
+  ✅ Objeto principal com amplitude/distância/velocidade
+  ✅ Arrays de posições e velocidades (5 objetos)
+  ✅ Estatísticas individuais
+
+🔧 COMO USAR NO TIA PORTAL:
+1. Criar UDT com nome: UDT_DB100_MultiRadar
+2. Copiar estrutura acima
+3. Criar DB100 do tipo UDT_DB100_MultiRadar
+4. Pronto! Sistema gerencia automaticamente
+
+🎯 IPs DOS RADARES:
+  - Caldeira: 192.168.1.84:2111
+  - Porta Jusante: 192.168.1.85:2111
+  - Porta Montante: 192.168.1.86:2111

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"backend/pkg/models"
 	"github.com/nats-io/nats.go"
 )
 
@@ -170,4 +171,44 @@ func (p *Publisher) IsEnabled() bool {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	return p.enabled
+}
+
+// PublishMultiRadar publica dados de múltiplos radares no NATS
+func (p *Publisher) PublishMultiRadar(data models.MultiRadarData) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if !p.enabled || p.conn == nil {
+		// Se NATS não está disponível, apenas log mas não falha
+		return nil
+	}
+
+	// Publicar dados gerais de múltiplos radares
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("erro ao serializar dados multi-radar: %v", err)
+	}
+
+	// Publicar no tópico principal
+	err = p.conn.Publish(p.subject, jsonData)
+	if err != nil {
+		return fmt.Errorf("erro ao publicar multi-radar no NATS: %v", err)
+	}
+
+	// Publicar dados individuais de cada radar em subtópicos
+	for _, radarData := range data.Radars {
+		radarSubject := fmt.Sprintf("%s.%s", p.subject, radarData.RadarID)
+		radarJsonData, err := json.Marshal(radarData)
+		if err != nil {
+			log.Printf("Erro ao serializar dados do radar %s: %v", radarData.RadarID, err)
+			continue
+		}
+		
+		err = p.conn.Publish(radarSubject, radarJsonData)
+		if err != nil {
+			log.Printf("Erro ao publicar dados do radar %s: %v", radarData.RadarID, err)
+		}
+	}
+
+	return nil
 }

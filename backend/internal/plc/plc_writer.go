@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"time"
 
 	"backend/pkg/models"
 )
@@ -216,166 +215,104 @@ func (w *PLCWriter) WriteTag(dbNumber int, byteOffset int, dataType string, valu
 	return w.client.AGWriteDB(dbNumber, byteOffset, len(buf), buf)
 }
 
-// ResetCommands reseta todos os comandos no DB100
+// ResetCommands reseta todos os comandos na DB100
 func (w *PLCWriter) ResetCommands() error {
-	// Escrever 0 no byte 0 do DB100 para resetar todos os bits
-	return w.WriteTag(100, 0, "byte", uint8(0))
+	// Resetar byte 0 e byte 1 dos comandos
+	if err := w.WriteTag(100, 0, "byte", uint8(0)); err != nil {
+		return fmt.Errorf("erro ao resetar byte 0: %v", err)
+	}
+	return w.WriteTag(100, 1, "byte", uint8(0))
 }
 
-// WriteSystemStatus escreve status do sistema no DB200
+// WriteSystemStatus escreve status do sistema na DB100 simplificada
 func (w *PLCWriter) WriteSystemStatus(status *models.PLCSystemStatus) error {
-	// DB200.0 - Escrever cada bit individualmente
-	if err := w.WriteTag(200, 0, "bool", status.LiveBit, 0); err != nil {
+	// DB100.4.0 - LiveBit
+	if err := w.WriteTag(100, 4, "bool", status.LiveBit, 0); err != nil {
 		return fmt.Errorf("erro ao escrever LiveBit: %v", err)
 	}
 
-	if err := w.WriteTag(200, 0, "bool", status.RadarConnected, 1); err != nil {
-		return fmt.Errorf("erro ao escrever RadarConnected: %v", err)
-	}
-
-	if err := w.WriteTag(200, 0, "bool", status.PLCConnected, 2); err != nil {
-		return fmt.Errorf("erro ao escrever PLCConnected: %v", err)
-	}
-
-	if err := w.WriteTag(200, 0, "bool", status.NATSConnected, 3); err != nil {
-		return fmt.Errorf("erro ao escrever NATSConnected: %v", err)
-	}
-
-	if err := w.WriteTag(200, 0, "bool", status.WebSocketRunning, 4); err != nil {
-		return fmt.Errorf("erro ao escrever WebSocketRunning: %v", err)
-	}
-
-	if err := w.WriteTag(200, 0, "bool", status.CollectionActive, 5); err != nil {
+	// DB100.4.1 - CollectionActive
+	if err := w.WriteTag(100, 4, "bool", status.CollectionActive, 1); err != nil {
 		return fmt.Errorf("erro ao escrever CollectionActive: %v", err)
 	}
 
-	if err := w.WriteTag(200, 0, "bool", status.SystemHealthy, 6); err != nil {
+	// DB100.4.2 - SystemHealthy
+	if err := w.WriteTag(100, 4, "bool", status.SystemHealthy, 2); err != nil {
 		return fmt.Errorf("erro ao escrever SystemHealthy: %v", err)
 	}
 
-	if err := w.WriteTag(200, 0, "bool", status.DebugModeActive, 7); err != nil {
-		return fmt.Errorf("erro ao escrever DebugModeActive: %v", err)
+	// DB100.4.3 - EmergencyActive
+	if err := w.WriteTag(100, 4, "bool", status.EmergencyActive, 3); err != nil {
+		return fmt.Errorf("erro ao escrever EmergencyActive: %v", err)
 	}
 
-	// DB200.2 - WebSocket Clients (DINT)
-	if err := w.WriteTag(200, 2, "dint", status.WebSocketClients); err != nil {
-		return fmt.Errorf("erro ao escrever WebSocketClients: %v", err)
+	// DB100.4.4 - RadarCaldeiraConnected
+	if err := w.WriteTag(100, 4, "bool", status.RadarCaldeiraConnected, 4); err != nil {
+		return fmt.Errorf("erro ao escrever RadarCaldeiraConnected: %v", err)
 	}
 
-	// DB200.6 - Radar Packets Total (DINT)
-	if err := w.WriteTag(200, 6, "dint", status.RadarPacketsTotal); err != nil {
-		return fmt.Errorf("erro ao escrever RadarPacketsTotal: %v", err)
+	// DB100.4.5 - RadarPortaJusanteConnected
+	if err := w.WriteTag(100, 4, "bool", status.RadarPortaJusanteConnected, 5); err != nil {
+		return fmt.Errorf("erro ao escrever RadarPortaJusanteConnected: %v", err)
 	}
 
-	// DB200.10 - Error Count (DINT)
-	if err := w.WriteTag(200, 10, "dint", status.ErrorCount); err != nil {
-		return fmt.Errorf("erro ao escrever ErrorCount: %v", err)
-	}
-
-	// DB200.14 - Uptime Seconds (DINT)
-	if err := w.WriteTag(200, 14, "dint", status.UptimeSeconds); err != nil {
-		return fmt.Errorf("erro ao escrever UptimeSeconds: %v", err)
-	}
-
-	// DB200.18 - CPU Usage (REAL)
-	if err := w.WriteTag(200, 18, "real", status.CPUUsage); err != nil {
-		return fmt.Errorf("erro ao escrever CPUUsage: %v", err)
-	}
-
-	// DB200.22 - Memory Usage (REAL)
-	if err := w.WriteTag(200, 22, "real", status.MemoryUsage); err != nil {
-		return fmt.Errorf("erro ao escrever MemoryUsage: %v", err)
-	}
-
-	// DB200.26 - Disk Usage (REAL)
-	if err := w.WriteTag(200, 26, "real", status.DiskUsage); err != nil {
-		return fmt.Errorf("erro ao escrever DiskUsage: %v", err)
-	}
-
-	// DB200.30 - Timestamp High (DINT)
-	if err := w.WriteTag(200, 30, "dint", status.TimestampHigh); err != nil {
-		return fmt.Errorf("erro ao escrever TimestampHigh: %v", err)
-	}
-
-	// DB200.34 - Timestamp Low (DINT)
-	if err := w.WriteTag(200, 34, "dint", status.TimestampLow); err != nil {
-		return fmt.Errorf("erro ao escrever TimestampLow: %v", err)
+	// DB100.4.6 - RadarPortaMontanteConnected
+	if err := w.WriteTag(100, 4, "bool", status.RadarPortaMontanteConnected, 6); err != nil {
+		return fmt.Errorf("erro ao escrever RadarPortaMontanteConnected: %v", err)
 	}
 
 	return nil
 }
 
-// WriteRadarData escreve dados do radar no DB300
-func (w *PLCWriter) WriteRadarData(data *models.PLCRadarData) error {
-	// DB300.0.0 - Main Object Detected (BOOL)
-	if err := w.WriteTag(300, 0, "bool", data.MainObjectDetected, 0); err != nil {
-		return fmt.Errorf("erro ao escrever MainObjectDetected: %v", err)
+// WriteRadarDataToDB100 escreve dados do radar na DB100 - OFFSETS CORRETOS
+func (w *PLCWriter) WriteRadarDataToDB100(data *models.PLCRadarData, radarBaseOffset int) error {
+	// ObjectDetected (BOOL) - offset +0
+	if err := w.WriteTag(100, radarBaseOffset+0, "bool", data.MainObjectDetected, 0); err != nil {
+		return fmt.Errorf("erro ao escrever ObjectDetected: %v", err)
 	}
 
-	// DB300.2 - Amplitude (REAL)
-	if err := w.WriteTag(300, 2, "real", data.MainObjectAmplitude); err != nil {
-		return fmt.Errorf("erro ao escrever MainObjectAmplitude: %v", err)
+	// Amplitude (REAL) - offset +2 
+	if err := w.WriteTag(100, radarBaseOffset+2, "real", data.MainObjectAmplitude); err != nil {
+		return fmt.Errorf("erro ao escrever Amplitude: %v", err)
 	}
 
-	// DB300.6 - Distance (REAL)
-	if err := w.WriteTag(300, 6, "real", data.MainObjectDistance); err != nil {
-		return fmt.Errorf("erro ao escrever MainObjectDistance: %v", err)
+	// Distance (REAL) - offset +6
+	if err := w.WriteTag(100, radarBaseOffset+6, "real", data.MainObjectDistance); err != nil {
+		return fmt.Errorf("erro ao escrever Distance: %v", err)
 	}
 
-	// DB300.10 - Velocity (REAL)
-	if err := w.WriteTag(300, 10, "real", data.MainObjectVelocity); err != nil {
-		return fmt.Errorf("erro ao escrever MainObjectVelocity: %v", err)
+	// Velocity (REAL) - offset +10
+	if err := w.WriteTag(100, radarBaseOffset+10, "real", data.MainObjectVelocity); err != nil {
+		return fmt.Errorf("erro ao escrever Velocity: %v", err)
 	}
 
-	// DB300.14 - Angle (REAL)
-	if err := w.WriteTag(300, 14, "real", data.MainObjectAngle); err != nil {
-		return fmt.Errorf("erro ao escrever MainObjectAngle: %v", err)
+	// ObjectsCount (INT) - offset +14
+	if err := w.WriteTag(100, radarBaseOffset+14, "int", data.ObjectsDetected); err != nil {
+		return fmt.Errorf("erro ao escrever ObjectsCount: %v", err)
 	}
 
-	// DB300.18 - Objects Detected (INT)
-	if err := w.WriteTag(300, 18, "int", data.ObjectsDetected); err != nil {
-		return fmt.Errorf("erro ao escrever ObjectsDetected: %v", err)
-	}
-
-	// DB300.20 - Max Amplitude (REAL)
-	if err := w.WriteTag(300, 20, "real", data.MaxAmplitude); err != nil {
-		return fmt.Errorf("erro ao escrever MaxAmplitude: %v", err)
-	}
-
-	// DB300.24 - Min Distance (REAL)
-	if err := w.WriteTag(300, 24, "real", data.MinDistance); err != nil {
-		return fmt.Errorf("erro ao escrever MinDistance: %v", err)
-	}
-
-	// DB300.28 - Max Distance (REAL)
-	if err := w.WriteTag(300, 28, "real", data.MaxDistance); err != nil {
-		return fmt.Errorf("erro ao escrever MaxDistance: %v", err)
-	}
-
-	// DB300.32-48 - Positions Array (5 REALs)
-	for i := 0; i < 5; i++ {
-		offset := 32 + (i * 4)
-		if err := w.WriteTag(300, offset, "real", data.Positions[i]); err != nil {
+	// Positions Array (10 REALs) - offset +16 to +55 (40 bytes)
+	for i := 0; i < 10; i++ {
+		offset := radarBaseOffset + 16 + (i * 4)
+		val := float32(0)
+		if i < len(data.Positions) {
+			val = data.Positions[i]
+		}
+		if err := w.WriteTag(100, offset, "real", val); err != nil {
 			return fmt.Errorf("erro ao escrever Position[%d]: %v", i, err)
 		}
 	}
 
-	// DB300.52-68 - Velocities Array (5 REALs)
-	for i := 0; i < 5; i++ {
-		offset := 52 + (i * 4)
-		if err := w.WriteTag(300, offset, "real", data.Velocities[i]); err != nil {
+	// Velocities Array (10 REALs) - offset +56 to +95 (40 bytes) 
+	for i := 0; i < 10; i++ {
+		offset := radarBaseOffset + 56 + (i * 4)
+		val := float32(0)
+		if i < len(data.Velocities) {
+			val = data.Velocities[i]
+		}
+		if err := w.WriteTag(100, offset, "real", val); err != nil {
 			return fmt.Errorf("erro ao escrever Velocity[%d]: %v", i, err)
 		}
-	}
-
-	// DB300.72 - Data Timestamp High (DINT)
-	if err := w.WriteTag(300, 72, "dint", data.DataTimestampHigh); err != nil {
-		return fmt.Errorf("erro ao escrever DataTimestampHigh: %v", err)
-	}
-
-	// DB300.76 - Data Timestamp Low (DINT)
-	if err := w.WriteTag(300, 76, "dint", data.DataTimestampLow); err != nil {
-		return fmt.Errorf("erro ao escrever DataTimestampLow: %v", err)
 	}
 
 	return nil
@@ -445,28 +382,36 @@ func (w *PLCWriter) BuildPLCRadarData(data models.RadarData) *models.PLCRadarDat
 	return plcData
 }
 
-// BuildPLCSystemStatus converte dados do sistema para PLCSystemStatus
-func (w *PLCWriter) BuildPLCSystemStatus(liveBit bool, radarConnected, plcConnected, natsConnected, wsRunning, collectionActive, systemHealthy, debugActive bool, wsClients int, packetCount, errorCount, uptime int32, cpuUsage, memUsage, diskUsage float32) *models.PLCSystemStatus {
-	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
-	timestampHigh, timestampLow := models.ConvertTimestampToPLC(timestamp)
-
+// BuildPLCSystemStatus converte dados do sistema para PLCSystemStatus simplificado
+func (w *PLCWriter) BuildPLCSystemStatus(liveBit, collectionActive, systemHealthy, emergencyActive bool, radarCaldeiraConnected, radarPortaJusanteConnected, radarPortaMontanteConnected bool) *models.PLCSystemStatus {
 	return &models.PLCSystemStatus{
-		LiveBit:           liveBit,
-		RadarConnected:    radarConnected,
-		PLCConnected:      plcConnected,
-		NATSConnected:     natsConnected,
-		WebSocketRunning:  wsRunning,
-		CollectionActive:  collectionActive,
-		SystemHealthy:     systemHealthy,
-		DebugModeActive:   debugActive,
-		WebSocketClients:  int32(wsClients),
-		RadarPacketsTotal: packetCount,
-		ErrorCount:        errorCount,
-		UptimeSeconds:     uptime,
-		CPUUsage:          cpuUsage,
-		MemoryUsage:       memUsage,
-		DiskUsage:         diskUsage,
-		TimestampHigh:     timestampHigh,
-		TimestampLow:      timestampLow,
+		LiveBit:                     liveBit,
+		CollectionActive:            collectionActive,
+		SystemHealthy:               systemHealthy,
+		EmergencyActive:             emergencyActive,
+		RadarCaldeiraConnected:      radarCaldeiraConnected,
+		RadarPortaJusanteConnected:  radarPortaJusanteConnected,
+		RadarPortaMontanteConnected: radarPortaMontanteConnected,
 	}
+}
+
+
+// WriteMultiRadarDataToDB100 escreve dados dos 3 radares na DB100 - OFFSETS CORRETOS
+func (w *PLCWriter) WriteMultiRadarDataToDB100(multiRadarData *models.PLCMultiRadarData) error {
+	// Caldeira - DB100.6 a DB100.101 (96 bytes)
+	if err := w.WriteRadarDataToDB100(&multiRadarData.RadarCaldeira, 6); err != nil {
+		return fmt.Errorf("erro ao escrever dados Caldeira: %v", err)
+	}
+
+	// Porta Jusante - DB100.102 a DB100.197 (96 bytes)
+	if err := w.WriteRadarDataToDB100(&multiRadarData.RadarPortaJusante, 102); err != nil {
+		return fmt.Errorf("erro ao escrever dados Porta Jusante: %v", err)
+	}
+
+	// Porta Montante - DB100.198 a DB100.293 (96 bytes)
+	if err := w.WriteRadarDataToDB100(&multiRadarData.RadarPortaMontante, 198); err != nil {
+		return fmt.Errorf("erro ao escrever dados Porta Montante: %v", err)
+	}
+
+	return nil
 }

@@ -85,11 +85,11 @@ func (r *PLCReader) ReadTag(dbNumber int, byteOffset int, dataType string, bitOf
 	return nil, fmt.Errorf("tipo de dado não implementado: %s", dataType)
 }
 
-// ReadCommands lê comandos do DB100
+// ReadCommands lê comandos da DB100 - OFFSETS CORRETOS  
 func (r *PLCReader) ReadCommands() (*models.PLCCommands, error) {
 	commands := &models.PLCCommands{}
 
-	// Ler cada bit do byte 0 do DB100
+	// BYTE 0 - Comandos básicos
 	startCollection, err := r.ReadTag(100, 0, "bool", 0)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao ler StartCollection: %v", err)
@@ -102,154 +102,104 @@ func (r *PLCReader) ReadCommands() (*models.PLCCommands, error) {
 	}
 	commands.StopCollection = stopCollection.(bool)
 
-	restartSystem, err := r.ReadTag(100, 0, "bool", 2)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler RestartSystem: %v", err)
-	}
-	commands.RestartSystem = restartSystem.(bool)
-
-	restartNATS, err := r.ReadTag(100, 0, "bool", 3)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler RestartNATS: %v", err)
-	}
-	commands.RestartNATS = restartNATS.(bool)
-
-	restartWebSocket, err := r.ReadTag(100, 0, "bool", 4)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler RestartWebSocket: %v", err)
-	}
-	commands.RestartWebSocket = restartWebSocket.(bool)
-
-	resetErrors, err := r.ReadTag(100, 0, "bool", 5)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler ResetErrors: %v", err)
-	}
-	commands.ResetErrors = resetErrors.(bool)
-
-	enableDebugMode, err := r.ReadTag(100, 0, "bool", 6)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler EnableDebugMode: %v", err)
-	}
-	commands.EnableDebugMode = enableDebugMode.(bool)
-
-	emergency, err := r.ReadTag(100, 0, "bool", 7)
+	emergency, err := r.ReadTag(100, 0, "bool", 2)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao ler Emergency: %v", err)
 	}
 	commands.Emergency = emergency.(bool)
 
+	resetErrors, err := r.ReadTag(100, 0, "bool", 3)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao ler ResetErrors: %v", err)
+	}
+	commands.ResetErrors = resetErrors.(bool)
+
+	enableRadarCaldeira, err := r.ReadTag(100, 0, "bool", 4)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao ler EnableRadarCaldeira: %v", err)
+	}
+	commands.EnableRadarCaldeira = enableRadarCaldeira.(bool)
+
+	enableRadarPortaJusante, err := r.ReadTag(100, 0, "bool", 5)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao ler EnableRadarPortaJusante: %v", err)
+	}
+	commands.EnableRadarPortaJusante = enableRadarPortaJusante.(bool)
+
+	enableRadarPortaMontante, err := r.ReadTag(100, 0, "bool", 6)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao ler EnableRadarPortaMontante: %v", err)
+	}
+	commands.EnableRadarPortaMontante = enableRadarPortaMontante.(bool)
+
+	restartRadarCaldeira, err := r.ReadTag(100, 0, "bool", 7)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao ler RestartRadarCaldeira: %v", err)
+	}
+	commands.RestartRadarCaldeira = restartRadarCaldeira.(bool)
+
+	// BYTE 1 - Restarts restantes
+	restartRadarPortaJusante, err := r.ReadTag(100, 1, "bool", 0)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao ler RestartRadarPortaJusante: %v", err)
+	}
+	commands.RestartRadarPortaJusante = restartRadarPortaJusante.(bool)
+
+	restartRadarPortaMontante, err := r.ReadTag(100, 1, "bool", 1)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao ler RestartRadarPortaMontante: %v", err)
+	}
+	commands.RestartRadarPortaMontante = restartRadarPortaMontante.(bool)
+
 	return commands, nil
 }
 
-// ReadSystemStatus lê status do sistema (usado para verificação se necessário)
+// ReadSystemStatus lê status simplificado da DB100
 func (r *PLCReader) ReadSystemStatus() (*models.PLCSystemStatus, error) {
 	status := &models.PLCSystemStatus{}
 
-	// Ler byte de status (DB200.0)
-	liveBit, err := r.ReadTag(200, 0, "bool", 0)
+	// Ler status da DB100.4 (apenas campos essenciais)
+	liveBit, err := r.ReadTag(100, 4, "bool", 0)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao ler LiveBit: %v", err)
 	}
 	status.LiveBit = liveBit.(bool)
 
-	radarConnected, err := r.ReadTag(200, 0, "bool", 1)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler RadarConnected: %v", err)
-	}
-	status.RadarConnected = radarConnected.(bool)
-
-	plcConnected, err := r.ReadTag(200, 0, "bool", 2)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler PLCConnected: %v", err)
-	}
-	status.PLCConnected = plcConnected.(bool)
-
-	natsConnected, err := r.ReadTag(200, 0, "bool", 3)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler NATSConnected: %v", err)
-	}
-	status.NATSConnected = natsConnected.(bool)
-
-	webSocketRunning, err := r.ReadTag(200, 0, "bool", 4)
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler WebSocketRunning: %v", err)
-	}
-	status.WebSocketRunning = webSocketRunning.(bool)
-
-	collectionActive, err := r.ReadTag(200, 0, "bool", 5)
+	collectionActive, err := r.ReadTag(100, 4, "bool", 1)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao ler CollectionActive: %v", err)
 	}
 	status.CollectionActive = collectionActive.(bool)
 
-	systemHealthy, err := r.ReadTag(200, 0, "bool", 6)
+	systemHealthy, err := r.ReadTag(100, 4, "bool", 2)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao ler SystemHealthy: %v", err)
 	}
 	status.SystemHealthy = systemHealthy.(bool)
 
-	debugModeActive, err := r.ReadTag(200, 0, "bool", 7)
+	emergencyActive, err := r.ReadTag(100, 4, "bool", 3)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao ler DebugModeActive: %v", err)
+		return nil, fmt.Errorf("erro ao ler EmergencyActive: %v", err)
 	}
-	status.DebugModeActive = debugModeActive.(bool)
+	status.EmergencyActive = emergencyActive.(bool)
 
-	// Ler contadores
-	webSocketClients, err := r.ReadTag(200, 2, "dint")
+	radarCaldeiraConnected, err := r.ReadTag(100, 4, "bool", 4)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao ler WebSocketClients: %v", err)
+		return nil, fmt.Errorf("erro ao ler RadarCaldeiraConnected: %v", err)
 	}
-	status.WebSocketClients = webSocketClients.(int32)
+	status.RadarCaldeiraConnected = radarCaldeiraConnected.(bool)
 
-	radarPacketsTotal, err := r.ReadTag(200, 6, "dint")
+	radarPortaJusanteConnected, err := r.ReadTag(100, 4, "bool", 5)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao ler RadarPacketsTotal: %v", err)
+		return nil, fmt.Errorf("erro ao ler RadarPortaJusanteConnected: %v", err)
 	}
-	status.RadarPacketsTotal = radarPacketsTotal.(int32)
+	status.RadarPortaJusanteConnected = radarPortaJusanteConnected.(bool)
 
-	errorCount, err := r.ReadTag(200, 10, "dint")
+	radarPortaMontanteConnected, err := r.ReadTag(100, 4, "bool", 6)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao ler ErrorCount: %v", err)
+		return nil, fmt.Errorf("erro ao ler RadarPortaMontanteConnected: %v", err)
 	}
-	status.ErrorCount = errorCount.(int32)
-
-	uptimeSeconds, err := r.ReadTag(200, 14, "dint")
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler UptimeSeconds: %v", err)
-	}
-	status.UptimeSeconds = uptimeSeconds.(int32)
-
-	// Ler dados do servidor
-	cpuUsage, err := r.ReadTag(200, 18, "real")
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler CPUUsage: %v", err)
-	}
-	status.CPUUsage = cpuUsage.(float32)
-
-	memoryUsage, err := r.ReadTag(200, 22, "real")
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler MemoryUsage: %v", err)
-	}
-	status.MemoryUsage = memoryUsage.(float32)
-
-	diskUsage, err := r.ReadTag(200, 26, "real")
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler DiskUsage: %v", err)
-	}
-	status.DiskUsage = diskUsage.(float32)
-
-	// Ler timestamp
-	timestampHigh, err := r.ReadTag(200, 30, "dint")
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler TimestampHigh: %v", err)
-	}
-	status.TimestampHigh = timestampHigh.(int32)
-
-	timestampLow, err := r.ReadTag(200, 34, "dint")
-	if err != nil {
-		return nil, fmt.Errorf("erro ao ler TimestampLow: %v", err)
-	}
-	status.TimestampLow = timestampLow.(int32)
+	status.RadarPortaMontanteConnected = radarPortaMontanteConnected.(bool)
 
 	return status, nil
 }
