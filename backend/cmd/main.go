@@ -60,21 +60,7 @@ func main() {
 	// Iniciar servidor HTTP/WebSocket em uma goroutine
 	go wsManager.ServeHTTP(webDir)
 
-
-	// ========== CONEXÃO INICIAL DOS RADARES ==========
-	fmt.Println("Conectando aos radares com retry automático...")
-	connectionErrors := radarManager.ConnectAll()
-	if len(connectionErrors) > 0 {
-		fmt.Printf("❌ Alguns radares falharam na conexão inicial:\n")
-		for id, err := range connectionErrors {
-			config, _ := radarManager.GetRadarConfig(id)
-			fmt.Printf("   - %s: %v\n", config.Name, err)
-		}
-		fmt.Println("Sistema continuará tentando reconectar automaticamente...")
-	}
-	// ==================================================
-
-	// ========== INICIALIZAR CONTROLADOR PLC REAL ==========
+	// ========== INICIALIZAR CONTROLADOR PLC REAL PRIMEIRO ==========
 	fmt.Println("Conectando ao PLC Siemens 192.168.1.33...")
 	plcSiemens := plc.NewSiemensPLC("192.168.1.33")
 	
@@ -92,38 +78,106 @@ func main() {
 		go plcController.Start()
 		
 		fmt.Println("✅ Controlador PLC REAL iniciado - Sistema controlado via DB100")
+		
+		// Aguardar um pouco para o PLC inicializar
+		time.Sleep(2 * time.Second)
+	}
+
+	// ========== CONEXÃO INTELIGENTE DOS RADARES ==========
+	fmt.Println("Verificando enables do PLC antes de conectar radares...")
+	
+	var enabledRadars map[string]bool
+	if plcController != nil {
+		// Obter enables do PLC ANTES de tentar conectar
+		enabledRadars = plcController.GetRadarsEnabled()
+		fmt.Printf("📋 Status PLC: Caldeira=%t, Porta Jusante=%t, Porta Montante=%t\n", 
+			enabledRadars["caldeira"], enabledRadars["porta_jusante"], enabledRadars["porta_montante"])
+	} else {
+		// Se PLC não conectado, considerar todos habilitados
+		enabledRadars = map[string]bool{
+			"caldeira": true,
+			"porta_jusante": true, 
+			"porta_montante": true,
+		}
+		fmt.Println("⚠️ PLC desconectado - tentando conectar todos os radares")
+	}
+
+	// Conectar APENAS radares habilitados
+	connectionErrors := make(map[string]error)
+	for id, enabled := range enabledRadars {
+		if enabled {
+			config, _ := radarManager.GetRadarConfig(id)
+			radar, _ := radarManager.GetRadar(id)
+			fmt.Printf("🔄 Conectando radar HABILITADO: %s...\n", config.Name)
+			
+			err := radarManager.ConnectRadarWithRetry(radar, 3)
+			if err != nil {
+				connectionErrors[id] = err
+				fmt.Printf("❌ Falha ao conectar radar %s: %v\n", config.Name, err)
+			} else {
+				fmt.Printf("✅ Radar %s conectado com sucesso\n", config.Name)
+			}
+		} else {
+			config, _ := radarManager.GetRadarConfig(id)
+			fmt.Printf("⚫ Radar %s DESABILITADO - não conectando\n", config.Name)
+		}
+	}
+	
+	if len(connectionErrors) > 0 {
+		fmt.Printf("❌ Alguns radares habilitados falharam na conexão:\n")
+		for id, err := range connectionErrors {
+			config, _ := radarManager.GetRadarConfig(id)
+			fmt.Printf("   - %s: %v\n", config.Name, err)
+		}
 	}
 	// ================================================
 
 	// Limpar conexões WebSocket anteriores
 	wsManager.LimparConexoesAnteriores()
 
-	fmt.Println("\n🚀 Sistema iniciado com AUTO-RECOVERY para 3 radares")
-	fmt.Println("📡 Monitoramento contínuo ativo")
-	fmt.Println("🔄 Reconexão automática habilitada")
+	fmt.Println("\n🚀 Sistema iniciado com CONTROLE INTELIGENTE")
+	fmt.Println("📡 Monitoramento baseado em enables do PLC")
+	fmt.Println("⚡ Economia de recursos - só conecta radares habilitados")
 	if plcController != nil {
-		fmt.Println("🎛️ PLC REAL conectado - dados sendo escritos na DB100")
+		fmt.Println("🎛️ PLC REAL conectado - controle via DB100")
 	} else {
-		fmt.Println("⚠️  PLC desconectado")
+		fmt.Println("⚠️  PLC desconectado - modo manual")
 	}
 	fmt.Println("\nPressione Ctrl+C para parar.")
 
-	// Iniciar monitor de reconexão automática
-	radarManager.StartReconnectionMonitor()
-
-	// ========== LOOP PRINCIPAL COM AUTO-RECOVERY ==========
+	// ========== LOOP PRINCIPAL COM CONTROLE INTELIGENTE ==========
+	lastReconnectCheck := time.Now()
+	
 	for {
 		// Verificar comandos do PLC
 		collectionActive := true
+		var enabledRadars map[string]bool
+		
 		if plcController != nil {
 			// Verificar se coleta está ativa
 			collectionActive = plcController.IsCollectionActive()
+			
+			// Obter status de habilitação dos radares do PLC
+			enabledRadars = plcController.GetRadarsEnabled()
 
 			// Verificar parada de emergência
 			if plcController.IsEmergencyStop() {
 				fmt.Println("🚨 PARADA DE EMERGÊNCIA ATIVADA VIA PLC")
 				time.Sleep(2 * time.Second)
 				continue
+			}
+			
+			// Aplicar controle inteligente apenas a cada 5 segundos para não bloquear
+			if time.Since(lastReconnectCheck) >= 5*time.Second {
+				radarManager.CheckAndReconnectEnabled(enabledRadars)
+				lastReconnectCheck = time.Now()
+			}
+		} else {
+			// Se PLC não conectado, considerar todos habilitados
+			enabledRadars = map[string]bool{
+				"caldeira": true,
+				"porta_jusante": true, 
+				"porta_montante": true,
 			}
 		}
 
@@ -133,27 +187,36 @@ func main() {
 			continue
 		}
 
-		// ========== COLETAR DADOS DE TODOS OS RADARES ==========
-		multiRadarData := radarManager.CollectAllData()
+		// ========== COLETAR DADOS APENAS DOS RADARES HABILITADOS ==========
+		multiRadarData := radarManager.CollectEnabledRadarsData(enabledRadars)
 		
-		// Exibir status de conexão dos radares
+		// Exibir status inteligente dos radares
 		connectionStatus := radarManager.GetConnectionStatus()
 		connectedCount := 0
+		enabledCount := 0
+		
 		for id, connected := range connectionStatus {
 			config, _ := radarManager.GetRadarConfig(id)
-			if connected {
+			isEnabled := enabledRadars[id]
+			
+			if isEnabled {
+				enabledCount++
+			}
+			if connected && isEnabled {
 				connectedCount++
 			}
+			
 			status := "🔴 DESCONECTADO"
-			if connected {
+			if !isEnabled {
+				status = "⚫ DESABILITADO"
+			} else if connected {
 				status = "🟢 CONECTADO"
 			}
 			fmt.Printf("📡 %s: %s\n", config.Name, status)
 		}
 		
-		fmt.Printf("📊 Radares conectados: %d/3 | WebSocket clientes: %d\n",
-			connectedCount,
-			wsManager.GetConnectedCount(),
+		fmt.Printf("📊 Radares: %d/%d habilitados, %d conectados | WebSocket: %d clientes\n",
+			enabledCount, 3, connectedCount, wsManager.GetConnectedCount(),
 		)
 
 		// Enviar dados via WebSocket (SEMPRE funciona)

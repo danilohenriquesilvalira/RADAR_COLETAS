@@ -109,6 +109,11 @@ func (rm *RadarManager) ConnectAll() map[string]error {
 	return errors
 }
 
+// ConnectRadarWithRetry tenta conectar um radar com retry (método público)
+func (rm *RadarManager) ConnectRadarWithRetry(radar *SICKRadar, maxRetries int) error {
+	return rm.connectRadarWithRetry(radar, maxRetries)
+}
+
 // connectRadarWithRetry tenta conectar um radar com retry
 func (rm *RadarManager) connectRadarWithRetry(radar *SICKRadar, maxRetries int) error {
 	for attempt := 1; attempt <= maxRetries; attempt++ {
@@ -161,7 +166,61 @@ func (rm *RadarManager) GetConnectionStatus() map[string]bool {
 	return status
 }
 
-// CollectAllData coleta dados de todos os radares conectados
+// CollectEnabledRadarsData coleta dados apenas de radares habilitados
+func (rm *RadarManager) CollectEnabledRadarsData(enabledRadars map[string]bool) models.MultiRadarData {
+	rm.mutex.RLock()
+	radars := make(map[string]*SICKRadar)
+	configs := make(map[string]RadarConfig)
+	for id, radar := range rm.radars {
+		radars[id] = radar
+		configs[id] = rm.configs[id]
+	}
+	rm.mutex.RUnlock()
+
+	var radarDataList []models.RadarData
+	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
+	
+	for id, radar := range radars {
+		config := configs[id]
+		isEnabled := enabledRadars[id]
+		
+		radarData := models.RadarData{
+			RadarID:   id,
+			RadarName: config.Name,
+			Connected: radar.IsConnected() && isEnabled,
+			Timestamp: timestamp,
+		}
+		
+		// Só coletar dados se estiver habilitado E conectado
+		if isEnabled && radar.IsConnected() {
+			data, err := radar.ReadData()
+			if err == nil && data != nil && len(data) > 0 {
+				positions, velocities, azimuths, amplitudes, objPrincipal := radar.ProcessData(data)
+				radarData.Positions = positions
+				radarData.Velocities = velocities
+				radarData.Azimuths = azimuths
+				radarData.Amplitudes = amplitudes
+				radarData.MainObject = objPrincipal
+			}
+		} else if !isEnabled {
+			// Se desabilitado, retornar dados vazios
+			radarData.Positions = []float64{}
+			radarData.Velocities = []float64{}
+			radarData.Azimuths = []float64{}
+			radarData.Amplitudes = []float64{}
+			radarData.MainObject = nil
+		}
+		
+		radarDataList = append(radarDataList, radarData)
+	}
+	
+	return models.MultiRadarData{
+		Radars:    radarDataList,
+		Timestamp: timestamp,
+	}
+}
+
+// CollectAllData coleta dados de todos os radares conectados (método legado)
 func (rm *RadarManager) CollectAllData() models.MultiRadarData {
 	rm.mutex.RLock()
 	radars := make(map[string]*SICKRadar)
@@ -215,7 +274,48 @@ func (rm *RadarManager) StartReconnectionMonitor() {
 	}()
 }
 
-// checkAndReconnect verifica e reconecta radares desconectados
+// CheckAndReconnectEnabled verifica e reconecta apenas radares habilitados (CONCORRENTE)
+func (rm *RadarManager) CheckAndReconnectEnabled(enabledRadars map[string]bool) {
+	rm.mutex.RLock()
+	radars := make(map[string]*SICKRadar)
+	configs := make(map[string]RadarConfig)
+	for id, radar := range rm.radars {
+		radars[id] = radar
+		configs[id] = rm.configs[id]
+	}
+	rm.mutex.RUnlock()
+
+	for id, radar := range radars {
+		config := configs[id]
+		isEnabled := enabledRadars[id]
+		
+		if isEnabled {
+			// Se habilitado mas desconectado, tentar reconectar EM GOROUTINE
+			if !radar.IsConnected() {
+				fmt.Printf("🔄 Radar %s HABILITADO - iniciando reconexão assíncrona...\n", config.Name)
+				
+				// Reconexão em background para não bloquear outros radares
+				go func(r *SICKRadar, cfg RadarConfig) {
+					err := rm.connectRadarWithRetry(r, 2)
+					if err != nil {
+						fmt.Printf("❌ Falha na reconexão do radar %s: %v\n", cfg.Name, err)
+					} else {
+						fmt.Printf("✅ Radar %s reconectado com sucesso\n", cfg.Name)
+					}
+				}(radar, config)
+			}
+		} else {
+			// Se desabilitado mas conectado, desconectar IMEDIATAMENTE
+			if radar.IsConnected() {
+				fmt.Printf("⚠️ Radar %s DESABILITADO - desconectando...\n", config.Name)
+				radar.Disconnect()
+				fmt.Printf("✅ Radar %s desconectado (economia de recursos)\n", config.Name)
+			}
+		}
+	}
+}
+
+// checkAndReconnect verifica e reconecta radares desconectados (método legado)
 func (rm *RadarManager) checkAndReconnect() {
 	rm.mutex.RLock()
 	radars := make(map[string]*SICKRadar)

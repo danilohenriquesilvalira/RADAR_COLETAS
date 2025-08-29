@@ -221,30 +221,37 @@ func (pc *PLCController) commandReadLoop() {
 
 // processCommands processa comandos recebidos do PLC (MULTI-RADAR)
 func (pc *PLCController) processCommands(commands *models.PLCCommands) {
-	// Verificar se algum comando foi ativado
-	commandsProcessed := false
-
 	// ========== COMANDOS GLOBAIS ==========
 	if commands.StartCollection && !pc.IsCollectionActive() {
 		pc.commandChan <- models.CmdStartCollection
-		commandsProcessed = true
+		// Resetar apenas este comando específico
+		if err := pc.writer.ResetCommand(0, 0); err != nil {
+			log.Printf("Erro ao resetar StartCollection: %v", err)
+		}
 	}
 
 	if commands.StopCollection && pc.IsCollectionActive() {
 		pc.commandChan <- models.CmdStopCollection
-		commandsProcessed = true
+		// Resetar apenas este comando específico
+		if err := pc.writer.ResetCommand(0, 1); err != nil {
+			log.Printf("Erro ao resetar StopCollection: %v", err)
+		}
 	}
-
 
 	if commands.ResetErrors {
 		pc.commandChan <- models.CmdResetErrors
-		commandsProcessed = true
+		// Resetar apenas este comando específico
+		if err := pc.writer.ResetCommand(0, 3); err != nil {
+			log.Printf("Erro ao resetar ResetErrors: %v", err)
+		}
 	}
-
 
 	if commands.Emergency {
 		pc.commandChan <- models.CmdEmergencyStop
-		commandsProcessed = true
+		// Resetar apenas este comando específico
+		if err := pc.writer.ResetCommand(0, 2); err != nil {
+			log.Printf("Erro ao resetar Emergency: %v", err)
+		}
 	}
 
 	// ========== COMANDOS INDIVIDUAIS DOS RADARES ==========
@@ -255,7 +262,7 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 		} else {
 			pc.commandChan <- models.CmdDisableRadarCaldeira
 		}
-		commandsProcessed = true
+		// NÃO resetar o enable - deve persistir o estado
 	}
 
 	// Radar Porta Jusante
@@ -265,7 +272,7 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 		} else {
 			pc.commandChan <- models.CmdDisableRadarPortaJusante
 		}
-		commandsProcessed = true
+		// NÃO resetar o enable - deve persistir o estado
 	}
 
 	// Radar Porta Montante
@@ -275,31 +282,31 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 		} else {
 			pc.commandChan <- models.CmdDisableRadarPortaMontante
 		}
-		commandsProcessed = true
+		// NÃO resetar o enable - deve persistir o estado
 	}
 
 	// ========== COMANDOS ESPECÍFICOS POR RADAR ==========
 	if commands.RestartRadarCaldeira {
 		pc.commandChan <- models.CmdRestartRadarCaldeira
-		commandsProcessed = true
+		// Resetar apenas este comando específico
+		if err := pc.writer.ResetCommand(0, 7); err != nil {
+			log.Printf("Erro ao resetar RestartRadarCaldeira: %v", err)
+		}
 	}
 
 	if commands.RestartRadarPortaJusante {
 		pc.commandChan <- models.CmdRestartRadarPortaJusante
-		commandsProcessed = true
+		// Resetar apenas este comando específico
+		if err := pc.writer.ResetCommand(1, 0); err != nil {
+			log.Printf("Erro ao resetar RestartRadarPortaJusante: %v", err)
+		}
 	}
 
 	if commands.RestartRadarPortaMontante {
 		pc.commandChan <- models.CmdRestartRadarPortaMontante
-		commandsProcessed = true
-	}
-
-
-	// Se algum comando foi processado, resetar comandos no PLC
-	if commandsProcessed {
-		err := pc.writer.ResetCommands()
-		if err != nil {
-			log.Printf("PLC Controller: Erro ao resetar comandos: %v", err)
+		// Resetar apenas este comando específico
+		if err := pc.writer.ResetCommand(1, 1); err != nil {
+			log.Printf("Erro ao resetar RestartRadarPortaMontante: %v", err)
 		}
 	}
 }

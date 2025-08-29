@@ -8,9 +8,7 @@ import LoadingScreen from './components/LoadingScreen';
 
 // Função para obter o URL do WebSocket baseado na localização atual
 const getWebSocketUrl = () => {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const host = window.location.hostname;
-  return `${protocol}//${host}:8080/ws`;
+  return 'ws://localhost:8080/ws';
 };
 
 // URL padrão para o WebSocket
@@ -41,9 +39,11 @@ function App() {
     connect
   } = useWebSocket(url, {
     autoReconnect: true,
-    maxReconnectAttempts: 5,
-    reconnectInterval: 3000,
+    maxReconnectAttempts: 10,
+    reconnectInterval: 2000,
+    autoConnect: true,
     onMessage: (data) => {
+      console.log('Dados recebidos no App:', data);
       // Se recebemos dados de múltiplos radares, atualizar o estado
       if ('radars' in data) {
         setMultiRadarData(data as MultiRadarData);
@@ -56,6 +56,12 @@ function App() {
         };
         setMultiRadarData(multiData);
       }
+    },
+    onOpen: () => {
+      console.log('WebSocket conectado com sucesso!');
+    },
+    onError: (error) => {
+      console.error('Erro WebSocket:', error);
     }
   });
   
@@ -71,10 +77,8 @@ function App() {
   // Função quando loading screen termina
   const handleLoadingComplete = () => {
     setJustLoggedIn(false);
-    // Conectar ao WebSocket após loading
-    setTimeout(() => {
-      connect();
-    }, 500);
+    // Conectar ao WebSocket imediatamente
+    connect();
   };
   
   // Reset estado quando faz logout

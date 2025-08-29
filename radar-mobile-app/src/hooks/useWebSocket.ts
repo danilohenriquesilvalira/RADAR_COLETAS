@@ -31,9 +31,11 @@ export const useWebSocket = (initialUrl: string, options?: UseWebSocketOptions) 
   const isManualDisconnectRef = useRef(false);
   
   // Configurações padrão
+  const autoConnect = options?.autoConnect ?? false;
   const autoReconnect = options?.autoReconnect ?? true;
   const maxReconnectAttempts = options?.maxReconnectAttempts ?? 10; // Máximo 10 tentativas
   const reconnectInterval = options?.reconnectInterval ?? 3000; // 3 segundos
+  
   
   // Formatar hora da última atualização
   const updateLastUpdated = useCallback(() => {
@@ -186,10 +188,17 @@ export const useWebSocket = (initialUrl: string, options?: UseWebSocketOptions) 
     // Limpar timeouts anteriores
     clearTimeouts();
     
-    // Se já está conectado, não fazer nada
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.log('Já conectado ao WebSocket');
+    // Se já está conectado ou tentando conectar, não fazer nada
+    if (wsRef.current?.readyState === WebSocket.OPEN || 
+        wsRef.current?.readyState === WebSocket.CONNECTING) {
+      console.log('Já conectado/conectando ao WebSocket');
       return;
+    }
+    
+    // Fechar conexão existente se estiver em estado inválido
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
     }
     
     // Marcar como não sendo desconexão manual
@@ -264,6 +273,13 @@ export const useWebSocket = (initialUrl: string, options?: UseWebSocketOptions) 
       scheduleReconnect();
     }
   }, [url, options, processData, setupHeartbeat, clearTimeouts, scheduleReconnect]);
+  
+  // Efeito para auto-connect sem dependência circular
+  useEffect(() => {
+    if (autoConnect && wsRef.current?.readyState !== WebSocket.OPEN) {
+      connect();
+    }
+  }, [autoConnect]);
   
   // Função de desconexão
   const disconnect = useCallback(() => {

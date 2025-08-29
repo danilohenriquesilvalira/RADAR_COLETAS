@@ -215,14 +215,12 @@ func (w *PLCWriter) WriteTag(dbNumber int, byteOffset int, dataType string, valu
 	return w.client.AGWriteDB(dbNumber, byteOffset, len(buf), buf)
 }
 
-// ResetCommands reseta todos os comandos na DB100
-func (w *PLCWriter) ResetCommands() error {
-	// Resetar byte 0 e byte 1 dos comandos
-	if err := w.WriteTag(100, 0, "byte", uint8(0)); err != nil {
-		return fmt.Errorf("erro ao resetar byte 0: %v", err)
-	}
-	return w.WriteTag(100, 1, "byte", uint8(0))
+// ResetCommand reseta um comando específico na DB100
+func (w *PLCWriter) ResetCommand(byteOffset int, bitOffset int) error {
+	return w.WriteTag(100, byteOffset, "bool", false, bitOffset)
 }
+
+// ResetCommands - REMOVIDO - não usar mais esta função
 
 // WriteSystemStatus escreve status do sistema na DB100 simplificada
 func (w *PLCWriter) WriteSystemStatus(status *models.PLCSystemStatus) error {

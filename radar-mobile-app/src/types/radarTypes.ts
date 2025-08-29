@@ -1,5 +1,5 @@
 // Tipos para os dados do radar
-export interface ObjPrincipal {
+export interface MainObject {
   amplitude: number;
   distancia?: number;
   velocidade?: number;
@@ -20,8 +20,8 @@ export interface RadarData {
   velocities: number[];
   azimuths: number[];
   amplitudes: number[];
-  mainObject?: ObjPrincipal;
-  plcStatus?: PLCStatus; // Status do PLC adicionado aqui
+  mainObject?: MainObject;
+  plcStatus?: PLCStatus;
   timestamp: number;
 }
 
