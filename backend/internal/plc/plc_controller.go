@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
@@ -33,6 +34,11 @@ type PLCController struct {
 	radarCaldeiraEnabled      bool
 	radarPortaJusanteEnabled  bool
 	radarPortaMontanteEnabled bool
+
+	// Controle do reboot via ResetErrors
+	resetErrorsStartTime time.Time
+	resetErrorsActive    bool
+	rebootExecuted       bool
 
 	// Estatísticas
 	startTime   time.Time
@@ -80,6 +86,10 @@ func NewPLCController(plcClient PLCClient) *PLCController {
 		radarCaldeiraEnabled:      true,
 		radarPortaJusanteEnabled:  true,
 		radarPortaMontanteEnabled: true,
+
+		// Controle reboot
+		resetErrorsActive: false,
+		rebootExecuted:    false,
 
 		startTime:   time.Now(),
 		packetCount: 0,
@@ -212,18 +222,55 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 		}
 	}
 
-	if commands.ResetErrors {
-		pc.commandChan <- models.CmdResetErrors
-		if err := pc.writer.ResetCommand(0, 3); err != nil {
-			log.Printf("Erro ao resetar ResetErrors: %v", err)
-		}
-	}
-
 	if commands.Emergency {
 		pc.commandChan <- models.CmdEmergencyStop
 		if err := pc.writer.ResetCommand(0, 2); err != nil {
 			log.Printf("Erro ao resetar Emergency: %v", err)
 		}
+	}
+
+	// ========== LÓGICA MODIFICADA PARA ResetErrors + REBOOT ==========
+	if commands.ResetErrors {
+		pc.mutex.Lock()
+
+		if !pc.resetErrorsActive {
+			// Primeira detecção do bit ativo
+			pc.resetErrorsActive = true
+			pc.resetErrorsStartTime = time.Now()
+			pc.rebootExecuted = false
+			fmt.Println("PLC Controller: ResetErrors ativo - contando 10s para reboot servidor")
+		} else {
+			// Verificar se passou 10 segundos
+			elapsed := time.Since(pc.resetErrorsStartTime)
+			if elapsed >= 10*time.Second && !pc.rebootExecuted {
+				pc.rebootExecuted = true
+				fmt.Println("PLC Controller: EXECUTANDO REBOOT DO SERVIDOR - ResetErrors ativo por 10s")
+				go pc.executeSecureReboot()
+			} else if !pc.rebootExecuted {
+				fmt.Printf("PLC Controller: ResetErrors ativo por %.1fs (10s para reboot)\n", elapsed.Seconds())
+			}
+		}
+
+		pc.mutex.Unlock()
+	} else {
+		// Bit foi desativado
+		pc.mutex.Lock()
+		if pc.resetErrorsActive && !pc.rebootExecuted {
+			// Reset normal de erros - bit foi desativado antes de 10s
+			pc.errorCount = 0
+			pc.radarCaldeiraErrors = 0
+			pc.radarPortaJusanteErrors = 0
+			pc.radarPortaMontanteErrors = 0
+			fmt.Println("PLC Controller: Erros RESETADOS - ResetErrors desativado antes de 10s")
+
+			if err := pc.writer.ResetCommand(0, 3); err != nil {
+				log.Printf("Erro ao resetar ResetErrors: %v", err)
+			}
+		}
+
+		pc.resetErrorsActive = false
+		pc.rebootExecuted = false
+		pc.mutex.Unlock()
 	}
 
 	// ========== COMANDOS INDIVIDUAIS DOS RADARES ==========
@@ -293,85 +340,105 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 	case models.CmdStartCollection:
 		pc.collectionActive = true
 		pc.emergencyStop = false
-		fmt.Println("PLC Controller: ✅ Coleta INICIADA via comando PLC")
+		fmt.Println("PLC Controller: Coleta INICIADA via comando PLC")
 
 	case models.CmdStopCollection:
 		pc.collectionActive = false
-		fmt.Println("PLC Controller: ⏹️ Coleta PARADA via comando PLC")
+		fmt.Println("PLC Controller: Coleta PARADA via comando PLC")
 
 	case models.CmdRestartSystem:
-		fmt.Println("PLC Controller: 🔄 Reinício do sistema solicitado via PLC")
+		fmt.Println("PLC Controller: Reinício do sistema solicitado via PLC")
 
 	case models.CmdRestartNATS:
-		fmt.Println("PLC Controller: 🔄 Reinício do NATS solicitado via PLC")
+		fmt.Println("PLC Controller: Reinício do NATS solicitado via PLC")
 
 	case models.CmdRestartWebSocket:
-		fmt.Println("PLC Controller: 🔄 Reinício do WebSocket solicitado via PLC")
+		fmt.Println("PLC Controller: Reinício do WebSocket solicitado via PLC")
 
 	case models.CmdResetErrors:
 		pc.errorCount = 0
 		pc.radarCaldeiraErrors = 0
 		pc.radarPortaJusanteErrors = 0
 		pc.radarPortaMontanteErrors = 0
-		fmt.Println("PLC Controller: 🧹 Erros RESETADOS (todos os radares) via comando PLC")
+		fmt.Println("PLC Controller: Erros RESETADOS (todos os radares) via comando PLC")
 
 	case models.CmdEnableDebug:
 		pc.debugMode = true
-		fmt.Println("PLC Controller: 🐛 Modo DEBUG ATIVADO via comando PLC")
+		fmt.Println("PLC Controller: Modo DEBUG ATIVADO via comando PLC")
 
 	case models.CmdDisableDebug:
 		pc.debugMode = false
-		fmt.Println("PLC Controller: 🐛 Modo DEBUG DESATIVADO via comando PLC")
+		fmt.Println("PLC Controller: Modo DEBUG DESATIVADO via comando PLC")
 
 	case models.CmdEmergencyStop:
 		pc.emergencyStop = true
 		pc.collectionActive = false
-		fmt.Println("PLC Controller: 🚨 PARADA DE EMERGÊNCIA ativada via PLC")
+		fmt.Println("PLC Controller: PARADA DE EMERGÊNCIA ativada via PLC")
 
 	case models.CmdEnableRadarCaldeira:
 		pc.radarCaldeiraEnabled = true
-		fmt.Println("PLC Controller: 🎯 Radar CALDEIRA HABILITADO via comando PLC")
+		fmt.Println("PLC Controller: Radar CALDEIRA HABILITADO via comando PLC")
 
 	case models.CmdDisableRadarCaldeira:
 		pc.radarCaldeiraEnabled = false
-		fmt.Println("PLC Controller: ⭕ Radar CALDEIRA DESABILITADO via comando PLC")
+		fmt.Println("PLC Controller: Radar CALDEIRA DESABILITADO via comando PLC")
 
 	case models.CmdEnableRadarPortaJusante:
 		pc.radarPortaJusanteEnabled = true
-		fmt.Println("PLC Controller: 🎯 Radar PORTA JUSANTE HABILITADO via comando PLC")
+		fmt.Println("PLC Controller: Radar PORTA JUSANTE HABILITADO via comando PLC")
 
 	case models.CmdDisableRadarPortaJusante:
 		pc.radarPortaJusanteEnabled = false
-		fmt.Println("PLC Controller: ⭕ Radar PORTA JUSANTE DESABILITADO via comando PLC")
+		fmt.Println("PLC Controller: Radar PORTA JUSANTE DESABILITADO via comando PLC")
 
 	case models.CmdEnableRadarPortaMontante:
 		pc.radarPortaMontanteEnabled = true
-		fmt.Println("PLC Controller: 🎯 Radar PORTA MONTANTE HABILITADO via comando PLC")
+		fmt.Println("PLC Controller: Radar PORTA MONTANTE HABILITADO via comando PLC")
 
 	case models.CmdDisableRadarPortaMontante:
 		pc.radarPortaMontanteEnabled = false
-		fmt.Println("PLC Controller: ⭕ Radar PORTA MONTANTE DESABILITADO via comando PLC")
+		fmt.Println("PLC Controller: Radar PORTA MONTANTE DESABILITADO via comando PLC")
 
 	case models.CmdRestartRadarCaldeira:
-		fmt.Println("PLC Controller: 🔄 Reconexão RADAR CALDEIRA solicitada via PLC")
+		fmt.Println("PLC Controller: Reconexão RADAR CALDEIRA solicitada via PLC")
 
 	case models.CmdRestartRadarPortaJusante:
-		fmt.Println("PLC Controller: 🔄 Reconexão RADAR PORTA JUSANTE solicitada via PLC")
+		fmt.Println("PLC Controller: Reconexão RADAR PORTA JUSANTE solicitada via PLC")
 
 	case models.CmdRestartRadarPortaMontante:
-		fmt.Println("PLC Controller: 🔄 Reconexão RADAR PORTA MONTANTE solicitada via PLC")
+		fmt.Println("PLC Controller: Reconexão RADAR PORTA MONTANTE solicitada via PLC")
 
 	case models.CmdResetErrorsRadarCaldeira:
 		pc.radarCaldeiraErrors = 0
-		fmt.Println("PLC Controller: 🧹 Erros RADAR CALDEIRA resetados via comando PLC")
+		fmt.Println("PLC Controller: Erros RADAR CALDEIRA resetados via comando PLC")
 
 	case models.CmdResetErrorsRadarPortaJusante:
 		pc.radarPortaJusanteErrors = 0
-		fmt.Println("PLC Controller: 🧹 Erros RADAR PORTA JUSANTE resetados via comando PLC")
+		fmt.Println("PLC Controller: Erros RADAR PORTA JUSANTE resetados via comando PLC")
 
 	case models.CmdResetErrorsRadarPortaMontante:
 		pc.radarPortaMontanteErrors = 0
-		fmt.Println("PLC Controller: 🧹 Erros RADAR PORTA MONTANTE resetados via comando PLC")
+		fmt.Println("PLC Controller: Erros RADAR PORTA MONTANTE resetados via comando PLC")
+	}
+}
+
+// executeSecureReboot executa reboot seguro do servidor
+func (pc *PLCController) executeSecureReboot() {
+	fmt.Println("PLC Controller: Preparando reboot seguro do servidor...")
+
+	// Aguardar 2 segundos para logs aparecerem
+	time.Sleep(2 * time.Second)
+
+	// OPÇÃO 1: Script com setuid (mais seguro)
+	if err := exec.Command("/usr/local/bin/radar-reboot").Start(); err != nil {
+		log.Printf("Erro ao executar script de reboot: %v", err)
+
+		// OPÇÃO 2: Fallback via arquivo de comando para serviço
+		if file, err := os.Create("/tmp/radar-reboot-request"); err == nil {
+			file.WriteString("REBOOT_REQUEST_FROM_PLC")
+			file.Close()
+			fmt.Println("PLC Controller: Comando de reboot enviado via arquivo")
+		}
 	}
 }
 
@@ -408,23 +475,16 @@ func (pc *PLCController) writeSystemStatus() error {
 		return fmt.Errorf("erro ao escrever status: %v", err)
 	}
 
-	// Escrever métricas de sistema nos offsets especificados
-	// CPUUsage - Real offset 294
+	// Escrever métricas de sistema
 	if err := pc.writer.WriteTag(100, 294, "real", cpuUsage); err != nil {
 		return fmt.Errorf("erro ao escrever CPUUsage: %v", err)
 	}
-
-	// MemoryUsage - Real offset 298
 	if err := pc.writer.WriteTag(100, 298, "real", memUsage); err != nil {
 		return fmt.Errorf("erro ao escrever MemoryUsage: %v", err)
 	}
-
-	// DiskUsage - Real offset 302
 	if err := pc.writer.WriteTag(100, 302, "real", diskUsage); err != nil {
 		return fmt.Errorf("erro ao escrever DiskUsage: %v", err)
 	}
-
-	// Temperature - Real offset 306
 	if err := pc.writer.WriteTag(100, 306, "real", temperature); err != nil {
 		return fmt.Errorf("erro ao escrever Temperature: %v", err)
 	}
@@ -500,7 +560,6 @@ func (pc *PLCController) WriteMultiRadarData(data models.MultiRadarData) error {
 
 // getLinuxTemperature obtém temperatura REAL da CPU no Linux
 func (pc *PLCController) getLinuxTemperature() float32 {
-	// Tentar ler temperatura do hardware
 	tempPaths := []string{
 		"/sys/class/thermal/thermal_zone0/temp",
 		"/sys/class/hwmon/hwmon0/temp1_input",
@@ -510,12 +569,9 @@ func (pc *PLCController) getLinuxTemperature() float32 {
 	for _, path := range tempPaths {
 		if data, err := os.ReadFile(path); err == nil {
 			if temp, err := strconv.ParseFloat(strings.TrimSpace(string(data)), 64); err == nil {
-				// Converter de milliCelsius para Celsius se necessário
 				if temp > 1000 {
 					temp = temp / 1000
 				}
-
-				// Validar range de temperatura realista
 				if temp >= 20 && temp <= 100 {
 					return float32(temp)
 				}
@@ -523,12 +579,8 @@ func (pc *PLCController) getLinuxTemperature() float32 {
 		}
 	}
 
-	// Fallback: estimativa baseada em CPU usage
 	cpuUsage := pc.getLinuxCPUUsage()
-	baseTemp := float32(35.0)      // Temperatura base
-	tempIncrease := cpuUsage * 0.5 // 0.5°C por 1% CPU
-
-	estimatedTemp := baseTemp + tempIncrease
+	estimatedTemp := float32(35.0) + cpuUsage*0.5
 	if estimatedTemp > 85 {
 		estimatedTemp = 85
 	}
@@ -548,20 +600,18 @@ func (pc *PLCController) getLinuxCPUUsage() float32 {
 		return pc.getCPUUsageRuntime()
 	}
 
-	// Primeira linha contém CPU total
 	fields := strings.Fields(lines[0])
 	if len(fields) < 8 || fields[0] != "cpu" {
 		return pc.getCPUUsageRuntime()
 	}
 
-	// Somar todos os tempos
 	var totalTime uint64
 	var idleTime uint64
 
 	for i := 1; i < len(fields) && i <= 7; i++ {
 		val, _ := strconv.ParseUint(fields[i], 10, 64)
 		totalTime += val
-		if i == 4 { // idle time
+		if i == 4 {
 			idleTime = val
 		}
 	}
@@ -570,7 +620,6 @@ func (pc *PLCController) getLinuxCPUUsage() float32 {
 		return 0
 	}
 
-	// CPU usage = (total - idle) / total * 100
 	activeTime := totalTime - idleTime
 	usage := float32(activeTime) / float32(totalTime) * 100
 
@@ -637,7 +686,6 @@ func (pc *PLCController) getLinuxDiskUsage() float32 {
 		return 50.0
 	}
 
-	// Calcular espaço total e usado
 	total := stat.Blocks * uint64(stat.Bsize)
 	free := stat.Bavail * uint64(stat.Bsize)
 	used := total - free
@@ -672,14 +720,14 @@ func (pc *PLCController) getMemoryUsageRuntime() float32 {
 	runtime.ReadMemStats(&m)
 
 	allocMB := float32(m.Alloc) / (1024 * 1024)
-	estimatedTotal := float32(8192) // 8GB
+	estimatedTotal := float32(8192)
 
 	usage := (allocMB / estimatedTotal) * 100
 	if usage > 100 {
 		usage = 100
 	}
 	if usage < 2 {
-		usage = 15 // Mínimo realista
+		usage = 15
 	}
 
 	return usage
@@ -711,14 +759,12 @@ func (pc *PLCController) IncrementPacketCount() {
 	pc.mutex.Unlock()
 }
 
-// SetRadarConnected - compatibilidade
 func (pc *PLCController) SetRadarConnected(connected bool) {
 	pc.mutex.Lock()
 	pc.radarCaldeiraConnected = connected
 	pc.mutex.Unlock()
 }
 
-// SetRadarsConnected atualiza status de conexão de todos os radares
 func (pc *PLCController) SetRadarsConnected(status map[string]bool) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
@@ -734,7 +780,6 @@ func (pc *PLCController) SetRadarsConnected(status map[string]bool) {
 	}
 }
 
-// SetRadarConnectedByID atualiza status de um radar específico
 func (pc *PLCController) SetRadarConnectedByID(radarID string, connected bool) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
@@ -749,7 +794,6 @@ func (pc *PLCController) SetRadarConnectedByID(radarID string, connected bool) {
 	}
 }
 
-// IsRadarEnabled verifica se um radar está habilitado
 func (pc *PLCController) IsRadarEnabled(radarID string) bool {
 	pc.mutex.RLock()
 	defer pc.mutex.RUnlock()
@@ -766,7 +810,6 @@ func (pc *PLCController) IsRadarEnabled(radarID string) bool {
 	}
 }
 
-// GetRadarsEnabled retorna mapa com status de habilitação de todos os radares
 func (pc *PLCController) GetRadarsEnabled() map[string]bool {
 	pc.mutex.RLock()
 	defer pc.mutex.RUnlock()
@@ -778,7 +821,6 @@ func (pc *PLCController) GetRadarsEnabled() map[string]bool {
 	}
 }
 
-// IncrementRadarPackets incrementa contador de um radar específico
 func (pc *PLCController) IncrementRadarPackets(radarID string) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
@@ -795,7 +837,6 @@ func (pc *PLCController) IncrementRadarPackets(radarID string) {
 	}
 }
 
-// IncrementRadarErrors incrementa contador de erros de um radar específico
 func (pc *PLCController) IncrementRadarErrors(radarID string) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
