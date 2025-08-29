@@ -183,43 +183,40 @@ func (r *SICKRadar) ProcessData(data []byte) (positions, velocities, azimuths, a
 			for i := 0; i < numValues; i++ {
 				if blockIdx+i+4 < len(tokens) {
 					valHex := tokens[blockIdx+i+4]
+					var finalValue float64
+					decimalValue := utils.HexToInt(valHex, r.DebugMode)
 
-					// Converter conforme o tipo de bloco - EXATAMENTE COMO NO PYTHON
-					if blockName == "AZMT1" || blockName == "ANG1" || blockName == "DIR1" || blockName == "ANGLE1" {
-						// Ângulos
-						finalValue := utils.DecodeAngleData(valHex, scale, r.DebugMode)
-						values = append(values, finalValue)
+					// Converte o valor final de acordo com o tipo de bloco
+					switch blockName {
+					case "AZMT1", "ANG1", "DIR1", "ANGLE1":
+						finalValue = utils.DecodeAngleData(valHex, scale, r.DebugMode)
 						if r.DebugMode {
-							fmt.Printf("  %s_%d: HEX=%s -> %.3f°\n", blockName, i+1, valHex, finalValue)
+							fmt.Printf("  %s_%d: HEX=%s -> %.3f°\n", blockName, i+1, valHex, finalValue)
 						}
-					} else if blockName == "P3DX1" || blockName == "DIST1" {
-						// Posições (metros) - SEGUINDO EXATAMENTE O PYTHON
-						decimalValue := utils.HexToInt(valHex, r.DebugMode)
-						finalValue := float64(decimalValue) * scale / 1000.0
-						values = append(values, finalValue)
+					case "P3DX1", "DIST1":
+						finalValue = float64(decimalValue) * scale / 1000.0
 						if r.DebugMode {
-							fmt.Printf("  %s_%d: HEX=%s -> DEC=%d -> %.3fm\n", blockName, i+1, valHex, decimalValue, finalValue)
+							fmt.Printf("  %s_%d: HEX=%s -> DEC=%d -> %.3fm\n", blockName, i+1, valHex, decimalValue, finalValue)
 						}
-					} else {
-						// Velocidades e outros
-						decimalValue := utils.HexToInt(valHex, r.DebugMode)
-						finalValue := float64(decimalValue) * scale
-						values = append(values, finalValue)
+					default: // Inclui "V3DX1", "VRAD1", "AMPL1" e outros
+						finalValue = float64(decimalValue) * scale
 						if r.DebugMode {
-							fmt.Printf("  %s_%d: HEX=%s -> DEC=%d -> %.3f\n", blockName, i+1, valHex, decimalValue, finalValue)
+							fmt.Printf("  %s_%d: HEX=%s -> DEC=%d -> %.3f\n", blockName, i+1, valHex, decimalValue, finalValue)
 						}
 					}
+					values = append(values, finalValue)
 				}
 			}
 
 			// Armazenar valores processados
-			if blockName == "P3DX1" || blockName == "DIST1" {
+			switch blockName {
+			case "P3DX1", "DIST1":
 				positions = values
-			} else if blockName == "V3DX1" || blockName == "VRAD1" {
+			case "V3DX1", "VRAD1":
 				velocities = values
-			} else if blockName == "AZMT1" || blockName == "ANG1" || blockName == "DIR1" || blockName == "ANGLE1" {
+			case "AZMT1", "ANG1", "DIR1", "ANGLE1":
 				azimuths = values
-			} else if blockName == "AMPL1" {
+			case "AMPL1":
 				amplitudes = values
 			}
 		}
@@ -237,21 +234,21 @@ func (r *SICKRadar) DisplayData(positions, velocities, azimuths, amplitudes []fl
 	utils.LimparTela()
 
 	fmt.Println("==================================================")
-	fmt.Println("     DADOS DO RADAR SICK RMS1000 - TEMPO REAL")
+	fmt.Println("     DADOS DO RADAR SICK RMS1000 - TEMPO REAL")
 	fmt.Println("==================================================")
 
 	// Status do PLC
 	fmt.Println("STATUS PLC SIEMENS:")
-	fmt.Printf("  Conectado: %v\n", plcConnected)
-	fmt.Printf("  Endereço: %s\n", plcIP)
+	fmt.Printf("  Conectado: %v\n", plcConnected)
+	fmt.Printf("  Endereço: %s\n", plcIP)
 
 	// Status do WebSocket
 	fmt.Printf("\nWEBSOCKET:")
-	fmt.Printf("  Clientes conectados: %d\n", wsConnCount)
+	fmt.Printf("  Clientes conectados: %d\n", wsConnCount)
 
 	// Status do NATS
 	fmt.Printf("\nNATS:")
-	fmt.Printf("  Conectado: %v\n", natsConnected)
+	fmt.Printf("  Conectado: %v\n", natsConnected)
 
 	// RESUMO - TODOS OS OBJETOS
 	fmt.Println("\nRESUMO DE TODOS OS OBJETOS DETECTADOS")
@@ -259,37 +256,37 @@ func (r *SICKRadar) DisplayData(positions, velocities, azimuths, amplitudes []fl
 
 	fmt.Printf("Posições detectadas: %d\n", len(positions))
 	for i, pos := range positions {
-		fmt.Printf("  Posição %d: %.3fm\n", i+1, pos)
+		fmt.Printf("  Posição %d: %.3fm\n", i+1, pos)
 	}
 
 	fmt.Printf("\nVelocidades detectadas: %d\n", len(velocities))
 	for i, vel := range velocities {
-		fmt.Printf("  Velocidade %d: %.3fm/s\n", i+1, vel)
+		fmt.Printf("  Velocidade %d: %.3fm/s\n", i+1, vel)
 	}
 
 	fmt.Printf("\nÂngulos detectados: %d\n", len(azimuths))
 	for i, ang := range azimuths {
-		fmt.Printf("  Ângulo %d: %.3f°\n", i+1, ang)
+		fmt.Printf("  Ângulo %d: %.3f°\n", i+1, ang)
 	}
 
 	fmt.Printf("\nAmplitudes detectadas: %d\n", len(amplitudes))
 	for i, amp := range amplitudes {
-		fmt.Printf("  Amplitude %d: %.3f\n", i+1, amp)
+		fmt.Printf("  Amplitude %d: %.3f\n", i+1, amp)
 	}
 
 	// OBJETO PRINCIPAL
 	if objPrincipal != nil {
 		fmt.Println("\nOBJETO PRINCIPAL (MAIOR AMPLITUDE)")
 		fmt.Println("--------------------------------------------------")
-		fmt.Printf("  Amplitude: %.3f\n", objPrincipal.Amplitude)
+		fmt.Printf("  Amplitude: %.3f\n", objPrincipal.Amplitude)
 		if objPrincipal.Distancia != nil {
-			fmt.Printf("  Distância: %.3fm\n", *objPrincipal.Distancia)
+			fmt.Printf("  Distância: %.3fm\n", *objPrincipal.Distancia)
 		}
 		if objPrincipal.Velocidade != nil {
-			fmt.Printf("  Velocidade: %.3fm/s\n", *objPrincipal.Velocidade)
+			fmt.Printf("  Velocidade: %.3fm/s\n", *objPrincipal.Velocidade)
 		}
 		if objPrincipal.Angulo != nil {
-			fmt.Printf("  Ângulo: %.3f°\n", *objPrincipal.Angulo)
+			fmt.Printf("  Ângulo: %.3f°\n", *objPrincipal.Angulo)
 		}
 	}
 

@@ -14,13 +14,13 @@ import (
 
 // WebSocketManager gerencia as conexões WebSocket
 type WebSocketManager struct {
-	clients         map[*websocket.Conn]bool
-	broadcast       chan models.RadarData
-	multiBroadcast  chan models.MultiRadarData
-	register        chan *websocket.Conn
-	unregister      chan *websocket.Conn
-	mutex           sync.Mutex
-	connCount       int // Contador de conexões ativas
+	clients        map[*websocket.Conn]bool
+	broadcast      chan models.RadarData
+	multiBroadcast chan models.MultiRadarData
+	register       chan *websocket.Conn
+	unregister     chan *websocket.Conn
+	mutex          sync.Mutex
+	connCount      int // Contador de conexões ativas
 }
 
 // NewWebSocketManager cria um novo gerenciador de WebSockets
