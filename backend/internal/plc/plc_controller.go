@@ -3,12 +3,13 @@ package plc
 import (
 	"fmt"
 	"log"
+	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"backend/pkg/models"
 )
@@ -29,8 +30,8 @@ type PLCController struct {
 	emergencyStop    bool
 
 	// Estados individuais dos radares
-	radarCaldeiraEnabled     bool
-	radarPortaJusanteEnabled bool
+	radarCaldeiraEnabled      bool
+	radarPortaJusanteEnabled  bool
 	radarPortaMontanteEnabled bool
 
 	// Estatísticas
@@ -40,19 +41,19 @@ type PLCController struct {
 	wsClients   int
 
 	// Status de conexão dos radares
-	radarCaldeiraConnected     bool
-	radarPortaJusanteConnected bool
+	radarCaldeiraConnected      bool
+	radarPortaJusanteConnected  bool
 	radarPortaMontanteConnected bool
-	natsConnected              bool
-	wsRunning                  bool
+	natsConnected               bool
+	wsRunning                   bool
 
 	// Contadores individuais por radar
-	radarCaldeiraPackets     int32
-	radarPortaJusantePackets int32
+	radarCaldeiraPackets      int32
+	radarPortaJusantePackets  int32
 	radarPortaMontantePackets int32
-	radarCaldeiraErrors      int32
-	radarPortaJusanteErrors  int32
-	radarPortaMontanteErrors int32
+	radarCaldeiraErrors       int32
+	radarPortaJusanteErrors   int32
+	radarPortaMontanteErrors  int32
 
 	// Controle de live bit
 	liveBitTicker *time.Ticker
@@ -60,29 +61,8 @@ type PLCController struct {
 	commandTicker *time.Ticker
 	stopChan      chan bool
 
-	// Para monitoramento Windows
-	kernel32 *syscall.LazyDLL
-
 	// Mutex
 	mutex sync.RWMutex
-}
-
-// Estruturas para Windows API
-type MEMORYSTATUSEX struct {
-	dwLength                uint32
-	dwMemoryLoad            uint32
-	ullTotalPhys            uint64
-	ullAvailPhys            uint64
-	ullTotalPageFile        uint64
-	ullAvailPageFile        uint64
-	ullTotalVirtual         uint64
-	ullAvailVirtual         uint64
-	ullAvailExtendedVirtual uint64
-}
-
-type FILETIME struct {
-	dwLowDateTime  uint32
-	dwHighDateTime uint32
 }
 
 // NewPLCController cria um novo controlador PLC (MULTI-RADAR)
@@ -91,38 +71,37 @@ func NewPLCController(plcClient PLCClient) *PLCController {
 		plc:              plcClient,
 		reader:           NewPLCReader(plcClient),
 		writer:           NewPLCWriter(plcClient),
-		commandChan:      make(chan models.SystemCommand, 20), // Aumentado para mais comandos
+		commandChan:      make(chan models.SystemCommand, 20),
 		collectionActive: true,
 		debugMode:        false,
 		emergencyStop:    false,
-		
+
 		// Inicializar radares como habilitados por padrão
-		radarCaldeiraEnabled:     true,
-		radarPortaJusanteEnabled: true,
+		radarCaldeiraEnabled:      true,
+		radarPortaJusanteEnabled:  true,
 		radarPortaMontanteEnabled: true,
-		
+
 		startTime:   time.Now(),
 		packetCount: 0,
 		errorCount:  0,
 		wsClients:   0,
-		
+
 		// Status de conexão dos radares
-		radarCaldeiraConnected:     false,
-		radarPortaJusanteConnected: false,
+		radarCaldeiraConnected:      false,
+		radarPortaJusanteConnected:  false,
 		radarPortaMontanteConnected: false,
-		natsConnected:              false,
-		wsRunning:                  false,
-		
+		natsConnected:               false,
+		wsRunning:                   false,
+
 		// Contadores individuais zerados
-		radarCaldeiraPackets:     0,
-		radarPortaJusantePackets: 0,
+		radarCaldeiraPackets:      0,
+		radarPortaJusantePackets:  0,
 		radarPortaMontantePackets: 0,
-		radarCaldeiraErrors:      0,
-		radarPortaJusanteErrors:  0,
-		radarPortaMontanteErrors: 0,
-		
+		radarCaldeiraErrors:       0,
+		radarPortaJusanteErrors:   0,
+		radarPortaMontanteErrors:  0,
+
 		stopChan: make(chan bool),
-		kernel32: syscall.NewLazyDLL("kernel32.dll"),
 	}
 
 	return controller
@@ -130,12 +109,12 @@ func NewPLCController(plcClient PLCClient) *PLCController {
 
 // Start inicia o controlador PLC
 func (pc *PLCController) Start() {
-	fmt.Println("PLC Controller: Iniciando controlador bidirecional...")
+	fmt.Println("PLC Controller: Iniciando controlador bidirecional Linux...")
 
 	// Iniciar tickers
-	pc.liveBitTicker = time.NewTicker(1 * time.Second)        // Live bit a cada 1s
-	pc.statusTicker = time.NewTicker(1 * time.Second)         // Status a cada 1s
-	pc.commandTicker = time.NewTicker(500 * time.Millisecond) // Comandos a cada 500ms
+	pc.liveBitTicker = time.NewTicker(1 * time.Second)
+	pc.statusTicker = time.NewTicker(1 * time.Second)
+	pc.commandTicker = time.NewTicker(500 * time.Millisecond)
 
 	// Iniciar goroutines
 	go pc.liveBitLoop()
@@ -143,14 +122,13 @@ func (pc *PLCController) Start() {
 	go pc.commandReadLoop()
 	go pc.commandProcessor()
 
-	fmt.Println("PLC Controller: Controlador iniciado com monitoramento Windows")
+	fmt.Println("PLC Controller: Controlador iniciado com monitoramento Linux")
 }
 
 // Stop para o controlador
 func (pc *PLCController) Stop() {
 	fmt.Println("PLC Controller: Parando controlador...")
 
-	// Parar tickers
 	if pc.liveBitTicker != nil {
 		pc.liveBitTicker.Stop()
 	}
@@ -161,9 +139,7 @@ func (pc *PLCController) Stop() {
 		pc.commandTicker.Stop()
 	}
 
-	// Sinalizar parada
 	close(pc.stopChan)
-
 	fmt.Println("PLC Controller: Controlador parado")
 }
 
@@ -173,7 +149,7 @@ func (pc *PLCController) liveBitLoop() {
 		select {
 		case <-pc.liveBitTicker.C:
 			pc.mutex.Lock()
-			pc.liveBit = !pc.liveBit // Toggle do live bit
+			pc.liveBit = !pc.liveBit
 			pc.mutex.Unlock()
 
 		case <-pc.stopChan:
@@ -224,7 +200,6 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 	// ========== COMANDOS GLOBAIS ==========
 	if commands.StartCollection && !pc.IsCollectionActive() {
 		pc.commandChan <- models.CmdStartCollection
-		// Resetar apenas este comando específico
 		if err := pc.writer.ResetCommand(0, 0); err != nil {
 			log.Printf("Erro ao resetar StartCollection: %v", err)
 		}
@@ -232,7 +207,6 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 
 	if commands.StopCollection && pc.IsCollectionActive() {
 		pc.commandChan <- models.CmdStopCollection
-		// Resetar apenas este comando específico
 		if err := pc.writer.ResetCommand(0, 1); err != nil {
 			log.Printf("Erro ao resetar StopCollection: %v", err)
 		}
@@ -240,7 +214,6 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 
 	if commands.ResetErrors {
 		pc.commandChan <- models.CmdResetErrors
-		// Resetar apenas este comando específico
 		if err := pc.writer.ResetCommand(0, 3); err != nil {
 			log.Printf("Erro ao resetar ResetErrors: %v", err)
 		}
@@ -248,7 +221,6 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 
 	if commands.Emergency {
 		pc.commandChan <- models.CmdEmergencyStop
-		// Resetar apenas este comando específico
 		if err := pc.writer.ResetCommand(0, 2); err != nil {
 			log.Printf("Erro ao resetar Emergency: %v", err)
 		}
@@ -262,7 +234,6 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 		} else {
 			pc.commandChan <- models.CmdDisableRadarCaldeira
 		}
-		// NÃO resetar o enable - deve persistir o estado
 	}
 
 	// Radar Porta Jusante
@@ -272,7 +243,6 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 		} else {
 			pc.commandChan <- models.CmdDisableRadarPortaJusante
 		}
-		// NÃO resetar o enable - deve persistir o estado
 	}
 
 	// Radar Porta Montante
@@ -282,13 +252,11 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 		} else {
 			pc.commandChan <- models.CmdDisableRadarPortaMontante
 		}
-		// NÃO resetar o enable - deve persistir o estado
 	}
 
 	// ========== COMANDOS ESPECÍFICOS POR RADAR ==========
 	if commands.RestartRadarCaldeira {
 		pc.commandChan <- models.CmdRestartRadarCaldeira
-		// Resetar apenas este comando específico
 		if err := pc.writer.ResetCommand(0, 7); err != nil {
 			log.Printf("Erro ao resetar RestartRadarCaldeira: %v", err)
 		}
@@ -296,7 +264,6 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 
 	if commands.RestartRadarPortaJusante {
 		pc.commandChan <- models.CmdRestartRadarPortaJusante
-		// Resetar apenas este comando específico
 		if err := pc.writer.ResetCommand(1, 0); err != nil {
 			log.Printf("Erro ao resetar RestartRadarPortaJusante: %v", err)
 		}
@@ -304,7 +271,6 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 
 	if commands.RestartRadarPortaMontante {
 		pc.commandChan <- models.CmdRestartRadarPortaMontante
-		// Resetar apenas este comando específico
 		if err := pc.writer.ResetCommand(1, 1); err != nil {
 			log.Printf("Erro ao resetar RestartRadarPortaMontante: %v", err)
 		}
@@ -324,7 +290,6 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 	defer pc.mutex.Unlock()
 
 	switch cmd {
-	// ========== COMANDOS GLOBAIS ==========
 	case models.CmdStartCollection:
 		pc.collectionActive = true
 		pc.emergencyStop = false
@@ -363,7 +328,6 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 		pc.collectionActive = false
 		fmt.Println("PLC Controller: 🚨 PARADA DE EMERGÊNCIA ativada via PLC")
 
-	// ========== COMANDOS INDIVIDUAIS DOS RADARES ==========
 	case models.CmdEnableRadarCaldeira:
 		pc.radarCaldeiraEnabled = true
 		fmt.Println("PLC Controller: 🎯 Radar CALDEIRA HABILITADO via comando PLC")
@@ -388,7 +352,6 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 		pc.radarPortaMontanteEnabled = false
 		fmt.Println("PLC Controller: ⭕ Radar PORTA MONTANTE DESABILITADO via comando PLC")
 
-	// ========== COMANDOS ESPECÍFICOS POR RADAR ==========
 	case models.CmdRestartRadarCaldeira:
 		fmt.Println("PLC Controller: 🔄 Reconexão RADAR CALDEIRA solicitada via PLC")
 
@@ -412,23 +375,22 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 	}
 }
 
-// writeSystemStatus escreve status do sistema no PLC
+// writeSystemStatus escreve status e métricas do sistema no PLC
 func (pc *PLCController) writeSystemStatus() error {
 	pc.mutex.RLock()
 
+	// Obter métricas do sistema Linux
+	cpuUsage := pc.getLinuxCPUUsage()
+	memUsage := pc.getLinuxMemoryUsage()
+	diskUsage := pc.getLinuxDiskUsage()
+	temperature := pc.getLinuxTemperature()
 
-	// Obter dados REAIS do Windows
-	cpuUsage := pc.getWindowsCPUUsage()
-	memUsage := pc.getWindowsMemoryUsage()
-	diskUsage := pc.getWindowsDiskUsage()
-
-	// Log dos valores reais (opcional)
 	if pc.debugMode {
-		fmt.Printf("Sistema Windows - CPU: %.1f%%, Memória: %.1f%%, Disco: %.1f%%\n",
-			cpuUsage, memUsage, diskUsage)
+		fmt.Printf("Sistema Linux - CPU: %.1f%%, Memória: %.1f%%, Disco: %.1f%%, Temp: %.1f°C\n",
+			cpuUsage, memUsage, diskUsage, temperature)
 	}
 
-	// Construir status simplificado para DB100
+	// Status do sistema
 	status := &models.PLCSystemStatus{
 		LiveBit:                     pc.liveBit,
 		CollectionActive:            pc.collectionActive,
@@ -441,29 +403,51 @@ func (pc *PLCController) writeSystemStatus() error {
 
 	pc.mutex.RUnlock()
 
-	// Escrever no PLC
-	return pc.writer.WriteSystemStatus(status)
+	// Escrever status do sistema
+	if err := pc.writer.WriteSystemStatus(status); err != nil {
+		return fmt.Errorf("erro ao escrever status: %v", err)
+	}
+
+	// Escrever métricas de sistema nos offsets especificados
+	// CPUUsage - Real offset 294
+	if err := pc.writer.WriteTag(100, 294, "real", cpuUsage); err != nil {
+		return fmt.Errorf("erro ao escrever CPUUsage: %v", err)
+	}
+
+	// MemoryUsage - Real offset 298
+	if err := pc.writer.WriteTag(100, 298, "real", memUsage); err != nil {
+		return fmt.Errorf("erro ao escrever MemoryUsage: %v", err)
+	}
+
+	// DiskUsage - Real offset 302
+	if err := pc.writer.WriteTag(100, 302, "real", diskUsage); err != nil {
+		return fmt.Errorf("erro ao escrever DiskUsage: %v", err)
+	}
+
+	// Temperature - Real offset 306
+	if err := pc.writer.WriteTag(100, 306, "real", temperature); err != nil {
+		return fmt.Errorf("erro ao escrever Temperature: %v", err)
+	}
+
+	return nil
 }
 
 // WriteRadarData escreve dados do radar no PLC usando DB100
 func (pc *PLCController) WriteRadarData(data models.RadarData) error {
-	// Converter dados para formato PLC
 	plcData := pc.writer.BuildPLCRadarData(data)
 
-	// Determinar offset na DB100 baseado no RadarID
 	var baseOffset int
 	switch data.RadarID {
 	case "caldeira":
-		baseOffset = 6 // DB100.6
-	case "porta_jusante": 
-		baseOffset = 102 // DB100.102
+		baseOffset = 6
+	case "porta_jusante":
+		baseOffset = 102
 	case "porta_montante":
-		baseOffset = 198 // DB100.198
+		baseOffset = 198
 	default:
 		return fmt.Errorf("RadarID desconhecido: %s", data.RadarID)
 	}
 
-	// Escrever na DB100 no offset correto
 	err := pc.writer.WriteRadarDataToDB100(plcData, baseOffset)
 	if err != nil {
 		pc.incrementErrorCount()
@@ -476,30 +460,26 @@ func (pc *PLCController) WriteRadarData(data models.RadarData) error {
 // WriteMultiRadarData escreve dados de múltiplos radares no PLC
 func (pc *PLCController) WriteMultiRadarData(data models.MultiRadarData) error {
 	var errors []string
-	
+
 	for _, radarData := range data.Radars {
-		// Verificar se o radar está habilitado
 		if !pc.IsRadarEnabled(radarData.RadarID) {
-			continue // Pular radares desabilitados
+			continue
 		}
-		
-		// Converter dados para formato PLC
+
 		plcData := pc.writer.BuildPLCRadarData(radarData)
-		
-		// Determinar offset na DB100 baseado no RadarID
+
 		var baseOffset int
 		switch radarData.RadarID {
 		case "caldeira":
-			baseOffset = 6 // DB100.6
+			baseOffset = 6
 		case "porta_jusante":
-			baseOffset = 102 // DB100.102
+			baseOffset = 102
 		case "porta_montante":
-			baseOffset = 198 // DB100.198
+			baseOffset = 198
 		default:
-			continue // ID desconhecido
+			continue
 		}
-		
-		// Escrever na DB100 no offset correto
+
 		err := pc.writer.WriteRadarDataToDB100(plcData, baseOffset)
 		if err != nil {
 			pc.IncrementRadarErrors(radarData.RadarID)
@@ -508,15 +488,204 @@ func (pc *PLCController) WriteMultiRadarData(data models.MultiRadarData) error {
 			pc.IncrementRadarPackets(radarData.RadarID)
 		}
 	}
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("erros ao escrever dados dos radares: %s", strings.Join(errors, "; "))
 	}
-	
+
 	return nil
 }
 
-// ========== MÉTODOS PÚBLICOS PARA CONTROLE EXTERNO ==========
+// ========== MÉTODOS DE MÉTRICAS DO SISTEMA ==========
+
+// getLinuxTemperature obtém temperatura REAL da CPU no Linux
+func (pc *PLCController) getLinuxTemperature() float32 {
+	// Tentar ler temperatura do hardware
+	tempPaths := []string{
+		"/sys/class/thermal/thermal_zone0/temp",
+		"/sys/class/hwmon/hwmon0/temp1_input",
+		"/sys/class/hwmon/hwmon1/temp1_input",
+	}
+
+	for _, path := range tempPaths {
+		if data, err := os.ReadFile(path); err == nil {
+			if temp, err := strconv.ParseFloat(strings.TrimSpace(string(data)), 64); err == nil {
+				// Converter de milliCelsius para Celsius se necessário
+				if temp > 1000 {
+					temp = temp / 1000
+				}
+
+				// Validar range de temperatura realista
+				if temp >= 20 && temp <= 100 {
+					return float32(temp)
+				}
+			}
+		}
+	}
+
+	// Fallback: estimativa baseada em CPU usage
+	cpuUsage := pc.getLinuxCPUUsage()
+	baseTemp := float32(35.0)      // Temperatura base
+	tempIncrease := cpuUsage * 0.5 // 0.5°C por 1% CPU
+
+	estimatedTemp := baseTemp + tempIncrease
+	if estimatedTemp > 85 {
+		estimatedTemp = 85
+	}
+
+	return estimatedTemp
+}
+
+// getLinuxCPUUsage obtém uso REAL de CPU no Linux
+func (pc *PLCController) getLinuxCPUUsage() float32 {
+	data, err := os.ReadFile("/proc/stat")
+	if err != nil {
+		return pc.getCPUUsageRuntime()
+	}
+
+	lines := strings.Split(string(data), "\n")
+	if len(lines) == 0 {
+		return pc.getCPUUsageRuntime()
+	}
+
+	// Primeira linha contém CPU total
+	fields := strings.Fields(lines[0])
+	if len(fields) < 8 || fields[0] != "cpu" {
+		return pc.getCPUUsageRuntime()
+	}
+
+	// Somar todos os tempos
+	var totalTime uint64
+	var idleTime uint64
+
+	for i := 1; i < len(fields) && i <= 7; i++ {
+		val, _ := strconv.ParseUint(fields[i], 10, 64)
+		totalTime += val
+		if i == 4 { // idle time
+			idleTime = val
+		}
+	}
+
+	if totalTime == 0 {
+		return 0
+	}
+
+	// CPU usage = (total - idle) / total * 100
+	activeTime := totalTime - idleTime
+	usage := float32(activeTime) / float32(totalTime) * 100
+
+	if usage > 100 {
+		usage = 100
+	}
+
+	return usage
+}
+
+// getLinuxMemoryUsage obtém uso REAL de memória no Linux
+func (pc *PLCController) getLinuxMemoryUsage() float32 {
+	data, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return pc.getMemoryUsageRuntime()
+	}
+
+	var memTotal, memAvailable, memFree, buffers, cached float64
+
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+
+		val, _ := strconv.ParseFloat(fields[1], 64)
+
+		switch fields[0] {
+		case "MemTotal:":
+			memTotal = val
+		case "MemAvailable:":
+			memAvailable = val
+		case "MemFree:":
+			memFree = val
+		case "Buffers:":
+			buffers = val
+		case "Cached:":
+			cached = val
+		}
+	}
+
+	if memTotal > 0 {
+		var available float64
+		if memAvailable > 0 {
+			available = memAvailable
+		} else {
+			available = memFree + buffers + cached
+		}
+
+		used := memTotal - available
+		usage := (used / memTotal) * 100
+		return float32(usage)
+	}
+
+	return pc.getMemoryUsageRuntime()
+}
+
+// getLinuxDiskUsage obtém uso REAL de disco no Linux
+func (pc *PLCController) getLinuxDiskUsage() float32 {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs("/", &stat)
+	if err != nil {
+		return 50.0
+	}
+
+	// Calcular espaço total e usado
+	total := stat.Blocks * uint64(stat.Bsize)
+	free := stat.Bavail * uint64(stat.Bsize)
+	used := total - free
+
+	if total == 0 {
+		return 50.0
+	}
+
+	usage := float32(used) / float32(total) * 100
+	return usage
+}
+
+// ========== MÉTODOS FALLBACK ==========
+
+func (pc *PLCController) getCPUUsageRuntime() float32 {
+	numGoroutines := float32(runtime.NumGoroutine())
+	numCPU := float32(runtime.NumCPU())
+
+	estimate := (numGoroutines / numCPU) * 15
+	if estimate > 100 {
+		estimate = 100
+	}
+	if estimate < 5 {
+		estimate = 5
+	}
+
+	return estimate
+}
+
+func (pc *PLCController) getMemoryUsageRuntime() float32 {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	allocMB := float32(m.Alloc) / (1024 * 1024)
+	estimatedTotal := float32(8192) // 8GB
+
+	usage := (allocMB / estimatedTotal) * 100
+	if usage > 100 {
+		usage = 100
+	}
+	if usage < 2 {
+		usage = 15 // Mínimo realista
+	}
+
+	return usage
+}
+
+// ========== MÉTODOS PÚBLICOS ==========
 
 func (pc *PLCController) IsCollectionActive() bool {
 	pc.mutex.RLock()
@@ -542,12 +711,10 @@ func (pc *PLCController) IncrementPacketCount() {
 	pc.mutex.Unlock()
 }
 
-// ========== MÉTODOS PARA MÚLTIPLOS RADARES ==========
-
-// SetRadarConnected - compatibilidade com código antigo
+// SetRadarConnected - compatibilidade
 func (pc *PLCController) SetRadarConnected(connected bool) {
 	pc.mutex.Lock()
-	pc.radarCaldeiraConnected = connected // Para compatibilidade
+	pc.radarCaldeiraConnected = connected
 	pc.mutex.Unlock()
 }
 
@@ -555,7 +722,7 @@ func (pc *PLCController) SetRadarConnected(connected bool) {
 func (pc *PLCController) SetRadarsConnected(status map[string]bool) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
-	
+
 	if caldeira, exists := status["caldeira"]; exists {
 		pc.radarCaldeiraConnected = caldeira
 	}
@@ -571,7 +738,7 @@ func (pc *PLCController) SetRadarsConnected(status map[string]bool) {
 func (pc *PLCController) SetRadarConnectedByID(radarID string, connected bool) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
-	
+
 	switch radarID {
 	case "caldeira":
 		pc.radarCaldeiraConnected = connected
@@ -586,7 +753,7 @@ func (pc *PLCController) SetRadarConnectedByID(radarID string, connected bool) {
 func (pc *PLCController) IsRadarEnabled(radarID string) bool {
 	pc.mutex.RLock()
 	defer pc.mutex.RUnlock()
-	
+
 	switch radarID {
 	case "caldeira":
 		return pc.radarCaldeiraEnabled
@@ -603,10 +770,10 @@ func (pc *PLCController) IsRadarEnabled(radarID string) bool {
 func (pc *PLCController) GetRadarsEnabled() map[string]bool {
 	pc.mutex.RLock()
 	defer pc.mutex.RUnlock()
-	
+
 	return map[string]bool{
-		"caldeira":      pc.radarCaldeiraEnabled,
-		"porta_jusante": pc.radarPortaJusanteEnabled,
+		"caldeira":       pc.radarCaldeiraEnabled,
+		"porta_jusante":  pc.radarPortaJusanteEnabled,
 		"porta_montante": pc.radarPortaMontanteEnabled,
 	}
 }
@@ -615,9 +782,9 @@ func (pc *PLCController) GetRadarsEnabled() map[string]bool {
 func (pc *PLCController) IncrementRadarPackets(radarID string) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
-	
-	pc.packetCount++ // Contador global
-	
+
+	pc.packetCount++
+
 	switch radarID {
 	case "caldeira":
 		pc.radarCaldeiraPackets++
@@ -632,9 +799,9 @@ func (pc *PLCController) IncrementRadarPackets(radarID string) {
 func (pc *PLCController) IncrementRadarErrors(radarID string) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
-	
-	pc.errorCount++ // Contador global
-	
+
+	pc.errorCount++
+
 	switch radarID {
 	case "caldeira":
 		pc.radarCaldeiraErrors++
@@ -663,158 +830,7 @@ func (pc *PLCController) UpdateWebSocketClients(count int) {
 	pc.mutex.Unlock()
 }
 
-// ========== MÉTODOS COM DADOS REAIS DO WINDOWS ==========
-
-// getWindowsCPUUsage obtém uso REAL de CPU no Windows
-func (pc *PLCController) getWindowsCPUUsage() float32 {
-	// Método 1: Usar GetSystemTimes (mais preciso)
-	cpuUsage := pc.getCPUUsageViaSystemTimes()
-	if cpuUsage >= 0 {
-		return cpuUsage
-	}
-
-	// Método 2: Fallback usando runtime stats
-	return pc.getCPUUsageViaRuntime()
-}
-
-// getCPUUsageViaSystemTimes usa GetSystemTimes do Windows
-func (pc *PLCController) getCPUUsageViaSystemTimes() float32 {
-	getSystemTimes := pc.kernel32.NewProc("GetSystemTimes")
-
-	var idleTime1, kernelTime1, userTime1 FILETIME
-	var idleTime2, kernelTime2, userTime2 FILETIME
-
-	// Primeira medição
-	ret, _, _ := getSystemTimes.Call(
-		uintptr(unsafe.Pointer(&idleTime1)),
-		uintptr(unsafe.Pointer(&kernelTime1)),
-		uintptr(unsafe.Pointer(&userTime1)),
-	)
-
-	if ret == 0 {
-		return -1 // Erro
-	}
-
-	// Aguardar um pouco
-	time.Sleep(100 * time.Millisecond)
-
-	// Segunda medição
-	ret, _, _ = getSystemTimes.Call(
-		uintptr(unsafe.Pointer(&idleTime2)),
-		uintptr(unsafe.Pointer(&kernelTime2)),
-		uintptr(unsafe.Pointer(&userTime2)),
-	)
-
-	if ret == 0 {
-		return -1 // Erro
-	}
-
-	// Calcular diferenças
-	idle1 := uint64(idleTime1.dwHighDateTime)<<32 + uint64(idleTime1.dwLowDateTime)
-	idle2 := uint64(idleTime2.dwHighDateTime)<<32 + uint64(idleTime2.dwLowDateTime)
-
-	kernel1 := uint64(kernelTime1.dwHighDateTime)<<32 + uint64(kernelTime1.dwLowDateTime)
-	kernel2 := uint64(kernelTime2.dwHighDateTime)<<32 + uint64(kernelTime2.dwLowDateTime)
-
-	user1 := uint64(userTime1.dwHighDateTime)<<32 + uint64(userTime1.dwLowDateTime)
-	user2 := uint64(userTime2.dwHighDateTime)<<32 + uint64(userTime2.dwLowDateTime)
-
-	idleDiff := idle2 - idle1
-	totalDiff := (kernel2 - kernel1) + (user2 - user1)
-
-	if totalDiff == 0 {
-		return 0
-	}
-
-	// CPU usage = (total - idle) / total * 100
-	cpuUsage := float32(totalDiff-idleDiff) / float32(totalDiff) * 100
-
-	return cpuUsage
-}
-
-// getCPUUsageViaRuntime método fallback usando runtime
-func (pc *PLCController) getCPUUsageViaRuntime() float32 {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	// Estimativa baseada em goroutines e GC
-	numGoroutines := float32(runtime.NumGoroutine())
-	numCPU := float32(runtime.NumCPU())
-
-	// Fator baseado em atividade
-	cpuEstimate := (numGoroutines / numCPU) * 10
-
-	// Adicionar fator de GC
-	gcFactor := float32(m.NumGC) * 0.1
-
-	totalEstimate := cpuEstimate + gcFactor
-
-	// Limitar entre 0 e 100
-	if totalEstimate > 100 {
-		totalEstimate = 100
-	}
-	if totalEstimate < 0 {
-		totalEstimate = 0
-	}
-
-	return totalEstimate
-}
-
-// getWindowsMemoryUsage obtém uso REAL de memória no Windows
-func (pc *PLCController) getWindowsMemoryUsage() float32 {
-	globalMemoryStatusEx := pc.kernel32.NewProc("GlobalMemoryStatusEx")
-
-	var memStatus MEMORYSTATUSEX
-	memStatus.dwLength = uint32(unsafe.Sizeof(memStatus))
-
-	ret, _, _ := globalMemoryStatusEx.Call(uintptr(unsafe.Pointer(&memStatus)))
-
-	if ret != 0 {
-		// Sucesso - usar dados reais do Windows
-		return float32(memStatus.dwMemoryLoad)
-	}
-
-	// Fallback: usar runtime.MemStats
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	// Estimar baseado na aplicação (menos preciso)
-	allocMB := float32(m.Alloc) / (1024 * 1024)
-
-	// Assumir sistema de 8GB como base para cálculo percentual
-	estimatedTotal := float32(8192) // 8GB em MB
-
-	return (allocMB / estimatedTotal) * 100
-}
-
-// getWindowsDiskUsage obtém uso REAL de disco no Windows
-func (pc *PLCController) getWindowsDiskUsage() float32 {
-	getDiskFreeSpaceEx := pc.kernel32.NewProc("GetDiskFreeSpaceExW")
-
-	// Obter informações do disco C:
-	pathPtr, _ := syscall.UTF16PtrFromString("C:\\")
-
-	var freeBytesAvailable, totalNumberOfBytes, totalNumberOfFreeBytes uint64
-
-	ret, _, _ := getDiskFreeSpaceEx.Call(
-		uintptr(unsafe.Pointer(pathPtr)),
-		uintptr(unsafe.Pointer(&freeBytesAvailable)),
-		uintptr(unsafe.Pointer(&totalNumberOfBytes)),
-		uintptr(unsafe.Pointer(&totalNumberOfFreeBytes)),
-	)
-
-	if ret != 0 && totalNumberOfBytes > 0 {
-		// Sucesso - calcular percentual usado
-		usedBytes := totalNumberOfBytes - totalNumberOfFreeBytes
-		usagePercent := float32(usedBytes) / float32(totalNumberOfBytes) * 100
-		return usagePercent
-	}
-
-	// Fallback: retornar valor estimado
-	return 45.0
-}
-
-// ========== MÉTODOS AUXILIARES PRIVADOS ==========
+// ========== MÉTODOS AUXILIARES ==========
 
 func (pc *PLCController) incrementErrorCount() {
 	pc.mutex.Lock()
@@ -823,11 +839,6 @@ func (pc *PLCController) incrementErrorCount() {
 }
 
 func (pc *PLCController) isSystemHealthy() bool {
-	// Sistema está saudável se:
-	// - Pelo menos 1 radar habilitado está conectado
-	// - Não está em parada de emergência  
-	// - Contador de erros não está muito alto
-	
 	atLeastOneRadarHealthy := false
 	if pc.radarCaldeiraEnabled && pc.radarCaldeiraConnected {
 		atLeastOneRadarHealthy = true
@@ -838,8 +849,6 @@ func (pc *PLCController) isSystemHealthy() bool {
 	if pc.radarPortaMontanteEnabled && pc.radarPortaMontanteConnected {
 		atLeastOneRadarHealthy = true
 	}
-	
-	return atLeastOneRadarHealthy &&
-		!pc.emergencyStop &&
-		pc.errorCount < 20 // Aumentado para múltiplos radares
+
+	return atLeastOneRadarHealthy && !pc.emergencyStop && pc.errorCount < 20
 }

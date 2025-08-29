@@ -16,7 +16,6 @@ type SystemController struct {
 	shutdownChan chan bool
 	restartNATS  chan bool
 	restartWS    chan bool
-	mutex        sync.RWMutex
 }
 
 // NewSystemController cria um novo controlador de sistema

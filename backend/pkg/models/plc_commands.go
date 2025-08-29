@@ -9,19 +9,19 @@ type PLCCommands struct {
 	StopCollection  bool `json:"stopCollection"`  // DB100.0.1 - Parar coleta
 	Emergency       bool `json:"emergency"`       // DB100.0.2 - Parada emergência
 	ResetErrors     bool `json:"resetErrors"`     // DB100.0.3 - Reset erros
-	
+
 	// ========== CONTROLE INDIVIDUAL RADARES ==========
 	EnableRadarCaldeira      bool `json:"enableRadarCaldeira"`      // DB100.1.0 - Enable Caldeira
 	EnableRadarPortaJusante  bool `json:"enableRadarPortaJusante"`  // DB100.1.1 - Enable Porta Jusante
 	EnableRadarPortaMontante bool `json:"enableRadarPortaMontante"` // DB100.1.2 - Enable Porta Montante
-	
+
 	// ========== RESTART INDIVIDUAL ==========
-	RestartRadarCaldeira     bool `json:"restartRadarCaldeira"`     // DB100.2.0 - Restart Caldeira
-	RestartRadarPortaJusante bool `json:"restartRadarPortaJusante"` // DB100.2.1 - Restart Porta Jusante
+	RestartRadarCaldeira      bool `json:"restartRadarCaldeira"`      // DB100.2.0 - Restart Caldeira
+	RestartRadarPortaJusante  bool `json:"restartRadarPortaJusante"`  // DB100.2.1 - Restart Porta Jusante
 	RestartRadarPortaMontante bool `json:"restartRadarPortaMontante"` // DB100.2.2 - Restart Porta Montante
 }
 
-// PLCSystemStatus - Status Servidor → PLC - ESTRUTURA SUPER SIMPLES  
+// PLCSystemStatus - Status Servidor → PLC - ESTRUTURA SUPER SIMPLES
 type PLCSystemStatus struct {
 	// ========== STATUS ESSENCIAL ==========
 	LiveBit          bool `json:"liveBit"`          // DB100.4.0 - Bit de vida
@@ -30,8 +30,8 @@ type PLCSystemStatus struct {
 	EmergencyActive  bool `json:"emergencyActive"`  // DB100.4.3 - Emergência ativa
 
 	// ========== STATUS DOS RADARES ==========
-	RadarCaldeiraConnected     bool `json:"radarCaldeiraConnected"`     // DB100.5.0 - Caldeira OK
-	RadarPortaJusanteConnected bool `json:"radarPortaJusanteConnected"` // DB100.5.1 - Porta Jusante OK
+	RadarCaldeiraConnected      bool `json:"radarCaldeiraConnected"`      // DB100.5.0 - Caldeira OK
+	RadarPortaJusanteConnected  bool `json:"radarPortaJusanteConnected"`  // DB100.5.1 - Porta Jusante OK
 	RadarPortaMontanteConnected bool `json:"radarPortaMontanteConnected"` // DB100.5.2 - Porta Montante OK
 
 	// ========== RESERVA ==========
@@ -68,7 +68,7 @@ type PLCMultiRadarData struct {
 	// Radar Caldeira - DB300 (80 bytes)
 	RadarCaldeira PLCRadarData `json:"radarCaldeira"`
 
-	// Radar Porta Jusante - DB400 (80 bytes) 
+	// Radar Porta Jusante - DB400 (80 bytes)
 	RadarPortaJusante PLCRadarData `json:"radarPortaJusante"`
 
 	// Radar Porta Montante - DB500 (80 bytes)
@@ -89,7 +89,7 @@ const (
 	CmdEnableDebug
 	CmdDisableDebug
 	CmdEmergencyStop
-	
+
 	// Comandos de controle individual de radares
 	CmdEnableRadarCaldeira
 	CmdDisableRadarCaldeira
@@ -97,7 +97,7 @@ const (
 	CmdDisableRadarPortaJusante
 	CmdEnableRadarPortaMontante
 	CmdDisableRadarPortaMontante
-	
+
 	// Comandos específicos por radar
 	CmdRestartRadarCaldeira
 	CmdRestartRadarPortaJusante
