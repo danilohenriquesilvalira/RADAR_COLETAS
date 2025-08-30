@@ -11,7 +11,22 @@ import (
 	"backend/pkg/utils"
 )
 
-// SelecionarObjetoPrincipalEstabilizado seleciona o objeto principal com estabilização
+// BlockProcessor define como processar cada tipo de bloco
+type BlockProcessor struct {
+	Name      string
+	Converter func(string, float64, int, bool) float64
+	Target    *[]float64
+}
+
+// ObjectStabilityConfig configuração de estabilização
+type ObjectStabilityConfig struct {
+	ThresholdPercent   float64
+	MinStabilityCycles int
+	TimeoutSeconds     float64
+	AmplitudeThreshold float64
+}
+
+// SelecionarObjetoPrincipalEstabilizado algoritmo otimizado de estabilização
 func (r *SICKRadar) SelecionarObjetoPrincipalEstabilizado(positions, velocities, azimuths, amplitudes []float64) *models.ObjPrincipal {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
@@ -21,275 +36,474 @@ func (r *SICKRadar) SelecionarObjetoPrincipalEstabilizado(positions, velocities,
 		return nil
 	}
 
-	// Encontrar objeto com maior amplitude atual
-	maxAmpIndex := 0
-	maxAmp := amplitudes[0]
-	for i, amp := range amplitudes {
-		if amp > maxAmp {
-			maxAmp = amp
-			maxAmpIndex = i
-		}
-	}
+	// Encontrar objeto com maior amplitude
+	maxAmpIndex := r.findMaxAmplitudeIndex(amplitudes)
+	novoObjeto := r.buildObjectFromArrays(maxAmpIndex, positions, velocities, azimuths, amplitudes)
 
-	// Criar novo objeto candidato
-	novoObjeto := &models.ObjPrincipal{
-		Amplitude: amplitudes[maxAmpIndex],
-	}
+	now := time.Now()
 
-	// Atribuir valores se disponíveis
-	if maxAmpIndex < len(positions) {
-		dist := positions[maxAmpIndex]
-		novoObjeto.Distancia = &dist
-	}
-	if maxAmpIndex < len(velocities) {
-		vel := velocities[maxAmpIndex]
-		novoObjeto.Velocidade = &vel
-	}
-	if maxAmpIndex < len(azimuths) {
-		ang := azimuths[maxAmpIndex]
-		novoObjeto.Angulo = &ang
-	}
-
-	agora := time.Now()
-
-	// Se não há objeto principal anterior, aceitar o novo
+	// Primeira detecção
 	if r.objetoPrincipalInfo == nil {
 		r.objetoPrincipalInfo = &models.ObjetoPrincipalInfo{
 			Objeto:               novoObjeto,
 			ContadorEstabilidade: 1,
-			UltimaAtualizacao:    agora,
+			UltimaAtualizacao:    now,
 			Indice:               maxAmpIndex,
 		}
 		return novoObjeto
 	}
 
-	objetoAtual := r.objetoPrincipalInfo.Objeto
-
-	// Verificar se é o mesmo objeto (mesmo índice ou amplitudes muito próximas)
-	mesmoObjeto := (maxAmpIndex == r.objetoPrincipalInfo.Indice) ||
-		(math.Abs(novoObjeto.Amplitude-objetoAtual.Amplitude) < (objetoAtual.Amplitude * 0.05))
-
-	if mesmoObjeto {
-		// Mesmo objeto, atualizar dados e incrementar estabilidade
-		r.objetoPrincipalInfo.Objeto = novoObjeto
-		r.objetoPrincipalInfo.ContadorEstabilidade++
-		r.objetoPrincipalInfo.UltimaAtualizacao = agora
-		r.objetoPrincipalInfo.Indice = maxAmpIndex
-		return novoObjeto
-	}
-
-	// Objeto diferente detectado
-	// Calcular diferença percentual de amplitude
-	diferencaPercentual := ((novoObjeto.Amplitude - objetoAtual.Amplitude) / objetoAtual.Amplitude) * 100
-
-	// Verificar se a diferença é significativa E se o objeto atual já está estável
-	deveTrocar := (diferencaPercentual > r.thresholdMudanca) &&
-		(r.objetoPrincipalInfo.ContadorEstabilidade >= r.ciclosMinimosEstabilidade)
-
-	// Ou se passou muito tempo sem atualização (objeto pode ter desaparecido)
-	tempoSemAtualizacao := agora.Sub(r.objetoPrincipalInfo.UltimaAtualizacao)
-	if tempoSemAtualizacao > 2*time.Second {
-		deveTrocar = true
-	}
-
-	if deveTrocar {
-		// Trocar para o novo objeto
-		r.objetoPrincipalInfo = &models.ObjetoPrincipalInfo{
-			Objeto:               novoObjeto,
-			ContadorEstabilidade: 1,
-			UltimaAtualizacao:    agora,
-			Indice:               maxAmpIndex,
-		}
-		return novoObjeto
-	} else {
-		// Manter objeto atual, mas resetar contador se diferença for negativa significativa
-		if diferencaPercentual < -r.thresholdMudanca {
-			r.objetoPrincipalInfo.ContadorEstabilidade = 1
-		}
-		return objetoAtual
-	}
+	// Verificar estabilidade do objeto
+	return r.evaluateObjectStability(novoObjeto, maxAmpIndex, now)
 }
 
-// ProcessData processa dados recebidos do radar
+// findMaxAmplitudeIndex encontra índice da maior amplitude
+func (r *SICKRadar) findMaxAmplitudeIndex(amplitudes []float64) int {
+	maxIndex := 0
+	maxValue := amplitudes[0]
+
+	for i, amp := range amplitudes[1:] {
+		if amp > maxValue {
+			maxValue = amp
+			maxIndex = i + 1
+		}
+	}
+
+	return maxIndex
+}
+
+// buildObjectFromArrays constrói objeto a partir dos arrays
+func (r *SICKRadar) buildObjectFromArrays(index int, positions, velocities, azimuths, amplitudes []float64) *models.ObjPrincipal {
+	obj := &models.ObjPrincipal{
+		Amplitude: amplitudes[index],
+	}
+
+	// Helper para atribuir ponteiros de forma segura
+	assignIfValid := func(target **float64, source []float64, idx int) {
+		if idx < len(source) {
+			val := source[idx]
+			*target = &val
+		}
+	}
+
+	assignIfValid(&obj.Distancia, positions, index)
+	assignIfValid(&obj.Velocidade, velocities, index)
+	assignIfValid(&obj.Angulo, azimuths, index)
+
+	return obj
+}
+
+// evaluateObjectStability avalia se deve trocar objeto principal
+func (r *SICKRadar) evaluateObjectStability(novoObjeto *models.ObjPrincipal, maxAmpIndex int, now time.Time) *models.ObjPrincipal {
+	currentObj := r.objetoPrincipalInfo.Objeto
+
+	// Verificar se é mesmo objeto
+	isSameObject := (maxAmpIndex == r.objetoPrincipalInfo.Indice) ||
+		r.isAmplitudeSimilar(novoObjeto.Amplitude, currentObj.Amplitude)
+
+	if isSameObject {
+		return r.updateCurrentObject(novoObjeto, maxAmpIndex, now)
+	}
+
+	// Avaliar se deve trocar objeto
+	if r.shouldSwitchObject(novoObjeto, currentObj, now) {
+		return r.switchToNewObject(novoObjeto, maxAmpIndex, now)
+	}
+
+	return r.maintainCurrentObject(novoObjeto, currentObj)
+}
+
+// isAmplitudeSimilar verifica se amplitudes são similares
+func (r *SICKRadar) isAmplitudeSimilar(newAmp, currentAmp float64) bool {
+	return math.Abs(newAmp-currentAmp) < (currentAmp * 0.05)
+}
+
+// updateCurrentObject atualiza objeto atual
+func (r *SICKRadar) updateCurrentObject(novoObjeto *models.ObjPrincipal, maxAmpIndex int, now time.Time) *models.ObjPrincipal {
+	r.objetoPrincipalInfo.Objeto = novoObjeto
+	r.objetoPrincipalInfo.ContadorEstabilidade++
+	r.objetoPrincipalInfo.UltimaAtualizacao = now
+	r.objetoPrincipalInfo.Indice = maxAmpIndex
+	return novoObjeto
+}
+
+// shouldSwitchObject determina se deve trocar objeto
+func (r *SICKRadar) shouldSwitchObject(novoObjeto, currentObj *models.ObjPrincipal, now time.Time) bool {
+	// Diferença percentual
+	diffPercent := ((novoObjeto.Amplitude - currentObj.Amplitude) / currentObj.Amplitude) * 100
+
+	// Critérios para trocar
+	significantDiff := diffPercent > r.thresholdMudanca
+	stable := r.objetoPrincipalInfo.ContadorEstabilidade >= r.ciclosMinimosEstabilidade
+	timeout := now.Sub(r.objetoPrincipalInfo.UltimaAtualizacao) > 2*time.Second
+
+	return (significantDiff && stable) || timeout
+}
+
+// switchToNewObject troca para novo objeto
+func (r *SICKRadar) switchToNewObject(novoObjeto *models.ObjPrincipal, maxAmpIndex int, now time.Time) *models.ObjPrincipal {
+	r.objetoPrincipalInfo = &models.ObjetoPrincipalInfo{
+		Objeto:               novoObjeto,
+		ContadorEstabilidade: 1,
+		UltimaAtualizacao:    now,
+		Indice:               maxAmpIndex,
+	}
+	return novoObjeto
+}
+
+// maintainCurrentObject mantém objeto atual
+func (r *SICKRadar) maintainCurrentObject(novoObjeto, currentObj *models.ObjPrincipal) *models.ObjPrincipal {
+	// Reset contador se amplitude caiu muito
+	diffPercent := ((novoObjeto.Amplitude - currentObj.Amplitude) / currentObj.Amplitude) * 100
+	if diffPercent < -r.thresholdMudanca {
+		r.objetoPrincipalInfo.ContadorEstabilidade = 1
+	}
+	return currentObj
+}
+
+// ProcessData processamento otimizado dos dados do radar
 func (r *SICKRadar) ProcessData(data []byte) (positions, velocities, azimuths, amplitudes []float64, objPrincipal *models.ObjPrincipal) {
-	// Converter para string para análise
-	dataStr := string(data)
-
-	// Limpar caracteres de controle
-	var cleanData strings.Builder
-	for _, c := range dataStr {
-		if c < 32 || c > 126 {
-			cleanData.WriteRune(' ')
-		} else {
-			cleanData.WriteRune(c)
-		}
+	if len(data) == 0 {
+		return []float64{}, []float64{}, []float64{}, []float64{}, nil
 	}
 
-	// Dividir em tokens
-	tokens := strings.Fields(cleanData.String())
-
-	// Valores para armazenar os resultados
-	positions = []float64{}
-	velocities = []float64{}
-	azimuths = []float64{}
-	amplitudes = []float64{}
-
-	// Extrair todos os blocos disponíveis
-	possibleBlocks := []string{"P3DX1", "V3DX1", "DIST1", "VRAD1", "AZMT1", "AMPL1", "ANG1", "DIR1", "ANGLE1"}
-
-	blocksFound := 0
-
-	for _, blockName := range possibleBlocks {
-		blockIdx := -1
-		for i, token := range tokens {
-			if token == blockName {
-				blockIdx = i
-				blocksFound++
-				break
-			}
-		}
-
-		if blockIdx != -1 && blockIdx+3 < len(tokens) {
-			// Extrair escala
-			scaleHex := tokens[blockIdx+1]
-			var scale float64 = 1.0
-
-			// Tentar converter escala de hexadecimal para float
-			scaleFloat := utils.HexToFloat(scaleHex, r.DebugMode)
-			if scaleFloat != 0.0 {
-				scale = scaleFloat
-			}
-
-			// Número de valores
-			numValues := 0
-			if blockIdx+3 < len(tokens) {
-				// Tentar converter como decimal
-				if v, err := strconv.Atoi(tokens[blockIdx+3]); err == nil {
-					numValues = v
-				} else {
-					// Tentar ler como hexadecimal
-					if v, err := strconv.ParseInt(tokens[blockIdx+3], 16, 32); err == nil {
-						numValues = int(v)
-					}
-				}
-			}
-
-			if r.DebugMode {
-				fmt.Printf("\nBloco %s encontrado. Escala: %f, Valores: %d\n", blockName, scale, numValues)
-			}
-
-			// Processar valores
-			values := []float64{}
-			for i := 0; i < numValues; i++ {
-				if blockIdx+i+4 < len(tokens) {
-					valHex := tokens[blockIdx+i+4]
-					var finalValue float64
-					decimalValue := utils.HexToInt(valHex, r.DebugMode)
-
-					// Converte o valor final de acordo com o tipo de bloco
-					switch blockName {
-					case "AZMT1", "ANG1", "DIR1", "ANGLE1":
-						finalValue = utils.DecodeAngleData(valHex, scale, r.DebugMode)
-						if r.DebugMode {
-							fmt.Printf("  %s_%d: HEX=%s -> %.3f°\n", blockName, i+1, valHex, finalValue)
-						}
-					case "P3DX1", "DIST1":
-						finalValue = float64(decimalValue) * scale / 1000.0
-						if r.DebugMode {
-							fmt.Printf("  %s_%d: HEX=%s -> DEC=%d -> %.3fm\n", blockName, i+1, valHex, decimalValue, finalValue)
-						}
-					default: // Inclui "V3DX1", "VRAD1", "AMPL1" e outros
-						finalValue = float64(decimalValue) * scale
-						if r.DebugMode {
-							fmt.Printf("  %s_%d: HEX=%s -> DEC=%d -> %.3f\n", blockName, i+1, valHex, decimalValue, finalValue)
-						}
-					}
-					values = append(values, finalValue)
-				}
-			}
-
-			// Armazenar valores processados
-			switch blockName {
-			case "P3DX1", "DIST1":
-				positions = values
-			case "V3DX1", "VRAD1":
-				velocities = values
-			case "AZMT1", "ANG1", "DIR1", "ANGLE1":
-				azimuths = values
-			case "AMPL1":
-				amplitudes = values
-			}
-		}
+	// Limpar e tokenizar dados
+	tokens := r.cleanAndTokenizeData(data)
+	if len(tokens) == 0 {
+		return []float64{}, []float64{}, []float64{}, []float64{}, nil
 	}
 
-	// Usar algoritmo de estabilização para selecionar objeto principal
-	objPrincipal = r.SelecionarObjetoPrincipalEstabilizado(positions, velocities, azimuths, amplitudes)
+	// Inicializar arrays de resultado
+	results := map[string][]float64{
+		"positions":  {},
+		"velocities": {},
+		"azimuths":   {},
+		"amplitudes": {},
+	}
 
-	return positions, velocities, azimuths, amplitudes, objPrincipal
+	// Processar blocos de dados
+	r.processDataBlocks(tokens, results)
+
+	// Usar algoritmo de estabilização
+	objPrincipal = r.SelecionarObjetoPrincipalEstabilizado(
+		results["positions"],
+		results["velocities"],
+		results["azimuths"],
+		results["amplitudes"],
+	)
+
+	return results["positions"], results["velocities"], results["azimuths"], results["amplitudes"], objPrincipal
 }
 
-// DisplayData exibe os dados processados no terminal
+// cleanAndTokenizeData limpa e tokeniza dados de entrada
+func (r *SICKRadar) cleanAndTokenizeData(data []byte) []string {
+	var cleanData strings.Builder
+	cleanData.Grow(len(data)) // Pre-allocate
+
+	for _, c := range string(data) {
+		if c >= 32 && c <= 126 {
+			cleanData.WriteRune(c)
+		} else {
+			cleanData.WriteRune(' ')
+		}
+	}
+
+	return strings.Fields(cleanData.String())
+}
+
+// processDataBlocks processa todos os blocos de dados
+func (r *SICKRadar) processDataBlocks(tokens []string, results map[string][]float64) {
+	// Configuração de processadores de bloco
+	blockProcessors := []struct {
+		names     []string
+		converter func(string, float64, int, bool) float64
+		target    string
+	}{
+		{[]string{"P3DX1", "DIST1"}, r.convertDistance, "positions"},
+		{[]string{"V3DX1", "VRAD1"}, r.convertVelocity, "velocities"},
+		{[]string{"AZMT1", "ANG1", "DIR1", "ANGLE1"}, r.convertAngle, "azimuths"},
+		{[]string{"AMPL1"}, r.convertAmplitude, "amplitudes"},
+	}
+
+	// Processar cada tipo de bloco
+	for _, processor := range blockProcessors {
+		for _, blockName := range processor.names {
+			if values := r.processBlock(tokens, blockName, processor.converter); len(values) > 0 {
+				results[processor.target] = values
+				break // Usar primeiro bloco encontrado de cada tipo
+			}
+		}
+	}
+}
+
+// processBlock processa um bloco específico
+func (r *SICKRadar) processBlock(tokens []string, blockName string, converter func(string, float64, int, bool) float64) []float64 {
+	blockIdx := r.findBlockIndex(tokens, blockName)
+	if blockIdx == -1 || blockIdx+3 >= len(tokens) {
+		return nil
+	}
+
+	// Extrair parâmetros do bloco
+	scale := r.extractScale(tokens[blockIdx+1])
+	numValues := r.extractNumValues(tokens[blockIdx+3])
+
+	if numValues == 0 {
+		return nil
+	}
+
+	if r.DebugMode {
+		fmt.Printf("Bloco %s: escala=%.3f, valores=%d\n", blockName, scale, numValues)
+	}
+
+	// Processar valores
+	values := make([]float64, 0, numValues)
+	for i := 0; i < numValues; i++ {
+		if blockIdx+i+4 < len(tokens) {
+			valHex := tokens[blockIdx+i+4]
+			finalValue := converter(valHex, scale, i+1, r.DebugMode)
+			values = append(values, finalValue)
+		}
+	}
+
+	return values
+}
+
+// findBlockIndex encontra índice do bloco nos tokens
+func (r *SICKRadar) findBlockIndex(tokens []string, blockName string) int {
+	for i, token := range tokens {
+		if token == blockName {
+			return i
+		}
+	}
+	return -1
+}
+
+// extractScale extrai escala do token hexadecimal
+func (r *SICKRadar) extractScale(scaleHex string) float64 {
+	scale := utils.HexToFloat(scaleHex, r.DebugMode)
+	if scale == 0.0 {
+		return 1.0
+	}
+	return scale
+}
+
+// extractNumValues extrai número de valores
+func (r *SICKRadar) extractNumValues(valueToken string) int {
+	// Tentar decimal primeiro
+	if v, err := strconv.Atoi(valueToken); err == nil {
+		return v
+	}
+
+	// Fallback hexadecimal
+	if v, err := strconv.ParseInt(valueToken, 16, 32); err == nil {
+		return int(v)
+	}
+
+	return 0
+}
+
+// ========== CONVERSORES ESPECIALIZADOS ==========
+
+func (r *SICKRadar) convertDistance(valHex string, scale float64, index int, debug bool) float64 {
+	decimalValue := utils.HexToInt(valHex, debug)
+	finalValue := float64(decimalValue) * scale / 1000.0
+
+	if debug {
+		fmt.Printf("  DIST_%d: HEX=%s -> %.3fm\n", index, valHex, finalValue)
+	}
+
+	return finalValue
+}
+
+func (r *SICKRadar) convertVelocity(valHex string, scale float64, index int, debug bool) float64 {
+	decimalValue := utils.HexToInt(valHex, debug)
+	finalValue := float64(decimalValue) * scale
+
+	if debug {
+		fmt.Printf("  VEL_%d: HEX=%s -> %.3f\n", index, valHex, finalValue)
+	}
+
+	return finalValue
+}
+
+func (r *SICKRadar) convertAngle(valHex string, scale float64, index int, debug bool) float64 {
+	finalValue := utils.DecodeAngleData(valHex, scale, debug)
+
+	if debug {
+		fmt.Printf("  ANG_%d: HEX=%s -> %.3f°\n", index, valHex, finalValue)
+	}
+
+	return finalValue
+}
+
+func (r *SICKRadar) convertAmplitude(valHex string, scale float64, index int, debug bool) float64 {
+	decimalValue := utils.HexToInt(valHex, debug)
+	finalValue := float64(decimalValue) * scale
+
+	if debug {
+		fmt.Printf("  AMP_%d: HEX=%s -> %.3f\n", index, valHex, finalValue)
+	}
+
+	return finalValue
+}
+
+// DisplayData interface otimizada de exibição
 func (r *SICKRadar) DisplayData(positions, velocities, azimuths, amplitudes []float64, objPrincipal *models.ObjPrincipal, plcConnected bool, plcIP string, wsConnCount int, natsConnected bool) {
-	// Limpar a tela antes de exibir
 	utils.LimparTela()
 
+	r.displayHeader()
+	r.displaySystemStatus(plcConnected, plcIP, wsConnCount, natsConnected)
+	r.displayObjectsSummary(positions, velocities, azimuths, amplitudes)
+	r.displayMainObject(objPrincipal)
+	r.displayFooter()
+}
+
+// displayHeader exibe cabeçalho
+func (r *SICKRadar) displayHeader() {
 	fmt.Println("==================================================")
-	fmt.Println("     DADOS DO RADAR SICK RMS1000 - TEMPO REAL")
+	fmt.Println("     DADOS DO RADAR SICK RMS1000 - TEMPO REAL")
 	fmt.Println("==================================================")
+}
 
-	// Status do PLC
-	fmt.Println("STATUS PLC SIEMENS:")
-	fmt.Printf("  Conectado: %v\n", plcConnected)
-	fmt.Printf("  Endereço: %s\n", plcIP)
+// displaySystemStatus exibe status dos sistemas
+func (r *SICKRadar) displaySystemStatus(plcConnected bool, plcIP string, wsConnCount int, natsConnected bool) {
+	statusInfo := []struct {
+		section string
+		items   []struct{ label, value string }
+	}{
+		{
+			"STATUS PLC SIEMENS:",
+			[]struct{ label, value string }{
+				{"Conectado", fmt.Sprintf("%v", plcConnected)},
+				{"Endereço", plcIP},
+			},
+		},
+		{
+			"WEBSOCKET:",
+			[]struct{ label, value string }{
+				{"Clientes conectados", fmt.Sprintf("%d", wsConnCount)},
+			},
+		},
+		{
+			"NATS:",
+			[]struct{ label, value string }{
+				{"Conectado", fmt.Sprintf("%v", natsConnected)},
+			},
+		},
+	}
 
-	// Status do WebSocket
-	fmt.Printf("\nWEBSOCKET:")
-	fmt.Printf("  Clientes conectados: %d\n", wsConnCount)
+	for _, section := range statusInfo {
+		fmt.Printf("\n%s\n", section.section)
+		for _, item := range section.items {
+			fmt.Printf("  %s: %s\n", item.label, item.value)
+		}
+	}
+}
 
-	// Status do NATS
-	fmt.Printf("\nNATS:")
-	fmt.Printf("  Conectado: %v\n", natsConnected)
-
-	// RESUMO - TODOS OS OBJETOS
+// displayObjectsSummary exibe resumo de todos os objetos
+func (r *SICKRadar) displayObjectsSummary(positions, velocities, azimuths, amplitudes []float64) {
 	fmt.Println("\nRESUMO DE TODOS OS OBJETOS DETECTADOS")
 	fmt.Println("--------------------------------------------------")
 
-	fmt.Printf("Posições detectadas: %d\n", len(positions))
-	for i, pos := range positions {
-		fmt.Printf("  Posição %d: %.3fm\n", i+1, pos)
+	// Configuração de exibição de arrays
+	arrayDisplays := []struct {
+		name   string
+		data   []float64
+		unit   string
+		format string
+	}{
+		{"Posições", positions, "m", "%.3f"},
+		{"Velocidades", velocities, "m/s", "%.3f"},
+		{"Ângulos", azimuths, "°", "%.3f"},
+		{"Amplitudes", amplitudes, "", "%.3f"},
 	}
 
-	fmt.Printf("\nVelocidades detectadas: %d\n", len(velocities))
-	for i, vel := range velocities {
-		fmt.Printf("  Velocidade %d: %.3fm/s\n", i+1, vel)
-	}
-
-	fmt.Printf("\nÂngulos detectados: %d\n", len(azimuths))
-	for i, ang := range azimuths {
-		fmt.Printf("  Ângulo %d: %.3f°\n", i+1, ang)
-	}
-
-	fmt.Printf("\nAmplitudes detectadas: %d\n", len(amplitudes))
-	for i, amp := range amplitudes {
-		fmt.Printf("  Amplitude %d: %.3f\n", i+1, amp)
-	}
-
-	// OBJETO PRINCIPAL
-	if objPrincipal != nil {
-		fmt.Println("\nOBJETO PRINCIPAL (MAIOR AMPLITUDE)")
-		fmt.Println("--------------------------------------------------")
-		fmt.Printf("  Amplitude: %.3f\n", objPrincipal.Amplitude)
-		if objPrincipal.Distancia != nil {
-			fmt.Printf("  Distância: %.3fm\n", *objPrincipal.Distancia)
-		}
-		if objPrincipal.Velocidade != nil {
-			fmt.Printf("  Velocidade: %.3fm/s\n", *objPrincipal.Velocidade)
-		}
-		if objPrincipal.Angulo != nil {
-			fmt.Printf("  Ângulo: %.3f°\n", *objPrincipal.Angulo)
+	for _, display := range arrayDisplays {
+		fmt.Printf("\n%s detectadas: %d\n", display.name, len(display.data))
+		for i, value := range display.data {
+			fmt.Printf("  %s %d: %s%s\n",
+				strings.TrimSuffix(display.name, "s"),
+				i+1,
+				fmt.Sprintf(display.format, value),
+				display.unit,
+			)
 		}
 	}
+}
 
+// displayMainObject exibe objeto principal
+func (r *SICKRadar) displayMainObject(objPrincipal *models.ObjPrincipal) {
+	if objPrincipal == nil {
+		return
+	}
+
+	fmt.Println("\nOBJETO PRINCIPAL (MAIOR AMPLITUDE)")
+	fmt.Println("--------------------------------------------------")
+	fmt.Printf("  Amplitude: %.3f\n", objPrincipal.Amplitude)
+
+	// Exibir propriedades opcionais
+	optionalProps := []struct {
+		name  string
+		value *float64
+		unit  string
+	}{
+		{"Distância", objPrincipal.Distancia, "m"},
+		{"Velocidade", objPrincipal.Velocidade, "m/s"},
+		{"Ângulo", objPrincipal.Angulo, "°"},
+	}
+
+	for _, prop := range optionalProps {
+		if prop.value != nil {
+			fmt.Printf("  %s: %.3f%s\n", prop.name, *prop.value, prop.unit)
+		}
+	}
+}
+
+// displayFooter exibe rodapé
+func (r *SICKRadar) displayFooter() {
 	fmt.Println("\n==================================================")
 	fmt.Println("Pressione Ctrl+C para parar a monitoração")
+}
+
+// ========== MÉTODOS AUXILIARES ==========
+
+// GetStabilityConfig retorna configuração atual de estabilização
+func (r *SICKRadar) GetStabilityConfig() ObjectStabilityConfig {
+	return ObjectStabilityConfig{
+		ThresholdPercent:   r.thresholdMudanca,
+		MinStabilityCycles: r.ciclosMinimosEstabilidade,
+		TimeoutSeconds:     2.0,
+		AmplitudeThreshold: 0.05,
+	}
+}
+
+// SetStabilityConfig atualiza configuração de estabilização
+func (r *SICKRadar) SetStabilityConfig(config ObjectStabilityConfig) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	r.thresholdMudanca = config.ThresholdPercent
+	r.ciclosMinimosEstabilidade = config.MinStabilityCycles
+}
+
+// GetObjectInfo retorna informações do objeto atual
+func (r *SICKRadar) GetObjectInfo() *models.ObjetoPrincipalInfo {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	if r.objetoPrincipalInfo == nil {
+		return nil
+	}
+
+	// Retornar cópia para evitar race conditions
+	info := *r.objetoPrincipalInfo
+	return &info
+}
+
+// ResetObjectStability reseta estabilização do objeto
+func (r *SICKRadar) ResetObjectStability() {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	r.objetoPrincipalInfo = nil
 }
