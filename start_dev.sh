@@ -1,11 +1,15 @@
 #!/bin/bash
 
 echo "🚀 INICIANDO RADAR_COLETAS - DESENVOLVIMENTO"
-echo "Backend: http://localhost:8080"
-echo "Frontend: http://localhost:5173" 
+
+# Matar sessão anterior se existir
+tmux kill-session -t radar_dev 2>/dev/null
+
+echo "Backend: http://192.168.1.92:8080"
+echo "Frontend: http://192.168.1.92:5173" 
 echo "========================================"
 
-# Criar sessão tmux com 2 painéis
+# Criar nova sessão
 tmux new-session -d -s radar_dev
 
 # Dividir horizontalmente  
@@ -21,5 +25,5 @@ tmux send-keys -t radar_dev:0.1 "cd /home/rls/RADAR_COLETAS/radar-mobile-app" En
 tmux send-keys -t radar_dev:0.1 "echo '=== FRONTEND REACT ==='" Enter
 tmux send-keys -t radar_dev:0.1 "npm run dev" Enter
 
-# Conectar na sessão (mostra os 2 terminais)
+# Conectar na sessão
 tmux attach -t radar_dev
