@@ -8,7 +8,7 @@ import (
 	"backend/pkg/models"
 )
 
-// RadarConfig configuração de radar
+// RadarConfig representa a configuração de um radar
 type RadarConfig struct {
 	ID   string
 	Name string
@@ -16,22 +16,26 @@ type RadarConfig struct {
 	Port int
 }
 
-// RadarManager gerenciador otimizado mas compatível
+// RadarManager gerencia múltiplos radares
 type RadarManager struct {
 	radars  map[string]*SICKRadar
 	configs map[string]RadarConfig
 	mutex   sync.RWMutex
+	// CONTROLE DE RECONEXÃO PARA EVITAR CONFLITOS
+	lastReconnectAttempt map[string]time.Time
+	reconnectMutex       sync.Mutex
 }
 
-// NewRadarManager cria gerenciador
+// NewRadarManager cria um novo gerenciador de radares
 func NewRadarManager() *RadarManager {
 	return &RadarManager{
-		radars:  make(map[string]*SICKRadar),
-		configs: make(map[string]RadarConfig),
+		radars:               make(map[string]*SICKRadar),
+		configs:              make(map[string]RadarConfig),
+		lastReconnectAttempt: make(map[string]time.Time),
 	}
 }
 
-// AddRadar adiciona radar com validação básica
+// AddRadar adiciona um novo radar ao gerenciador
 func (rm *RadarManager) AddRadar(config RadarConfig) error {
 	rm.mutex.Lock()
 	defer rm.mutex.Unlock()
@@ -40,19 +44,16 @@ func (rm *RadarManager) AddRadar(config RadarConfig) error {
 		return fmt.Errorf("radar com ID %s já existe", config.ID)
 	}
 
-	if config.Port == 0 {
-		config.Port = 2111
-	}
-
 	radar := NewSICKRadar(config.IP, config.Port)
 	rm.radars[config.ID] = radar
 	rm.configs[config.ID] = config
+	rm.lastReconnectAttempt[config.ID] = time.Time{} // Inicializar
 
 	fmt.Printf("✅ Radar %s (%s) adicionado - IP: %s:%d\n", config.Name, config.ID, config.IP, config.Port)
 	return nil
 }
 
-// GetRadar retorna radar específico
+// GetRadar retorna um radar específico
 func (rm *RadarManager) GetRadar(id string) (*SICKRadar, bool) {
 	rm.mutex.RLock()
 	defer rm.mutex.RUnlock()
@@ -66,14 +67,14 @@ func (rm *RadarManager) GetAllRadars() map[string]*SICKRadar {
 	rm.mutex.RLock()
 	defer rm.mutex.RUnlock()
 
-	result := make(map[string]*SICKRadar, len(rm.radars))
+	result := make(map[string]*SICKRadar)
 	for id, radar := range rm.radars {
 		result[id] = radar
 	}
 	return result
 }
 
-// GetRadarConfig retorna configuração
+// GetRadarConfig retorna a configuração de um radar
 func (rm *RadarManager) GetRadarConfig(id string) (RadarConfig, bool) {
 	rm.mutex.RLock()
 	defer rm.mutex.RUnlock()
@@ -82,84 +83,73 @@ func (rm *RadarManager) GetRadarConfig(id string) (RadarConfig, bool) {
 	return config, exists
 }
 
-// ConnectAll conecta todos com worker pool
+// ConnectAll tenta conectar todos os radares
 func (rm *RadarManager) ConnectAll() map[string]error {
-	// Copiar maps de forma thread-safe
-	radarsMap, configsMap := rm.copyMapsForProcessing()
+	rm.mutex.RLock()
+	configs := make(map[string]RadarConfig)
+	for id, config := range rm.configs {
+		configs[id] = config
+	}
+	radars := make(map[string]*SICKRadar)
+	for id, radar := range rm.radars {
+		radars[id] = radar
+	}
+	rm.mutex.RUnlock()
 
 	errors := make(map[string]error)
-	var wg sync.WaitGroup
-	var errorMutex sync.Mutex
 
-	// Worker pool para conexões paralelas
-	for id, radar := range radarsMap {
-		wg.Add(1)
-		go func(radarID string, r *SICKRadar, config RadarConfig) {
-			defer wg.Done()
+	for id, radar := range radars {
+		config := configs[id]
+		fmt.Printf("🔄 Conectando ao radar %s (%s)...\n", config.Name, config.ID)
 
-			fmt.Printf("🔄 Conectando ao radar %s (%s)...\n", config.Name, config.ID)
-			err := rm.connectRadarWithRetry(r, 3)
-
-			errorMutex.Lock()
-			if err != nil {
-				errors[radarID] = err
-				fmt.Printf("❌ Falha ao conectar radar %s: %v\n", config.Name, err)
-			} else {
-				fmt.Printf("✅ Radar %s conectado com sucesso\n", config.Name)
-			}
-			errorMutex.Unlock()
-		}(id, radar, configsMap[id])
+		err := rm.connectRadarWithRetry(radar, 3)
+		if err != nil {
+			errors[id] = err
+			fmt.Printf("❌ Falha ao conectar radar %s: %v\n", config.Name, err)
+		} else {
+			fmt.Printf("✅ Radar %s conectado com sucesso\n", config.Name)
+		}
 	}
 
-	wg.Wait()
 	return errors
 }
 
-// copyMapsForProcessing copia maps de forma thread-safe
-func (rm *RadarManager) copyMapsForProcessing() (map[string]*SICKRadar, map[string]RadarConfig) {
-	rm.mutex.RLock()
-	defer rm.mutex.RUnlock()
-
-	radars := make(map[string]*SICKRadar, len(rm.radars))
-	configs := make(map[string]RadarConfig, len(rm.configs))
-
-	for id, radar := range rm.radars {
-		radars[id] = radar
-		configs[id] = rm.configs[id]
-	}
-
-	return radars, configs
-}
-
-// ConnectRadarWithRetry método público
+// ConnectRadarWithRetry tenta conectar um radar com retry (método público)
 func (rm *RadarManager) ConnectRadarWithRetry(radar *SICKRadar, maxRetries int) error {
 	return rm.connectRadarWithRetry(radar, maxRetries)
 }
 
-// connectRadarWithRetry conecta com backoff exponencial
+// connectRadarWithRetry tenta conectar um radar com retry
 func (rm *RadarManager) connectRadarWithRetry(radar *SICKRadar, maxRetries int) error {
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		err := radar.Connect()
 		if err == nil {
-			if measureErr := radar.StartMeasurement(); measureErr == nil {
+			err = radar.StartMeasurement()
+			if err == nil {
 				return nil
+			} else {
+				radar.Disconnect()
 			}
-			radar.Disconnect()
 		}
 
 		if attempt < maxRetries {
-			// Backoff exponencial: 1s, 2s, 4s...
-			backoff := time.Duration(1<<(attempt-1)) * time.Second
-			time.Sleep(backoff)
+			time.Sleep(2 * time.Second)
 		}
 	}
 
 	return fmt.Errorf("falha ao conectar após %d tentativas", maxRetries)
 }
 
-// DisconnectAll desconecta todos
+// DisconnectAll desconecta todos os radares
 func (rm *RadarManager) DisconnectAll() {
-	radars, configs := rm.copyMapsForProcessing()
+	rm.mutex.RLock()
+	radars := make(map[string]*SICKRadar)
+	configs := make(map[string]RadarConfig)
+	for id, radar := range rm.radars {
+		radars[id] = radar
+		configs[id] = rm.configs[id]
+	}
+	rm.mutex.RUnlock()
 
 	for id, radar := range radars {
 		if radar.IsConnected() {
@@ -169,42 +159,80 @@ func (rm *RadarManager) DisconnectAll() {
 	}
 }
 
-// GetConnectionStatus retorna status atual
+// GetConnectionStatus retorna o status de conexão de todos os radares
 func (rm *RadarManager) GetConnectionStatus() map[string]bool {
 	rm.mutex.RLock()
 	defer rm.mutex.RUnlock()
 
-	status := make(map[string]bool, len(rm.radars))
+	status := make(map[string]bool)
 	for id, radar := range rm.radars {
 		status[id] = radar.IsConnected()
 	}
 	return status
 }
 
-// CollectEnabledRadarsData - MANTÉM FUNCIONALIDADE ORIGINAL
+// CollectEnabledRadarsData coleta dados COM DETECÇÃO REAL DE DESCONEXÃO
 func (rm *RadarManager) CollectEnabledRadarsData(enabledRadars map[string]bool) models.MultiRadarData {
-	radars, configs := rm.copyMapsForProcessing()
+	rm.mutex.RLock()
+	radars := make(map[string]*SICKRadar)
+	configs := make(map[string]RadarConfig)
+	for id, radar := range rm.radars {
+		radars[id] = radar
+		configs[id] = rm.configs[id]
+	}
+	rm.mutex.RUnlock()
 
+	var radarDataList []models.RadarData
 	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
-	radarDataList := make([]models.RadarData, 0, len(radars))
 
-	// Processar cada radar
 	for id, radar := range radars {
 		config := configs[id]
 		isEnabled := enabledRadars[id]
 
+		// VERIFICAÇÃO REAL DE CONEXÃO
+		actuallyConnected := isEnabled && radar.IsConnected()
+
 		radarData := models.RadarData{
 			RadarID:   id,
 			RadarName: config.Name,
-			Connected: radar.IsConnected() && isEnabled,
+			Connected: actuallyConnected, // STATUS REAL
 			Timestamp: timestamp,
 		}
 
-		// Coletar dados se habilitado E conectado
-		if isEnabled && radar.IsConnected() {
-			rm.collectSingleRadarData(&radarData, radar)
+		// LÓGICA INTELIGENTE: Só coletar dados se estiver habilitado E REALMENTE conectado
+		if isEnabled && actuallyConnected {
+			data, err := radar.ReadData()
+			if err != nil {
+				// Erro na leitura - radar pode ter desconectado
+				fmt.Printf("⚠️ Erro ao ler dados do radar %s: %v\n", config.Name, err)
+				radarData.Connected = false // Marcar como desconectado
+				radarData.Positions = []float64{}
+				radarData.Velocities = []float64{}
+				radarData.Azimuths = []float64{}
+				radarData.Amplitudes = []float64{}
+				radarData.MainObject = nil
+			} else if data != nil && len(data) > 0 {
+				positions, velocities, azimuths, amplitudes, objPrincipal := radar.ProcessData(data)
+				radarData.Positions = positions
+				radarData.Velocities = velocities
+				radarData.Azimuths = azimuths
+				radarData.Amplitudes = amplitudes
+				radarData.MainObject = objPrincipal
+			} else {
+				// Sem dados - pode indicar problema
+				radarData.Positions = []float64{}
+				radarData.Velocities = []float64{}
+				radarData.Azimuths = []float64{}
+				radarData.Amplitudes = []float64{}
+				radarData.MainObject = nil
+			}
 		} else {
-			rm.setEmptyRadarData(&radarData)
+			// Se desabilitado OU desconectado, retornar dados vazios
+			radarData.Positions = []float64{}
+			radarData.Velocities = []float64{}
+			radarData.Azimuths = []float64{}
+			radarData.Amplitudes = []float64{}
+			radarData.MainObject = nil
 		}
 
 		radarDataList = append(radarDataList, radarData)
@@ -216,36 +244,19 @@ func (rm *RadarManager) CollectEnabledRadarsData(enabledRadars map[string]bool) 
 	}
 }
 
-// collectSingleRadarData coleta dados de um radar
-func (rm *RadarManager) collectSingleRadarData(radarData *models.RadarData, radar *SICKRadar) {
-	data, err := radar.ReadData()
-	if err == nil && data != nil && len(data) > 0 {
-		positions, velocities, azimuths, amplitudes, objPrincipal := radar.ProcessData(data)
-		radarData.Positions = positions
-		radarData.Velocities = velocities
-		radarData.Azimuths = azimuths
-		radarData.Amplitudes = amplitudes
-		radarData.MainObject = objPrincipal
-	} else {
-		rm.setEmptyRadarData(radarData)
-	}
-}
-
-// setEmptyRadarData define dados vazios
-func (rm *RadarManager) setEmptyRadarData(radarData *models.RadarData) {
-	radarData.Positions = []float64{}
-	radarData.Velocities = []float64{}
-	radarData.Azimuths = []float64{}
-	radarData.Amplitudes = []float64{}
-	radarData.MainObject = nil
-}
-
-// CollectAllData método legado - FUNCIONALIDADE ORIGINAL
+// CollectAllData coleta dados de todos os radares conectados (método legado)
 func (rm *RadarManager) CollectAllData() models.MultiRadarData {
-	radars, configs := rm.copyMapsForProcessing()
+	rm.mutex.RLock()
+	radars := make(map[string]*SICKRadar)
+	configs := make(map[string]RadarConfig)
+	for id, radar := range rm.radars {
+		radars[id] = radar
+		configs[id] = rm.configs[id]
+	}
+	rm.mutex.RUnlock()
 
+	var radarDataList []models.RadarData
 	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
-	radarDataList := make([]models.RadarData, 0, len(radars))
 
 	for id, radar := range radars {
 		config := configs[id]
@@ -257,9 +268,15 @@ func (rm *RadarManager) CollectAllData() models.MultiRadarData {
 		}
 
 		if radar.IsConnected() {
-			rm.collectSingleRadarData(&radarData, radar)
-		} else {
-			rm.setEmptyRadarData(&radarData)
+			data, err := radar.ReadData()
+			if err == nil && data != nil && len(data) > 0 {
+				positions, velocities, azimuths, amplitudes, objPrincipal := radar.ProcessData(data)
+				radarData.Positions = positions
+				radarData.Velocities = velocities
+				radarData.Azimuths = azimuths
+				radarData.Amplitudes = amplitudes
+				radarData.MainObject = objPrincipal
+			}
 		}
 
 		radarDataList = append(radarDataList, radarData)
@@ -271,63 +288,91 @@ func (rm *RadarManager) CollectAllData() models.MultiRadarData {
 	}
 }
 
-// StartReconnectionMonitor inicia monitoramento
+// StartReconnectionMonitor inicia o monitoramento e reconexão automática
 func (rm *RadarManager) StartReconnectionMonitor() {
 	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-
-		for range ticker.C {
+		for {
 			rm.checkAndReconnect()
+			time.Sleep(5 * time.Second)
 		}
 	}()
 }
 
-// CheckAndReconnectEnabled - MANTÉM LÓGICA ORIGINAL
+// CheckAndReconnectEnabled - VERSÃO CONTROLADA SEM CONFLITOS
 func (rm *RadarManager) CheckAndReconnectEnabled(enabledRadars map[string]bool) {
-	radars, configs := rm.copyMapsForProcessing()
+	rm.reconnectMutex.Lock()
+	defer rm.reconnectMutex.Unlock()
+
+	rm.mutex.RLock()
+	radars := make(map[string]*SICKRadar)
+	configs := make(map[string]RadarConfig)
+	for id, radar := range rm.radars {
+		radars[id] = radar
+		configs[id] = rm.configs[id]
+	}
+	rm.mutex.RUnlock()
+
+	now := time.Now()
 
 	for id, radar := range radars {
 		config := configs[id]
 		isEnabled := enabledRadars[id]
 
-		if isEnabled && !radar.IsConnected() {
-			// Reconexão em goroutine para não bloquear
-			go func(r *SICKRadar, cfg RadarConfig, radarID string) {
-				fmt.Printf("🔄 Radar %s HABILITADO - iniciando reconexão...\n", cfg.Name)
-				err := rm.connectRadarWithRetry(r, 2)
-				if err != nil {
-					fmt.Printf("❌ Falha na reconexão do radar %s: %v\n", cfg.Name, err)
-				} else {
-					fmt.Printf("✅ Radar %s reconectado com sucesso\n", cfg.Name)
+		if isEnabled {
+			// ✅ HABILITADO: Verificar se precisa reconectar COM THROTTLING
+			if !radar.IsConnected() {
+				// EVITAR SPAM DE RECONEXÕES - só tentar a cada 10 segundos
+				lastAttempt := rm.lastReconnectAttempt[id]
+				if now.Sub(lastAttempt) < 10*time.Second {
+					continue // PULAR se tentou recentemente
 				}
-			}(radar, config, id)
 
-		} else if !isEnabled && radar.IsConnected() {
-			// Desconectar imediatamente se desabilitado
-			fmt.Printf("⚠️ Radar %s DESABILITADO - desconectando...\n", config.Name)
-			radar.Disconnect()
-			fmt.Printf("✅ Radar %s desconectado (economia de recursos)\n", config.Name)
+				fmt.Printf("🔄 Radar %s HABILITADO mas DESCONECTADO - tentando reconexão controlada...\n", config.Name)
+
+				// ATUALIZAR timestamp ANTES de tentar
+				rm.lastReconnectAttempt[id] = now
+
+				// RECONEXÃO CONTROLADA com menos tentativas
+				err := rm.connectRadarWithRetry(radar, 2) // REDUZIDO de 3 para 2
+				if err != nil {
+					fmt.Printf("❌ Falha na reconexão controlada do radar %s: %v\n", config.Name, err)
+				} else {
+					fmt.Printf("🎉 Radar %s reconectado com sucesso!\n", config.Name)
+				}
+			}
+		} else {
+			// ❌ DESABILITADO: Se conectado, desconectar SUAVEMENTE
+			if radar.IsConnected() {
+				fmt.Printf("⭕ Radar %s DESABILITADO - desconectando suavemente...\n", config.Name)
+				radar.Disconnect()
+				fmt.Printf("✅ Radar %s desconectado - economia de recursos\n", config.Name)
+			}
 		}
 	}
 }
 
-// checkAndReconnect verifica conexões perdidas
+// checkAndReconnect verifica e reconecta radares desconectados (método legado)
 func (rm *RadarManager) checkAndReconnect() {
-	radars, configs := rm.copyMapsForProcessing()
+	rm.mutex.RLock()
+	radars := make(map[string]*SICKRadar)
+	configs := make(map[string]RadarConfig)
+	for id, radar := range rm.radars {
+		radars[id] = radar
+		configs[id] = rm.configs[id]
+	}
+	rm.mutex.RUnlock()
 
 	for id, radar := range radars {
 		if !radar.IsConnected() {
 			config := configs[id]
-			go func(r *SICKRadar, cfg RadarConfig) {
-				fmt.Printf("🔄 Tentando reconectar radar %s (%s)...\n", cfg.Name, cfg.ID)
-				err := rm.connectRadarWithRetry(r, 2)
-				if err != nil {
-					fmt.Printf("❌ Falha na reconexão do radar %s: %v\n", cfg.Name, err)
-				} else {
-					fmt.Printf("✅ Radar %s reconectado com sucesso\n", cfg.Name)
-				}
-			}(radar, config)
+			fmt.Printf("🔄 Tentando reconectar radar %s (%s)...\n", config.Name, config.ID)
+
+			err := rm.connectRadarWithRetry(radar, 2)
+			if err != nil {
+				fmt.Printf("❌ Falha na reconexão do radar %s: %v\n", config.Name, err)
+			} else {
+				fmt.Printf("✅ Radar %s reconectado com sucesso\n", config.Name)
+			}
 		}
 	}
 }

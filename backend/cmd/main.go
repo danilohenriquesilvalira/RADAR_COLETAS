@@ -1,815 +1,462 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"log/slog"
+	"log"
+	"net"
 	"os"
 	"os/signal"
-	"sync"
+	"strings"
 	"syscall"
 	"time"
 
 	"backend/internal/plc"
 	"backend/internal/radar"
-	"backend/internal/websocket"
-	"backend/pkg/models"
 )
 
-// SystemConfig centraliza todas as configurações do sistema
-type SystemConfig struct {
-	WebDir           string
-	WebServerPort    string
-	PLCConfig        *plc.PLCConfig
-	RadarConfigs     []radar.RadarConfig
-	CollectionDelay  time.Duration
-	ShutdownTimeout  time.Duration
-	PLCHealthCheck   time.Duration
-	OperationTimeout time.Duration
+var (
+	// Loggers especializados
+	systemLogger *log.Logger
+	errorLogger  *log.Logger
+	radarLogger  *log.Logger
+	plcLogger    *log.Logger
+
+	// Arquivo de log
+	logFile *os.File
+)
+
+// Estrutura para métricas do sistema
+type SystemMetrics struct {
+	StartTime          time.Time
+	PLCConnections     int64
+	PLCDisconnections  int64
+	RadarReconnections map[string]int64
+	TotalPackets       int64
+	TotalErrors        int64
+	LastUpdate         time.Time
 }
 
-// DefaultSystemConfig retorna configuração padrão do sistema
-func DefaultSystemConfig() *SystemConfig {
-	return &SystemConfig{
-		WebDir:           "./web",
-		WebServerPort:    "8080",
-		PLCConfig:        plc.DefaultConfig("192.168.1.33"),
-		CollectionDelay:  200 * time.Millisecond,
-		ShutdownTimeout:  30 * time.Second,
-		PLCHealthCheck:   30 * time.Second,
-		OperationTimeout: 2 * time.Second,
-		RadarConfigs: []radar.RadarConfig{
-			{
-				ID:   "caldeira",
-				Name: "Radar Caldeira",
-				IP:   "192.168.1.84",
-				Port: 2111,
-			},
-			{
-				ID:   "porta_jusante",
-				Name: "Radar Porta Jusante",
-				IP:   "192.168.1.85",
-				Port: 2111,
-			},
-			{
-				ID:   "porta_montante",
-				Name: "Radar Porta Montante",
-				IP:   "192.168.1.86",
-				Port: 2111,
-			},
-		},
-	}
-}
+var metrics *SystemMetrics
 
-// SystemManager gerencia todos os componentes do sistema
-type SystemManager struct {
-	config        *SystemConfig
-	logger        *slog.Logger
-	radarManager  *radar.RadarManager
-	wsManager     *websocket.WebSocketManager
-	plcInstance   *plc.SiemensPLC
-	plcController *plc.PLCController
-	shutdown      chan struct{}
-	wg            sync.WaitGroup
-	mu            sync.RWMutex
+func main() {
+	// Configurar interceptação de sinais
+	setupGracefulShutdown()
 
-	// Recovery counters
-	mainLoopRestarts     int
-	plcReconnectAttempts int
-	systemStartTime      time.Time // Para calcular uptime
-}
+	// Inicializar sistema de logs
+	initLogging()
+	defer closeLogging()
 
-// NewSystemManager cria novo gerenciador do sistema
-func NewSystemManager(config *SystemConfig, logger *slog.Logger) *SystemManager {
-	return &SystemManager{
-		config:          config,
-		logger:          logger.With("component", "system_manager"),
-		radarManager:    radar.NewRadarManager(),
-		wsManager:       websocket.NewWebSocketManager(),
-		shutdown:        make(chan struct{}),
-		systemStartTime: time.Now(),
-	}
-}
+	// Inicializar métricas
+	initMetrics()
 
-// getSystemStartTime retorna hora de início
-func (sm *SystemManager) getSystemStartTime() time.Time {
-	return sm.systemStartTime
-}
+	// Header do sistema
+	printSystemHeader()
 
-// getProductionStats retorna estatísticas de produção
-func (sm *SystemManager) getProductionStats() ProductionStats {
-	sm.mu.RLock()
-	plcController := sm.plcController
-	sm.mu.RUnlock()
+	systemLogger.Println("========== SISTEMA RADAR SICK INICIADO ==========")
+	systemLogger.Printf("Usuário: %s", getCurrentUser())
+	systemLogger.Printf("Data/Hora: %s", time.Now().Format("2006-01-02 15:04:05"))
 
-	stats := ProductionStats{
-		TotalPackets: 0,
-		ErrorCount:   0,
-		CPUUsage:     25.0,
-		MemoryUsage:  40.0,
-	}
+	// Criar gerenciador de radares
+	radarManager := radar.NewRadarManager()
 
-	if plcController != nil {
-		systemStats := plcController.GetSystemStats()
-		if totalPackets, ok := systemStats["total_packets"].(int32); ok {
-			stats.TotalPackets = int(totalPackets)
+	// Adicionar os 3 radares
+	addRadarsToManager(radarManager)
+
+	// Variáveis de controle PLC
+	var plcSiemens *plc.SiemensPLC
+	var plcController *plc.PLCController
+	plcConnected := false
+	lastPLCAttempt := time.Time{}
+	consecutivePLCErrors := 0
+
+	// Função de reconexão PLC
+	tryReconnectPLC := func() bool {
+		now := time.Now()
+
+		if plcConnected && plcSiemens != nil && plcSiemens.IsConnected() {
+			return true
 		}
-		if totalErrors, ok := systemStats["total_errors"].(int32); ok {
-			stats.ErrorCount = int(totalErrors)
+
+		if now.Sub(lastPLCAttempt) < 8*time.Second {
+			return false
 		}
-	}
 
-	return stats
-}
+		lastPLCAttempt = now
+		plcLogger.Printf("Tentando reconectar PLC Siemens 192.168.1.33...")
 
-type ProductionStats struct {
-	TotalPackets int
-	ErrorCount   int
-	CPUUsage     float64
-	MemoryUsage  float64
-}
-
-// Initialize configura todos os componentes
-func (sm *SystemManager) Initialize(ctx context.Context) error {
-	sm.logger.Info("Inicializando Sistema Radar SICK",
-		"radars_count", len(sm.config.RadarConfigs),
-		"plc_ip", sm.config.PLCConfig.IP,
-	)
-
-	// Configurar radares
-	if err := sm.setupRadars(); err != nil {
-		return fmt.Errorf("erro configurando radares: %w", err)
-	}
-
-	// Configurar diretório web
-	if err := sm.setupWebDirectory(); err != nil {
-		return fmt.Errorf("erro configurando diretório web: %w", err)
-	}
-
-	// Inicializar PLC
-	if err := sm.initializePLC(ctx); err != nil {
-		sm.logger.Warn("PLC não disponível", "error", err)
-	}
-
-	// Inicializar WebSocket
-	sm.initializeWebSocket()
-
-	return nil
-}
-
-// setupRadars configura todos os radares
-func (sm *SystemManager) setupRadars() error {
-	for _, config := range sm.config.RadarConfigs {
-		sm.radarManager.AddRadar(config)
-		sm.logger.Debug("Radar configurado", "id", config.ID, "name", config.Name)
-	}
-	return nil
-}
-
-// setupWebDirectory cria diretório web se necessário
-func (sm *SystemManager) setupWebDirectory() error {
-	if _, err := os.Stat(sm.config.WebDir); os.IsNotExist(err) {
-		if err := os.Mkdir(sm.config.WebDir, 0755); err != nil {
-			return fmt.Errorf("erro criando diretório web: %w", err)
+		// Limpar conexões antigas
+		if plcController != nil {
+			plcController.Stop()
+			plcController = nil
 		}
-	}
-	return nil
-}
+		if plcSiemens != nil && plcSiemens.IsConnected() {
+			plcSiemens.Disconnect()
+			metrics.PLCDisconnections++
+		}
 
-// initializePLC inicializa conexão com PLC
-func (sm *SystemManager) initializePLC(ctx context.Context) error {
-	// Criar instância do PLC
-	plcInstance, err := plc.NewSiemensPLC(sm.config.PLCConfig, sm.logger)
-	if err != nil {
-		return fmt.Errorf("erro criando instância PLC: %w", err)
-	}
+		// Nova conexão
+		plcSiemens = plc.NewSiemensPLC("192.168.1.33")
+		err := plcSiemens.Connect()
+		if err != nil {
+			consecutivePLCErrors++
+			errorLogger.Printf("PLC: Erro na conexão (tentativa %d): %v", consecutivePLCErrors, err)
+			plcConnected = false
+			return false
+		}
 
-	// Conectar ao PLC
-	connectCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
+		if !plcSiemens.IsConnected() {
+			consecutivePLCErrors++
+			errorLogger.Printf("PLC: Conexão não confirmada (tentativa %d)", consecutivePLCErrors)
+			plcConnected = false
+			return false
+		}
 
-	if err := plcInstance.Connect(connectCtx); err != nil {
-		return fmt.Errorf("erro conectando PLC: %w", err)
-	}
-
-	// Obter cliente para controlador
-	client, err := plcInstance.GetClient()
-	if err != nil {
-		plcInstance.Close()
-		return fmt.Errorf("erro obtendo cliente PLC: %w", err)
-	}
-
-	// Criar controlador
-	sm.mu.Lock()
-	sm.plcInstance = plcInstance
-	sm.plcController = plc.NewPLCController(client)
-	sm.mu.Unlock()
-
-	sm.logger.Info("PLC conectado com sucesso",
-		"ip", sm.config.PLCConfig.IP,
-		"rack", sm.config.PLCConfig.Rack,
-		"slot", sm.config.PLCConfig.Slot,
-	)
-
-	return nil
-}
-
-// reconnectPLC reconecta PLC quando desconectado
-func (sm *SystemManager) reconnectPLC(ctx context.Context) {
-	sm.mu.Lock()
-	sm.plcReconnectAttempts++
-	attempts := sm.plcReconnectAttempts
-	sm.mu.Unlock()
-
-	if attempts > 10 {
-		sm.logger.Error("Muitas tentativas de reconexão PLC - parando")
-		return
-	}
-
-	sm.logger.Info("Tentando reconectar PLC", "attempt", attempts)
-
-	// Limpar instância atual
-	sm.mu.Lock()
-	if sm.plcInstance != nil {
-		sm.plcInstance.Close()
-		sm.plcInstance = nil
-		sm.plcController = nil
-	}
-	sm.mu.Unlock()
-
-	// Tentar reconectar
-	if err := sm.initializePLC(ctx); err != nil {
-		sm.logger.Error("Falha na reconexão PLC", "error", err, "attempt", attempts)
-
-		// Retry após delay
-		time.Sleep(5 * time.Second)
-		go sm.reconnectPLC(ctx)
-	} else {
-		sm.mu.Lock()
-		sm.plcReconnectAttempts = 0 // Reset contador
-		sm.mu.Unlock()
-		sm.logger.Info("PLC reconectado com sucesso")
-	}
-}
-
-// initializeWebSocket configura WebSocket
-func (sm *SystemManager) initializeWebSocket() {
-	sm.wsManager.LimparConexoesAnteriores()
-
-	sm.logger.Info("WebSocket configurado",
-		"port", sm.config.WebServerPort,
-		"web_dir", sm.config.WebDir,
-	)
-}
-
-// Start inicia todos os serviços do sistema
-func (sm *SystemManager) Start(ctx context.Context) error {
-	sm.logger.Info("Iniciando serviços do sistema")
-
-	// Inicializar componentes
-	if err := sm.Initialize(ctx); err != nil {
-		return fmt.Errorf("erro na inicialização: %w", err)
-	}
-
-	// Iniciar WebSocket manager com recovery
-	sm.wg.Add(1)
-	go sm.runWithRecovery("websocket_manager", func() {
-		sm.wsManager.Run()
-	})
-
-	// Iniciar servidor HTTP com recovery
-	sm.wg.Add(1)
-	go sm.runWithRecovery("http_server", func() {
-		sm.wsManager.ServeHTTP(sm.config.WebDir)
-	})
-
-	// Iniciar controlador PLC se disponível com recovery
-	if sm.plcController != nil {
-		sm.wg.Add(1)
-		go sm.runWithRecovery("plc_controller", func() {
-			sm.plcController.Start()
-		})
-
-		// Aguardar inicialização do PLC
+		// Criar controlador
+		plcController = plc.NewPLCController(plcSiemens.Client)
+		go plcController.Start()
 		time.Sleep(2 * time.Second)
+
+		consecutivePLCErrors = 0
+		plcConnected = true
+		metrics.PLCConnections++
+		plcLogger.Printf("PLC CONECTADO com sucesso!")
+		return true
 	}
 
-	// Iniciar monitor de saúde do PLC
-	sm.wg.Add(1)
-	go sm.runWithRecovery("plc_health_monitor", func() {
-		sm.monitorPLCHealth(ctx)
-	})
+	// Primeira conexão
+	systemLogger.Println("Conectando ao PLC Siemens 192.168.1.33...")
+	tryReconnectPLC()
 
-	// Conectar radares baseado no status do PLC
-	if err := sm.connectEnabledRadars(ctx); err != nil {
-		sm.logger.Warn("Alguns radares falharam na conexão", "error", err)
-	}
+	// Aguardar comandos iniciais
+	time.Sleep(3 * time.Second)
 
-	// Iniciar loop principal com recovery
-	sm.wg.Add(1)
-	go sm.runWithRecovery("main_loop", func() {
-		sm.runMainLoop(ctx)
-	})
+	// Conectar radares baseado no PLC
+	enabledRadars := getInitialRadarStates(plcConnected, plcController)
+	connectEnabledRadars(radarManager, enabledRadars)
 
-	sm.logger.Info("Sistema completamente iniciado",
-		"web_url", fmt.Sprintf("http://localhost:%s", sm.config.WebServerPort),
-	)
+	systemLogger.Println("Sistema iniciado - Loop principal ativo")
 
-	return nil
-}
-
-// runWithRecovery executa função com panic recovery automático
-func (sm *SystemManager) runWithRecovery(name string, fn func()) {
-	defer sm.wg.Done()
-	defer func() {
-		if r := recover(); r != nil {
-			sm.logger.Error("Panic recuperado",
-				"component", name,
-				"panic", r,
-			)
-
-			// Para main loop, reiniciar automaticamente
-			if name == "main_loop" {
-				sm.mu.Lock()
-				sm.mainLoopRestarts++
-				restarts := sm.mainLoopRestarts
-				sm.mu.Unlock()
-
-				if restarts < 5 {
-					sm.logger.Info("Reiniciando main loop", "restart_count", restarts)
-					time.Sleep(1 * time.Second)
-					go sm.runWithRecovery(name, fn)
-				} else {
-					sm.logger.Error("Muitos restarts do main loop - parando")
-				}
-			}
-		}
-	}()
-
-	fn()
-}
-
-// monitorPLCHealth monitora saúde do PLC
-func (sm *SystemManager) monitorPLCHealth(ctx context.Context) {
-	ticker := time.NewTicker(sm.config.PLCHealthCheck)
-	defer ticker.Stop()
+	// Loop principal otimizado
+	lastReconnectCheck := time.Now()
+	lastMetricsUpdate := time.Now()
 
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-sm.shutdown:
-			return
-		case <-ticker.C:
-			sm.checkPLCHealth(ctx)
-		}
-	}
-}
+		// Atualizar timestamp
+		metrics.LastUpdate = time.Now()
 
-// checkPLCHealth verifica saúde do PLC
-func (sm *SystemManager) checkPLCHealth(ctx context.Context) {
-	sm.mu.RLock()
-	plcInstance := sm.plcInstance
-	sm.mu.RUnlock()
+		// Reconectar PLC
+		plcConnected = tryReconnectPLC()
 
-	if plcInstance == nil {
-		return
-	}
+		// Estados atuais
+		collectionActive := true
+		var currentEnabledRadars map[string]bool
 
-	healthCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
+		if plcConnected && plcController != nil {
+			collectionActive = plcController.IsCollectionActive()
+			currentEnabledRadars = plcController.GetRadarsEnabled()
 
-	if err := plcInstance.HealthCheck(healthCtx); err != nil {
-		sm.logger.Warn("PLC não saudável", "error", err)
-		go sm.reconnectPLC(ctx)
-	}
-}
+			if plcController.IsEmergencyStop() {
+				errorLogger.Println("PARADA DE EMERGÊNCIA ATIVADA VIA PLC")
+				time.Sleep(2 * time.Second)
+				continue
+			}
 
-// connectEnabledRadars conecta apenas radares habilitados pelo PLC
-func (sm *SystemManager) connectEnabledRadars(ctx context.Context) error {
-	var enabledRadars map[string]bool
-	var connectionErrors []string
-
-	// Obter status de habilitação do PLC
-	if sm.plcController != nil {
-		enabledRadars = sm.plcController.GetRadarsEnabled()
-		sm.logger.Info("Status PLC obtido",
-			"caldeira", enabledRadars["caldeira"],
-			"porta_jusante", enabledRadars["porta_jusante"],
-			"porta_montante", enabledRadars["porta_montante"],
-		)
-	} else {
-		// Se PLC indisponível, tentar conectar todos
-		enabledRadars = map[string]bool{
-			"caldeira":       true,
-			"porta_jusante":  true,
-			"porta_montante": true,
-		}
-		sm.logger.Warn("PLC indisponível - tentando conectar todos os radares")
-	}
-
-	// Conectar radares habilitados
-	for id, enabled := range enabledRadars {
-		config, exists := sm.radarManager.GetRadarConfig(id)
-		if !exists {
-			continue
-		}
-
-		if !enabled {
-			sm.logger.Info("Radar desabilitado", "id", id, "name", config.Name)
-			continue
-		}
-
-		radarInstance, _ := sm.radarManager.GetRadar(id)
-		sm.logger.Info("Conectando radar", "id", id, "name", config.Name)
-
-		if err := sm.radarManager.ConnectRadarWithRetry(radarInstance, 3); err != nil {
-			errorMsg := fmt.Sprintf("%s: %v", config.Name, err)
-			connectionErrors = append(connectionErrors, errorMsg)
-			sm.logger.Error("Falha na conexão do radar", "id", id, "error", err)
+			// Reconexão controlada dos radares
+			if time.Since(lastReconnectCheck) >= 8*time.Second {
+				radarManager.CheckAndReconnectEnabled(currentEnabledRadars)
+				lastReconnectCheck = time.Now()
+			}
 		} else {
-			sm.logger.Info("Radar conectado", "id", id, "name", config.Name)
-		}
-	}
-
-	if len(connectionErrors) > 0 {
-		return fmt.Errorf("falhas de conexão: %v", connectionErrors)
-	}
-
-	return nil
-}
-
-// runMainLoop executa o loop principal do sistema
-func (sm *SystemManager) runMainLoop(ctx context.Context) {
-	ticker := time.NewTicker(sm.config.CollectionDelay)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-sm.shutdown:
-			return
-		case <-ticker.C:
-			sm.processMainCycleWithTimeout(ctx)
-		}
-	}
-}
-
-// processMainCycleWithTimeout executa ciclo com timeout
-func (sm *SystemManager) processMainCycleWithTimeout(ctx context.Context) {
-	// Context com timeout para operação completa
-	cycleCtx, cancel := context.WithTimeout(ctx, sm.config.OperationTimeout)
-	defer cancel()
-
-	// Verificar comandos do PLC
-	collectionActive := true
-	var enabledRadars map[string]bool
-
-	sm.mu.RLock()
-	plcController := sm.plcController
-	sm.mu.RUnlock()
-
-	if plcController != nil {
-		// Verificar parada de emergência
-		if plcController.IsEmergencyStop() {
-			sm.logger.Warn("Parada de emergência ativada")
-			return
-		}
-
-		// Verificar se coleta está ativa
-		collectionActive = plcController.IsCollectionActive()
-		enabledRadars = plcController.GetRadarsEnabled()
-	}
-
-	// Se coleta inativa, aguardar
-	if !collectionActive {
-		return
-	}
-
-	// Coletar dados com timeout
-	multiRadarData, err := sm.collectRadarDataWithTimeout(cycleCtx, enabledRadars)
-	if err != nil {
-		sm.logger.Warn("Erro na coleta de dados", "error", err)
-		return
-	}
-
-	// Atualizar dashboard
-	sm.displayDashboard(enabledRadars)
-
-	// Enviar dados via WebSocket (não bloqueante)
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				sm.logger.Error("Panic no WebSocket broadcast", "error", r)
+			currentEnabledRadars = map[string]bool{
+				"caldeira":       false,
+				"porta_jusante":  false,
+				"porta_montante": false,
 			}
-		}()
-		sm.wsManager.BroadcastMultiRadarData(multiRadarData)
-	}()
+		}
 
-	// Atualizar PLC se disponível (com timeout)
-	if plcController != nil {
-		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					sm.logger.Error("Panic no update PLC", "error", r)
+		if !collectionActive {
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+
+		// Coletar dados
+		multiRadarData := radarManager.CollectEnabledRadarsData(currentEnabledRadars)
+		metrics.TotalPackets++
+
+		// Atualizar PLC
+		if plcConnected && plcController != nil {
+			connectionStatus := radarManager.GetConnectionStatus()
+			err := plcController.WriteMultiRadarData(multiRadarData)
+			if err != nil {
+				if isConnectionError(err) {
+					plcLogger.Println("Conexão PLC perdida durante escrita - reconectando...")
+					plcConnected = false
+					metrics.PLCDisconnections++
+				} else {
+					errorLogger.Printf("Erro ao escrever DB100: %v", err)
+					metrics.TotalErrors++
 				}
-			}()
-
-			plcCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-			defer cancel()
-
-			sm.updatePLCDataWithTimeout(plcCtx, multiRadarData)
-		}()
-	}
-}
-
-// collectRadarDataWithTimeout coleta dados com timeout
-func (sm *SystemManager) collectRadarDataWithTimeout(ctx context.Context, enabledRadars map[string]bool) (models.MultiRadarData, error) {
-	done := make(chan models.MultiRadarData, 1)
-	errChan := make(chan error, 1)
-
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				errChan <- fmt.Errorf("panic na coleta: %v", r)
 			}
-		}()
-
-		data := sm.radarManager.CollectEnabledRadarsData(enabledRadars)
-		select {
-		case done <- data:
-		case <-ctx.Done():
+			plcController.SetRadarsConnected(connectionStatus)
 		}
-	}()
 
-	select {
-	case data := <-done:
-		return data, nil
-	case err := <-errChan:
-		return models.MultiRadarData{}, err
-	case <-ctx.Done():
-		return models.MultiRadarData{}, ctx.Err()
+		// Exibir status a cada 2 segundos
+		if time.Since(lastMetricsUpdate) >= 2*time.Second {
+			displaySystemStatus(plcConnected, currentEnabledRadars, radarManager)
+			lastMetricsUpdate = time.Now()
+		}
+
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 
-// displayDashboard mostra status fixo para produção
-func (sm *SystemManager) displayDashboard(enabledRadars map[string]bool) {
-	// Proteger contra panic
-	defer func() {
-		if r := recover(); r != nil {
-			sm.logger.Error("Panic no dashboard", "error", r)
-		}
-	}()
-
-	// Usar cursor positioning ao invés de clear
-	fmt.Print("\033[H") // Move cursor para topo
-	fmt.Println("===== STATUS SISTEMA RADAR SICK - PRODUÇÃO 24/7 =====")
-
-	// Timestamp atual
-	now := time.Now()
-	fmt.Printf("🕐 %s | Uptime: %v\n",
-		now.Format("15:04:05"),
-		time.Since(sm.getSystemStartTime()),
-	)
-
-	// Status PLC (linha fixa)
-	sm.mu.RLock()
-	plcConnected := sm.plcInstance != nil && sm.plcInstance.IsConnected()
-	plcIP := sm.config.PLCConfig.IP
-	sm.mu.RUnlock()
-
-	plcStatus := "DESCONECTADO"
-	plcIcon := "🔴"
-	if plcConnected {
-		plcStatus = "CONECTADO"
-		plcIcon = "🟢"
+// Inicializar sistema de logging
+func initLogging() {
+	// Criar diretório logs se não existir
+	if _, err := os.Stat("logs"); os.IsNotExist(err) {
+		os.Mkdir("logs", 0755)
 	}
-	fmt.Printf("🏭 PLC Siemens %-15s: %s %-12s\n", plcIP, plcIcon, plcStatus)
 
-	// Status Radares (posições fixas)
-	connectionStatus := sm.radarManager.GetConnectionStatus()
+	// Nome do arquivo com data
+	logFileName := fmt.Sprintf("logs/radar_system_%s.log", time.Now().Format("2006-01-02"))
+
+	var err error
+	logFile, err = os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("Erro ao criar arquivo de log: %v", err)
+	}
+
+	// Configurar loggers
+	systemLogger = log.New(logFile, "[SYSTEM] ", log.LstdFlags|log.Lmicroseconds)
+	errorLogger = log.New(logFile, "[ERROR]  ", log.LstdFlags|log.Lmicroseconds)
+	radarLogger = log.New(logFile, "[RADAR]  ", log.LstdFlags|log.Lmicroseconds)
+	plcLogger = log.New(logFile, "[PLC]    ", log.LstdFlags|log.Lmicroseconds)
+
+	fmt.Printf("📝 Sistema de logs ativo: %s\n", logFileName)
+}
+
+// Fechar sistema de logging
+func closeLogging() {
+	if logFile != nil {
+		systemLogger.Println("========== SISTEMA ENCERRADO ==========")
+		logFile.Close()
+	}
+}
+
+// Inicializar métricas
+func initMetrics() {
+	metrics = &SystemMetrics{
+		StartTime:          time.Now(),
+		PLCConnections:     0,
+		PLCDisconnections:  0,
+		RadarReconnections: make(map[string]int64),
+		TotalPackets:       0,
+		TotalErrors:        0,
+		LastUpdate:         time.Now(),
+	}
+
+	// Inicializar contadores de radar
+	metrics.RadarReconnections["caldeira"] = 0
+	metrics.RadarReconnections["porta_jusante"] = 0
+	metrics.RadarReconnections["porta_montante"] = 0
+}
+
+// Header do sistema
+func printSystemHeader() {
+	fmt.Print("\033[2J\033[H") // Limpar tela
+	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
+	fmt.Println("║                    SISTEMA RADAR SICK                       ║")
+	fmt.Println("║                   MONITORAMENTO ATIVO                       ║")
+	fmt.Println("╠══════════════════════════════════════════════════════════════╣")
+	fmt.Printf("║ Usuário: %-15s                    Data: %s ║\n",
+		getCurrentUser(), time.Now().Format("2006-01-02"))
+	fmt.Printf("║ Hora: %-18s                 Versão: v2.0.0 ║\n",
+		time.Now().Format("15:04:05"))
+	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
+	fmt.Println()
+}
+
+// Exibir status do sistema (fixo no terminal)
+func displaySystemStatus(plcConnected bool, enabledRadars map[string]bool, radarManager *radar.RadarManager) {
+	// Limpar área de status (mantém header)
+	fmt.Print("\033[10H\033[J") // Move cursor para linha 10 e limpa resto
+
+	// Status PLC
+	plcStatus := "🔴 DESCONECTADO"
+	if plcConnected {
+		plcStatus = "🟢 CONECTADO"
+	}
+
+	// Status dos radares
+	connectionStatus := radarManager.GetConnectionStatus()
 	connectedCount := 0
 	enabledCount := 0
 
-	radarOrder := []string{"caldeira", "porta_jusante", "porta_montante"}
-	for _, id := range radarOrder {
-		config, _ := sm.radarManager.GetRadarConfig(id)
-		connected := connectionStatus[id]
-		isEnabled := enabledRadars != nil && enabledRadars[id]
+	fmt.Printf("🎛️  PLC Siemens:     %s\n", plcStatus)
+	fmt.Println("┌─────────────────────────────────────────────────────────────┐")
+
+	radarConfigs := []struct{ id, name string }{
+		{"caldeira", "Radar Caldeira"},
+		{"porta_jusante", "Radar Porta Jusante"},
+		{"porta_montante", "Radar Porta Montante"},
+	}
+
+	for _, config := range radarConfigs {
+		isEnabled := enabledRadars[config.id]
+		isConnected := connectionStatus[config.id]
 
 		if isEnabled {
 			enabledCount++
 		}
-		if connected && isEnabled {
+		if isConnected && isEnabled {
 			connectedCount++
 		}
 
-		var status string
-		var icon string
+		status := "🔴 DESCONECTADO"
 		if !isEnabled {
-			status = "DESABILITADO"
-			icon = "⚫"
-		} else if connected {
-			status = "CONECTADO"
-			icon = "🟢"
-		} else {
-			status = "DESCONECTADO"
-			icon = "🔴"
+			status = "⚫ DESABILITADO"
+		} else if isConnected {
+			status = "🟢 CONECTADO   "
 		}
 
-		// Linha fixa por radar
-		fmt.Printf("📡 %-20s: %s %-12s IP: %s\n",
-			config.Name, icon, status, config.IP,
-		)
+		fmt.Printf("│ %-20s %s                    │\n", config.name+":", status)
 	}
 
-	// Estatísticas de sistema (linha fixa)
-	wsClients := sm.wsManager.GetConnectedCount()
-	fmt.Printf("\n📊 Status: %d/%d habilitados | %d conectados | WS: %d clientes\n",
-		enabledCount, len(sm.config.RadarConfigs), connectedCount, wsClients,
-	)
+	fmt.Println("└─────────────────────────────────────────────────────────────┘")
+	fmt.Printf("📊 Resumo: %d/%d habilitados | %d conectados\n", enabledCount, 3, connectedCount)
 
-	// Métricas de recovery (se houver)
-	sm.mu.RLock()
-	mainRestarts := sm.mainLoopRestarts
-	plcReconnects := sm.plcReconnectAttempts
-	sm.mu.RUnlock()
+	// Métricas do sistema
+	uptime := time.Since(metrics.StartTime)
+	fmt.Println()
+	fmt.Println("📈 MÉTRICAS DO SISTEMA:")
+	fmt.Printf("   ⏱️  Tempo ativo:      %s\n", formatDuration(uptime))
+	fmt.Printf("   🔌 Conexões PLC:     %d\n", metrics.PLCConnections)
+	fmt.Printf("   📦 Pacotes processados: %d\n", metrics.TotalPackets)
+	fmt.Printf("   ❌ Erros registrados: %d\n", metrics.TotalErrors)
+	fmt.Printf("   🕐 Última atualização: %s\n", metrics.LastUpdate.Format("15:04:05"))
 
-	if mainRestarts > 0 || plcReconnects > 0 {
-		fmt.Printf("🔄 Recovery: MainLoop=%d | PLC=%d\n", mainRestarts, plcReconnects)
-	}
-
-	// Estatísticas de produção
-	if plcConnected {
-		stats := sm.getProductionStats()
-		fmt.Printf("📈 Produção: %d pacotes | %d erros | CPU: %.1f%% | Mem: %.1f%%\n",
-			stats.TotalPackets, stats.ErrorCount, stats.CPUUsage, stats.MemoryUsage,
-		)
-	}
-
-	// Limpar linhas extras (manter terminal limpo)
-	fmt.Print("\033[J") // Clear do cursor até fim da tela
-	fmt.Print("========================================================\n")
+	fmt.Println()
+	fmt.Printf("📝 Logs: logs/radar_system_%s.log\n", time.Now().Format("2006-01-02"))
+	fmt.Println("🔄 Sistema em execução... Pressione Ctrl+C para parar.")
 }
 
-// updatePLCDataWithTimeout atualiza dados no PLC com timeout
-func (sm *SystemManager) updatePLCDataWithTimeout(ctx context.Context, multiRadarData models.MultiRadarData) {
-	sm.mu.RLock()
-	plcController := sm.plcController
-	sm.mu.RUnlock()
-
-	if plcController == nil {
-		return
+// Adicionar radares ao manager
+func addRadarsToManager(radarManager *radar.RadarManager) {
+	radars := []radar.RadarConfig{
+		{ID: "caldeira", Name: "Radar Caldeira", IP: "192.168.1.84", Port: 2111},
+		{ID: "porta_jusante", Name: "Radar Porta Jusante", IP: "192.168.1.85", Port: 2111},
+		{ID: "porta_montante", Name: "Radar Porta Montante", IP: "192.168.1.86", Port: 2111},
 	}
 
-	// Escrever dados dos radares
-	if err := plcController.WriteMultiRadarData(multiRadarData); err != nil {
-		sm.logger.Error("Erro escrevendo dados no PLC", "error", err)
-		return
-	}
-
-	// Atualizar status dos componentes
-	connectionStatus := sm.radarManager.GetConnectionStatus()
-	plcController.SetRadarsConnected(connectionStatus)
-	plcController.SetNATSConnected(false)
-	plcController.SetWebSocketRunning(true)
-	plcController.UpdateWebSocketClients(sm.wsManager.GetConnectedCount())
-}
-
-// Shutdown para o sistema graciosamente
-func (sm *SystemManager) Shutdown(ctx context.Context) error {
-	sm.logger.Info("Iniciando shutdown do sistema")
-
-	// Sinalizar shutdown
-	close(sm.shutdown)
-
-	// Criar canal para aguardar finalização
-	done := make(chan struct{})
-	go func() {
-		sm.wg.Wait()
-		close(done)
-	}()
-
-	// Aguardar finalização ou timeout
-	select {
-	case <-done:
-		sm.logger.Info("Goroutines finalizadas com sucesso")
-	case <-ctx.Done():
-		sm.logger.Warn("Timeout no shutdown das goroutines")
-	}
-
-	// Desconectar componentes
-	sm.disconnectComponents()
-
-	sm.logger.Info("Sistema finalizado")
-	return nil
-}
-
-// disconnectComponents desconecta todos os componentes
-func (sm *SystemManager) disconnectComponents() {
-	// Desconectar PLC
-	sm.mu.Lock()
-	if sm.plcController != nil {
-		sm.plcController.Stop()
-	}
-	if sm.plcInstance != nil {
-		if err := sm.plcInstance.Close(); err != nil {
-			sm.logger.Error("Erro desconectando PLC", "error", err)
+	for _, config := range radars {
+		if err := radarManager.AddRadar(config); err != nil {
+			errorLogger.Printf("Erro ao adicionar radar %s: %v", config.Name, err)
 		} else {
-			sm.logger.Info("PLC desconectado")
+			systemLogger.Printf("Radar %s adicionado com sucesso", config.Name)
 		}
-		sm.plcInstance = nil
-		sm.plcController = nil
 	}
-	sm.mu.Unlock()
-
-	// Desconectar radares
-	sm.radarManager.DisconnectAll()
-	sm.logger.Info("Radares desconectados")
 }
 
-// setupLogger configura logging estruturado
-func setupLogger() *slog.Logger {
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelInfo, // Reduzido para produção
+// Obter estados iniciais dos radares
+func getInitialRadarStates(plcConnected bool, plcController *plc.PLCController) map[string]bool {
+	if plcConnected && plcController != nil {
+		enables := plcController.GetRadarsEnabled()
+		systemLogger.Printf("Estados PLC: Caldeira=%t, Porta Jusante=%t, Porta Montante=%t",
+			enables["caldeira"], enables["porta_jusante"], enables["porta_montante"])
+		return enables
 	}
 
-	handler := slog.NewTextHandler(os.Stdout, opts)
-	return slog.New(handler)
+	systemLogger.Println("PLC desconectado - todos radares desabilitados")
+	return map[string]bool{
+		"caldeira":       false,
+		"porta_jusante":  false,
+		"porta_montante": false,
+	}
 }
 
-// printStartupBanner exibe banner de inicialização
-func printStartupBanner(config *SystemConfig) {
-	fmt.Println("\n===== SISTEMA RADAR SICK - PRODUCTION 24/7 =====")
-	fmt.Printf("Servidor Web/WebSocket: http://localhost:%s\n", config.WebServerPort)
-	fmt.Println("Sistema com auto-recovery e health monitoring")
-	fmt.Printf("PLC Siemens: %s\n", config.PLCConfig.IP)
-	fmt.Printf("Radares configurados: %d\n", len(config.RadarConfigs))
-	fmt.Printf("Timeout operações: %v\n", config.OperationTimeout)
-	fmt.Println("=================================================")
+// Conectar radares habilitados
+func connectEnabledRadars(radarManager *radar.RadarManager, enabledRadars map[string]bool) {
+	for id, enabled := range enabledRadars {
+		config, _ := radarManager.GetRadarConfig(id)
+
+		if enabled {
+			radar, _ := radarManager.GetRadar(id)
+			radarLogger.Printf("Conectando radar habilitado: %s", config.Name)
+
+			err := radarManager.ConnectRadarWithRetry(radar, 3)
+			if err != nil {
+				errorLogger.Printf("Falha ao conectar radar %s: %v", config.Name, err)
+			} else {
+				radarLogger.Printf("Radar %s conectado com sucesso", config.Name)
+			}
+		} else {
+			systemLogger.Printf("Radar %s desabilitado - não conectando", config.Name)
+		}
+	}
 }
 
-// setupGracefulShutdown configura captura de sinais para shutdown gracioso
-func setupGracefulShutdown() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+// Configurar encerramento gracioso
+func setupGracefulShutdown() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		sig := <-signalChan
-		fmt.Printf("\n🛑 Sinal %s recebido. Finalizando sistema graciosamente...\n", sig)
-		cancel()
+		<-c
+		fmt.Println("\n\n🛑 Encerrando sistema...")
+		if systemLogger != nil {
+			systemLogger.Println("Encerramento solicitado pelo usuário")
+		}
+		closeLogging()
+		os.Exit(0)
 	}()
-
-	return ctx, cancel
 }
 
-func main() {
-	// Configurar logger
-	logger := setupLogger()
+// Obter usuário atual
+func getCurrentUser() string {
+	if user := os.Getenv("USER"); user != "" {
+		return user
+	}
+	if user := os.Getenv("USERNAME"); user != "" {
+		return user
+	}
+	return "unknown"
+}
 
-	// Carregar configuração
-	config := DefaultSystemConfig()
+// Formatar duração
+func formatDuration(d time.Duration) string {
+	hours := int(d.Hours())
+	minutes := int(d.Minutes()) % 60
+	seconds := int(d.Seconds()) % 60
 
-	// Exibir banner
-	printStartupBanner(config)
+	if hours > 0 {
+		return fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+	} else if minutes > 0 {
+		return fmt.Sprintf("%dm %ds", minutes, seconds)
+	}
+	return fmt.Sprintf("%ds", seconds)
+}
 
-	// Configurar shutdown gracioso
-	ctx, cancel := setupGracefulShutdown()
-	defer cancel()
-
-	// Criar gerenciador do sistema
-	systemManager := NewSystemManager(config, logger)
-
-	// Iniciar sistema
-	if err := systemManager.Start(ctx); err != nil {
-		logger.Error("Erro iniciando sistema", "error", err)
-		os.Exit(1)
+// Verificar erro de conexão
+func isConnectionError(err error) bool {
+	if err == nil {
+		return false
 	}
 
-	logger.Info("🚀 Sistema PRODUCTION iniciado")
-	logger.Info("📡 Monitoramento inteligente com auto-recovery")
-	logger.Info("⚡ Health check PLC a cada 30s")
-	logger.Info("🛡️ Panic recovery em todas as goroutines críticas")
-	logger.Info("⏱️ Timeouts em operações bloqueantes")
-	logger.Info("🎛️ Pressione Ctrl+C para parar graciosamente")
-
-	// Aguardar sinal de shutdown
-	<-ctx.Done()
-
-	// Executar shutdown gracioso
-	shutdownCtx, shutdownCancel := context.WithTimeout(
-		context.Background(),
-		config.ShutdownTimeout,
-	)
-	defer shutdownCancel()
-
-	if err := systemManager.Shutdown(shutdownCtx); err != nil {
-		logger.Error("Erro durante shutdown", "error", err)
-		os.Exit(1)
+	errStr := strings.ToLower(err.Error())
+	connectionErrors := []string{
+		"connection reset", "connection refused", "broken pipe",
+		"network unreachable", "no route to host", "i/o timeout",
 	}
 
-	logger.Info("Sistema finalizado com sucesso")
+	for _, connErr := range connectionErrors {
+		if strings.Contains(errStr, connErr) {
+			return true
+		}
+	}
+
+	if netErr, ok := err.(net.Error); ok {
+		return netErr.Timeout() || !netErr.Temporary()
+	}
+
+	return false
 }
