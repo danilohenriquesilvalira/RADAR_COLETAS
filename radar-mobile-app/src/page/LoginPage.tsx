@@ -1,7 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Lock, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import LogoRLS from '../assets/LogoRLS.svg'; // Ensure this path is correct
-import '../styles/login.css';
+import React, { useState } from 'react';
+import { Lock, User, Eye, EyeOff, AlertCircle, Zap, Shield } from 'lucide-react';
 
 interface LoginPageProps {
   onLogin: (username: string, password: string) => Promise<boolean>;
@@ -14,26 +12,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, isLoading = false, error
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
 
-  // Combine external error with internal validation error
   const displayError = error || loginError;
 
-  // Effect for initial mount animation
-  useEffect(() => {
-    setMounted(true); // Trigger card mount animation
-  }, []);
-
-  // Clear internal login error when external error or loading state changes
-  useEffect(() => {
-    if (isLoading || error) {
-      setLoginError(null);
-    }
-  }, [isLoading, error]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError(null); // Clear previous internal error
+  const handleSubmit = async () => {
+    setLoginError(null);
 
     if (!username.trim() || !password.trim()) {
       setLoginError('Por favor, preencha todos os campos.');
@@ -51,109 +34,116 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, isLoading = false, error
     }
   };
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(prev => !prev);
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isLoading) {
+      handleSubmit();
+    }
   };
 
   return (
-    <div className="login-container">
-      {/* Extremely subtle background lines/dots */}
-      <div className="background-grid-subtle"></div>
-      <div className="background-dots-subtle"></div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
+      
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(59,130,246,0.1),transparent)] pointer-events-none" />
+      <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_49%,rgba(59,130,246,0.03)_50%,transparent_51%)] bg-[length:20px_20px] pointer-events-none" />
 
-      {/* Main Login Card */}
-      <div className={`login-card ${mounted ? 'login-card-mounted' : ''}`}>
-        <div className="login-header">
-          <div className="company-logo">
-            <img src={LogoRLS} alt="RLS Logo" className="logo-image" />
+      {/* Login Card */}
+      <div className="relative w-full max-w-md">
+        <div className="bg-white/95 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/20">
+          
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl mb-6 shadow-lg">
+              <Zap className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">DH Automação</h1>
+            <p className="text-gray-600 font-medium">Sistema de Monitoramento</p>
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+              <span className="text-sm text-gray-500">Sistema Operacional</span>
+            </div>
           </div>
 
-          <div className="system-info">
-            <h1>Radar Monitor System</h1>
-            <h2>Sistema de Monitoramento RMS1000</h2>
-            <div className="system-status">
-              <span className="status-dot"></span>
-              <p>Sistema operacional &bull; Conexão Segura</p>
+          {/* Form Fields */}
+          <div className="space-y-6">
+            
+            {/* Username */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700">Usuário</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Digite seu usuário"
+                  disabled={isLoading}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  autoComplete="username"
+                />
+              </div>
             </div>
+
+            {/* Password */}
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700">Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Digite sua senha"
+                  disabled={isLoading}
+                  className="w-full pl-10 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                  disabled={isLoading}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Error Alert */}
+            {displayError && (
+              <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-800">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <span className="text-sm font-medium">{displayError}</span>
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <button
+              onClick={handleSubmit}
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Autenticando...</span>
+                </>
+              ) : (
+                <>
+                  <Shield className="w-5 h-5" />
+                  <span>Acessar Sistema</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Footer */}
+          <div className="text-center mt-8 pt-6 border-t border-gray-100">
+            <p className="text-xs text-gray-500 font-medium">v2.1.4 • Conexão Segura</p>
           </div>
         </div>
-
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group">
-            <label htmlFor="username">Usuário</label>
-            <div className="input-wrapper">
-              <User className="input-icon" size={20} />
-              <input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Digite seu usuário"
-                disabled={isLoading}
-                className="form-input"
-                autoComplete="username"
-                aria-required="true"
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password">Senha</label>
-            <div className="input-wrapper">
-              <Lock className="input-icon" size={20} />
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Digite sua senha"
-                disabled={isLoading}
-                className="form-input"
-                autoComplete="current-password"
-                aria-required="true"
-              />
-              <button
-                type="button"
-                onClick={togglePasswordVisibility}
-                className="password-toggle"
-                disabled={isLoading}
-                aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-          </div>
-
-          {displayError && (
-            <div className="error-alert" role="alert">
-              <AlertCircle size={20} />
-              <span>{displayError}</span>
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="submit-button"
-          >
-            {isLoading ? (
-              <>
-                <div className="loading-scanner"></div>
-                <span>Autenticando...</span>
-              </>
-            ) : (
-              <>
-                <Lock size={18} />
-                <span>Acessar Sistema</span>
-              </>
-            )}
-          </button>
-
-          <div className="login-footer">
-            <div className="version-info">v2.1.4</div>
-          </div>
-        </form>
       </div>
     </div>
   );
