@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"strings"
+	"time"
 
 	"backend/pkg/models"
 )
@@ -11,16 +13,23 @@ import (
 // PLCWriter escreve dados no PLC usando a implementação correta
 type PLCWriter struct {
 	client PLCClient
+	// Circuit breaker inteligente
+	consecutiveErrors int
+	lastErrorTime     time.Time
+	errorThreshold    int
+	isInErrorState    bool
 }
 
 // NewPLCWriter cria um novo escritor PLC
 func NewPLCWriter(client PLCClient) *PLCWriter {
 	return &PLCWriter{
-		client: client,
+		client:         client,
+		errorThreshold: 15, // 15 erros antes de considerar problema grave
+		isInErrorState: false,
 	}
 }
 
-// WriteTag escreve um valor no PLC usando o método correto
+// WriteTag escreve um valor no PLC usando o método correto - VERSÃO CORRIGIDA
 func (w *PLCWriter) WriteTag(dbNumber int, byteOffset int, dataType string, value interface{}, bitOffset ...int) error {
 	var buf []byte
 
@@ -175,13 +184,7 @@ func (w *PLCWriter) WriteTag(dbNumber int, byteOffset int, dataType string, valu
 	case "bool":
 		buf = make([]byte, 1)
 
-		// Primeiro ler o byte atual para preservar os outros bits
-		if err := w.client.AGReadDB(dbNumber, byteOffset, 1, buf); err != nil {
-			return fmt.Errorf("erro ao ler byte atual para escrita de bit: %w", err)
-		}
-
 		var val bool
-
 		switch v := value.(type) {
 		case bool:
 			val = v
@@ -195,16 +198,16 @@ func (w *PLCWriter) WriteTag(dbNumber int, byteOffset int, dataType string, valu
 			return fmt.Errorf("valor deve ser convertível para bool, recebido: %T", value)
 		}
 
-		// Determinar bit offset
 		bit := 0
 		if len(bitOffset) > 0 && bitOffset[0] >= 0 && bitOffset[0] <= 7 {
 			bit = bitOffset[0]
 		}
 
+		// ESCRITA DIRETA - SEM LEITURA
 		if val {
-			buf[0] |= (1 << uint(bit)) // set bit
+			buf[0] = 1 << uint(bit)
 		} else {
-			buf[0] &= ^(1 << uint(bit)) // clear bit
+			buf[0] = 0
 		}
 
 	default:
@@ -212,7 +215,49 @@ func (w *PLCWriter) WriteTag(dbNumber int, byteOffset int, dataType string, valu
 	}
 
 	// Escrever os bytes no PLC
-	return w.client.AGWriteDB(dbNumber, byteOffset, len(buf), buf)
+	err := w.client.AGWriteDB(dbNumber, byteOffset, len(buf), buf)
+	if err != nil {
+		w.markError(err)
+		return err
+	}
+
+	w.markSuccess()
+	return nil
+}
+
+// markSuccess reseta contadores de erro
+func (w *PLCWriter) markSuccess() {
+	if w.consecutiveErrors > 0 {
+		w.consecutiveErrors = 0
+		w.isInErrorState = false
+	}
+}
+
+// markError incrementa contador de erros
+func (w *PLCWriter) markError(err error) {
+	w.consecutiveErrors++
+	w.lastErrorTime = time.Now()
+
+	// Só entrar em error state se for erro grave (PDU/Buffer)
+	errStr := err.Error()
+	if strings.Contains(errStr, "Invalid PDU") || strings.Contains(errStr, "Invalid Buffer") {
+		w.isInErrorState = true
+		if w.consecutiveErrors >= w.errorThreshold {
+			fmt.Printf("⚠️ Muitos erros de protocolo (%d) - PLC pode precisar de reset\n", w.consecutiveErrors)
+		}
+	}
+}
+
+// NeedsReset verifica se PLC precisa de reset
+func (w *PLCWriter) NeedsReset() bool {
+	return w.isInErrorState && w.consecutiveErrors >= w.errorThreshold
+}
+
+// ResetErrorState reseta estado de erro após reset bem-sucedido
+func (w *PLCWriter) ResetErrorState() {
+	w.consecutiveErrors = 0
+	w.isInErrorState = false
+	fmt.Println("✅ Estado de erro do writer resetado")
 }
 
 // ResetCommand reseta um comando específico na DB100
@@ -220,46 +265,35 @@ func (w *PLCWriter) ResetCommand(byteOffset int, bitOffset int) error {
 	return w.WriteTag(100, byteOffset, "bool", false, bitOffset)
 }
 
-// ResetCommands - REMOVIDO - não usar mais esta função
-
-// WriteSystemStatus escreve status do sistema na DB100 simplificada
+// WriteSystemStatus escreve status do sistema na DB100 - BYTE COMPLETO
 func (w *PLCWriter) WriteSystemStatus(status *models.PLCSystemStatus) error {
-	// DB100.4.0 - LiveBit
-	if err := w.WriteTag(100, 4, "bool", status.LiveBit, 0); err != nil {
-		return fmt.Errorf("erro ao escrever LiveBit: %v", err)
+	// Montar o byte completo com todos os bits
+	var statusByte byte = 0
+
+	if status.LiveBit {
+		statusByte |= (1 << 0)
+	}
+	if status.CollectionActive {
+		statusByte |= (1 << 1)
+	}
+	if status.SystemHealthy {
+		statusByte |= (1 << 2)
+	}
+	if status.EmergencyActive {
+		statusByte |= (1 << 3)
+	}
+	if status.RadarCaldeiraConnected {
+		statusByte |= (1 << 4)
+	}
+	if status.RadarPortaJusanteConnected {
+		statusByte |= (1 << 5)
+	}
+	if status.RadarPortaMontanteConnected {
+		statusByte |= (1 << 6)
 	}
 
-	// DB100.4.1 - CollectionActive
-	if err := w.WriteTag(100, 4, "bool", status.CollectionActive, 1); err != nil {
-		return fmt.Errorf("erro ao escrever CollectionActive: %v", err)
-	}
-
-	// DB100.4.2 - SystemHealthy
-	if err := w.WriteTag(100, 4, "bool", status.SystemHealthy, 2); err != nil {
-		return fmt.Errorf("erro ao escrever SystemHealthy: %v", err)
-	}
-
-	// DB100.4.3 - EmergencyActive
-	if err := w.WriteTag(100, 4, "bool", status.EmergencyActive, 3); err != nil {
-		return fmt.Errorf("erro ao escrever EmergencyActive: %v", err)
-	}
-
-	// DB100.4.4 - RadarCaldeiraConnected
-	if err := w.WriteTag(100, 4, "bool", status.RadarCaldeiraConnected, 4); err != nil {
-		return fmt.Errorf("erro ao escrever RadarCaldeiraConnected: %v", err)
-	}
-
-	// DB100.4.5 - RadarPortaJusanteConnected
-	if err := w.WriteTag(100, 4, "bool", status.RadarPortaJusanteConnected, 5); err != nil {
-		return fmt.Errorf("erro ao escrever RadarPortaJusanteConnected: %v", err)
-	}
-
-	// DB100.4.6 - RadarPortaMontanteConnected
-	if err := w.WriteTag(100, 4, "bool", status.RadarPortaMontanteConnected, 6); err != nil {
-		return fmt.Errorf("erro ao escrever RadarPortaMontanteConnected: %v", err)
-	}
-
-	return nil
+	// Escrever o byte completo de uma vez
+	return w.WriteTag(100, 4, "byte", statusByte)
 }
 
 // WriteRadarDataToDB100 escreve dados do radar na DB100 - OFFSETS CORRETOS

@@ -36,10 +36,21 @@ func (p *SiemensPLC) Connect() error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
+	// Limpar conexão anterior se existir
+	if p.Handler != nil {
+		p.Handler.Close()
+		p.Handler = nil
+	}
+	p.Client = nil
+	p.Connected = false
+
+	// Aguardar limpeza
+	time.Sleep(200 * time.Millisecond)
+
 	// Criar novo handler para conexão TCP
 	p.Handler = gos7.NewTCPClientHandler(p.IP, p.Rack, p.Slot)
-	p.Handler.Timeout = 5 * time.Second
-	p.Handler.IdleTimeout = 10 * time.Second
+	p.Handler.Timeout = 30 * time.Second // CORRIGIDO: era 5s, agora 30s
+	p.Handler.IdleTimeout = 0            // CORRIGIDO: era 10s, agora 0 (sem timeout)
 
 	// Conectar ao PLC
 	err := p.Handler.Connect()
@@ -52,7 +63,7 @@ func (p *SiemensPLC) Connect() error {
 	p.Client = gos7.NewClient(p.Handler)
 	p.Connected = true
 
-	fmt.Printf("Conectado ao PLC Siemens em %s (Rack: %d, Slot: %d)\n", p.IP, p.Rack, p.Slot)
+	fmt.Printf("Conectado ao PLC Siemens em %s (Rack: %d, Slot: %d) - Timeout: 30s\n", p.IP, p.Rack, p.Slot)
 	return nil
 }
 
