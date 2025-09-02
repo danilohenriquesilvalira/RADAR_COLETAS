@@ -1,0 +1,42 @@
+[PLC] 2025/09/02 08:48:31.844166 ========== LOG DO PLC ==========
+[PLC] 2025/09/02 08:48:31.844256 TENTATIVA_RECONEXAO: PLC 192.168.1.33 - Tentativa 1
+[PLC] 2025/09/02 08:48:32.052432 SUCCESS: Criando PLCController
+[PLC] 2025/09/02 08:48:33.553007 CONNECTED: Sucesso após 1 tentativas
+[PLC] 2025/09/02 08:48:35.553726 READ_SUCCESS: Estados lidos do PLC
+[PLC] 2025/09/02 09:04:31.557055 SHUTDOWN: Conexões=1, Desconexões=0
+[PLC] 2025/09/02 09:04:32.850027 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 09:04:34.570298 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 09:58:17.433931 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 09:58:19.144091 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 10:52:43.868736 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 10:52:45.576689 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 12:06:05.292222 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 12:06:07.001271 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 12:24:36.866489 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 12:24:38.576613 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 12:47:38.988436 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 12:47:40.697776 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 12:55:57.277682 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 12:55:58.986806 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 13:04:42.021347 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 13:04:43.730584 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 13:43:05.814371 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 13:43:07.538709 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 13:51:20.543080 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 13:51:22.253073 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 14:03:53.725179 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 14:03:55.436570 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 14:04:35.331347 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 14:04:37.047889 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 14:08:01.125540 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 14:08:02.836664 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 14:21:43.232491 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 14:21:44.942682 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 14:26:15.055772 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 14:26:16.766182 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 14:33:24.004462 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 14:33:25.714612 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 14:40:57.435990 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 14:40:59.145644 PLC_RECONNECTED: Conectado após 0 tentativas
+[PLC] 2025/09/02 14:41:14.413524 ========== EVENTOS DO PLC ==========
+[PLC] 2025/09/02 14:41:16.124743 PLC_RECONNECTED: Conectado após 0 tentativas

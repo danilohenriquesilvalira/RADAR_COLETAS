@@ -265,9 +265,9 @@ func (w *PLCWriter) ResetCommand(byteOffset int, bitOffset int) error {
 	return w.WriteTag(100, byteOffset, "bool", false, bitOffset)
 }
 
-// WriteSystemStatus escreve status do sistema na DB100 - BYTE COMPLETO
+// WriteSystemStatus escreve status do sistema na DB100 - BYTE COMPLETO SEM MÉTRICAS
 func (w *PLCWriter) WriteSystemStatus(status *models.PLCSystemStatus) error {
-	// Montar o byte completo com todos os bits
+	// Montar o byte completo com todos os bits - SÓ STATUS ESSENCIAL
 	var statusByte byte = 0
 
 	if status.LiveBit {
@@ -292,7 +292,7 @@ func (w *PLCWriter) WriteSystemStatus(status *models.PLCSystemStatus) error {
 		statusByte |= (1 << 6)
 	}
 
-	// Escrever o byte completo de uma vez
+	// Escrever APENAS o byte de status - SEM MÉTRICAS CPU/MEM/DISK
 	return w.WriteTag(100, 4, "byte", statusByte)
 }
 
@@ -347,6 +347,55 @@ func (w *PLCWriter) WriteRadarDataToDB100(data *models.PLCRadarData, radarBaseOf
 		}
 	}
 
+	return nil
+}
+
+// 🆕 WriteRadarSickCleanDataToDB100 - ENVIA DADOS ZERADOS
+func (w *PLCWriter) WriteRadarSickCleanDataToDB100(radarBaseOffset int) error {
+	fmt.Printf("🧹 Enviando dados ZERADOS para offset DB100.%d...\n", radarBaseOffset)
+
+	// ObjectDetected (BOOL) - offset +0 = FALSE
+	if err := w.WriteTag(100, radarBaseOffset+0, "bool", false, 0); err != nil {
+		return fmt.Errorf("erro ao zerar ObjectDetected: %v", err)
+	}
+
+	// Amplitude (REAL) - offset +2 = 0.0
+	if err := w.WriteTag(100, radarBaseOffset+2, "real", float32(0.0)); err != nil {
+		return fmt.Errorf("erro ao zerar Amplitude: %v", err)
+	}
+
+	// Distance (REAL) - offset +6 = 0.0
+	if err := w.WriteTag(100, radarBaseOffset+6, "real", float32(0.0)); err != nil {
+		return fmt.Errorf("erro ao zerar Distance: %v", err)
+	}
+
+	// Velocity (REAL) - offset +10 = 0.0
+	if err := w.WriteTag(100, radarBaseOffset+10, "real", float32(0.0)); err != nil {
+		return fmt.Errorf("erro ao zerar Velocity: %v", err)
+	}
+
+	// ObjectsCount (INT) - offset +14 = 0
+	if err := w.WriteTag(100, radarBaseOffset+14, "int", int16(0)); err != nil {
+		return fmt.Errorf("erro ao zerar ObjectsCount: %v", err)
+	}
+
+	// Positions Array (10 REALs) - offset +16 to +55 = [0,0,0,0,0,0,0,0,0,0]
+	for i := 0; i < 10; i++ {
+		offset := radarBaseOffset + 16 + (i * 4)
+		if err := w.WriteTag(100, offset, "real", float32(0.0)); err != nil {
+			return fmt.Errorf("erro ao zerar Position[%d]: %v", i, err)
+		}
+	}
+
+	// Velocities Array (10 REALs) - offset +56 to +95 = [0,0,0,0,0,0,0,0,0,0]
+	for i := 0; i < 10; i++ {
+		offset := radarBaseOffset + 56 + (i * 4)
+		if err := w.WriteTag(100, offset, "real", float32(0.0)); err != nil {
+			return fmt.Errorf("erro ao zerar Velocity[%d]: %v", i, err)
+		}
+	}
+
+	fmt.Printf("✅ Dados ZERADOS enviados para DB100.%d com sucesso\n", radarBaseOffset)
 	return nil
 }
 
@@ -414,7 +463,7 @@ func (w *PLCWriter) BuildPLCRadarData(data models.RadarData) *models.PLCRadarDat
 	return plcData
 }
 
-// BuildPLCSystemStatus converte dados do sistema para PLCSystemStatus simplificado
+// BuildPLCSystemStatus converte dados do sistema para PLCSystemStatus LIMPO (SEM MÉTRICAS)
 func (w *PLCWriter) BuildPLCSystemStatus(liveBit, collectionActive, systemHealthy, emergencyActive bool, radarCaldeiraConnected, radarPortaJusanteConnected, radarPortaMontanteConnected bool) *models.PLCSystemStatus {
 	return &models.PLCSystemStatus{
 		LiveBit:                     liveBit,
@@ -424,6 +473,7 @@ func (w *PLCWriter) BuildPLCSystemStatus(liveBit, collectionActive, systemHealth
 		RadarCaldeiraConnected:      radarCaldeiraConnected,
 		RadarPortaJusanteConnected:  radarPortaJusanteConnected,
 		RadarPortaMontanteConnected: radarPortaMontanteConnected,
+		// 🗑️ REMOVIDO: CPUUsage, MemoryUsage, DiskUsage, Temperature
 	}
 }
 

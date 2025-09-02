@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"runtime"
+	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -18,7 +19,7 @@ type PLCController struct {
 	reader *PLCReader
 	writer *PLCWriter
 
-	// 🔧 CORREÇÃO: Context para controle de goroutines
+	// Context para controle de goroutines
 	commandChan chan models.SystemCommand
 	ctx         context.Context
 	cancel      context.CancelFunc
@@ -71,25 +72,50 @@ type PLCController struct {
 	// MONITORAMENTO DE CONEXÃO DOS RADARES
 	radarTimeoutDuration time.Duration
 
-	// 🆕 DETECÇÃO DE RECONEXÃO E RESET
+	// DETECÇÃO DE RECONEXÃO E RESET
 	lastConnectionCheck  time.Time
 	needsDB100Reset      bool
 	reconnectionDetected bool
 	plcResetInProgress   bool
 
-	// 🛡️ PROTEÇÃO THREAD-SAFE
+	// PROTEÇÃO THREAD-SAFE
 	mutex sync.RWMutex
 
 	// Sistema de monitoramento multiplataforma
 	systemMonitor *SystemMonitor
+
+	// SISTEMA DE REBOOT SEGURO PARA PRODUÇÃO
+	rebootTimer          *time.Timer
+	rebootTimerActive    bool
+	lastResetErrorsState bool
+	rebootMutex          sync.Mutex
+	rebootStartTime      time.Time
+
+	// PROTEÇÃO CONTRA OVERFLOW CRÍTICA
+	lastOverflowCheck    time.Time
+	overflowProtectionOn bool
+	dailyStatsStartTime  time.Time
+	lastDailyStatsReset  time.Time
 }
 
 type SystemMonitor struct {
-	// SystemMonitor para monitoramento do sistema Linux/Unix
 	lastCPUTime  time.Time
 	lastCPUIdle  uint64
 	lastCPUTotal uint64
 }
+
+// CONSTANTES DE PROTEÇÃO CRÍTICA
+const (
+	REBOOT_TIMEOUT_SECONDS    = 10
+	REBOOT_CONFIRMATION_DELAY = 2 * time.Second
+	MAX_REBOOT_RETRIES        = 4
+
+	// PROTEÇÃO CONTRA OVERFLOW
+	MAX_PACKET_COUNT_CRITICAL = 2000000000 // 2 bilhões (93% do máximo int32)
+	MAX_PACKET_COUNT_WARNING  = 1800000000 // 1.8 bilhões (warning)
+	OVERFLOW_CHECK_INTERVAL   = 1 * time.Hour
+	DAILY_STATS_INTERVAL      = 24 * time.Hour
+)
 
 // NewSystemMonitor cria um novo monitor de sistema
 func NewSystemMonitor() *SystemMonitor {
@@ -123,7 +149,7 @@ func NewPLCController(plcClient PLCClient) *PLCController {
 		packetCount: 0,
 		errorCount:  0,
 
-		// Status de conexão dos radares - INICIALIZAR COMO DESCONECTADOS
+		// Status de conexão dos radares
 		radarCaldeiraConnected:       false,
 		radarPortaJusanteConnected:   false,
 		radarPortaMontanteConnected:  false,
@@ -142,121 +168,494 @@ func NewPLCController(plcClient PLCClient) *PLCController {
 		// CONTROLE DE ERROS
 		consecutiveErrors:    0,
 		lastSuccessfulOp:     now,
-		maxConsecutiveErrors: 8, // Aumentado para evitar paradas desnecessárias
+		maxConsecutiveErrors: 8,
 
 		// MONITORAMENTO DE RADARES
 		radarTimeoutDuration: 10 * time.Second,
 
-		// 🆕 CAMPOS DE RECONEXÃO
+		// CAMPOS DE RECONEXÃO
 		lastConnectionCheck:  now,
-		needsDB100Reset:      true, // Reset na primeira conexão
+		needsDB100Reset:      true,
 		reconnectionDetected: false,
 		plcResetInProgress:   false,
 
-		stopChan:      make(chan bool, 1), // 🔧 CORREÇÃO: Buffer para evitar deadlock
+		stopChan:      make(chan bool, 1),
 		systemMonitor: NewSystemMonitor(),
+
+		// SISTEMA DE REBOOT PARA PRODUÇÃO
+		rebootTimer:          nil,
+		rebootTimerActive:    false,
+		lastResetErrorsState: false,
+		rebootMutex:          sync.Mutex{},
+		rebootStartTime:      time.Time{},
+
+		// PROTEÇÃO CONTRA OVERFLOW
+		lastOverflowCheck:    now,
+		overflowProtectionOn: true, // SEMPRE ATIVO
+		dailyStatsStartTime:  now,
+		lastDailyStatsReset:  now,
 	}
+
+	// LOG INICIAL DE PROTEÇÃO
+	fmt.Printf("🛡️ PROTEÇÃO OVERFLOW: Ativada - Máximo %d pacotes\n", MAX_PACKET_COUNT_CRITICAL)
+	log.Printf("OVERFLOW_PROTECTION_INIT: Max packets=%d, Check interval=%v",
+		MAX_PACKET_COUNT_CRITICAL, OVERFLOW_CHECK_INTERVAL)
 
 	return controller
 }
 
+// 🆕 FUNÇÃO: sendCleanRadarSickDataToPLC - ENVIA DADOS ZERADOS
+func (pc *PLCController) sendCleanRadarSickDataToPLC() error {
+	fmt.Println("🧹 ========== ENVIANDO DADOS RADAR SICK ZERADOS PARA PLC ==========")
+	log.Printf("CLEAN_RADAR_SICK_DATA: Starting clean data transmission to PLC")
+
+	successCount := 0
+	errorCount := 0
+
+	// Lista de radares para limpar
+	radarConfigs := []struct {
+		radarID    string
+		radarName  string
+		baseOffset int
+	}{
+		{"caldeira", "Radar Caldeira", 6},
+		{"porta_jusante", "Radar Porta Jusante", 102},
+		{"porta_montante", "Radar Porta Montante", 198},
+	}
+
+	// Enviar dados zerados para cada radar habilitado
+	for _, config := range radarConfigs {
+		if !pc.IsRadarEnabled(config.radarID) {
+			fmt.Printf("⏭️  %s DESABILITADO - pulando limpeza\n", config.radarName)
+			continue
+		}
+
+		fmt.Printf("🧹 Zerando dados: %s (DB100.%d)...\n", config.radarName, config.baseOffset)
+
+		// ENVIAR DADOS ZERADOS USANDO O PLCWriter
+		err := pc.writer.WriteRadarSickCleanDataToDB100(config.baseOffset)
+		if err != nil {
+			fmt.Printf("❌ ERRO ao zerar %s: %v\n", config.radarName, err)
+			log.Printf("CLEAN_RADAR_SICK_ERROR: Failed to send clean data for %s at offset %d - %v",
+				config.radarName, config.baseOffset, err)
+			errorCount++
+		} else {
+			fmt.Printf("✅ %s - dados ZERADOS com sucesso\n", config.radarName)
+			log.Printf("CLEAN_RADAR_SICK_SUCCESS: Clean data sent for %s at offset %d",
+				config.radarName, config.baseOffset)
+			successCount++
+		}
+
+		// Pequena pausa entre radares para evitar sobrecarga
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// LOG FINAL
+	fmt.Printf("🧹 LIMPEZA CONCLUÍDA: %d sucessos, %d erros\n", successCount, errorCount)
+	log.Printf("CLEAN_RADAR_SICK_COMPLETE: %d radars cleaned successfully, %d errors", successCount, errorCount)
+	fmt.Println("🧹 ================================================================")
+
+	if errorCount > 0 {
+		return fmt.Errorf("falhas na limpeza: %d de %d radares falharam", errorCount, successCount+errorCount)
+	}
+
+	return nil
+}
+
+// checkOverflowProtection - PROTEÇÃO CRÍTICA
+func (pc *PLCController) checkOverflowProtection() {
+	pc.mutex.Lock()
+	defer pc.mutex.Unlock()
+
+	now := time.Now()
+
+	// Verificar apenas se passou o intervalo
+	if now.Sub(pc.lastOverflowCheck) < OVERFLOW_CHECK_INTERVAL {
+		return
+	}
+
+	pc.lastOverflowCheck = now
+
+	// VERIFICAÇÃO CRÍTICA DE OVERFLOW
+	needsCriticalReset := false
+	needsWarning := false
+
+	// Verificar contador principal
+	if pc.packetCount > MAX_PACKET_COUNT_CRITICAL {
+		needsCriticalReset = true
+	} else if pc.packetCount > MAX_PACKET_COUNT_WARNING {
+		needsWarning = true
+	}
+
+	// Verificar contadores individuais
+	if pc.radarCaldeiraPackets > MAX_PACKET_COUNT_CRITICAL ||
+		pc.radarPortaJusantePackets > MAX_PACKET_COUNT_CRITICAL ||
+		pc.radarPortaMontantePackets > MAX_PACKET_COUNT_CRITICAL {
+		needsCriticalReset = true
+	}
+
+	// RESET CRÍTICO IMEDIATO
+	if needsCriticalReset {
+		pc.executeOverflowProtection()
+	} else if needsWarning {
+		// WARNING LOG
+		fmt.Printf("⚠️ OVERFLOW WARNING: packetCount=%d (%.1f%% do máximo)\n",
+			pc.packetCount, float64(pc.packetCount)/float64(MAX_PACKET_COUNT_CRITICAL)*100)
+		log.Printf("OVERFLOW_WARNING: packetCount=%d, caldeira=%d, jusante=%d, montante=%d",
+			pc.packetCount, pc.radarCaldeiraPackets, pc.radarPortaJusantePackets, pc.radarPortaMontantePackets)
+	}
+
+	// ESTATÍSTICAS DIÁRIAS (OPCIONAL)
+	if now.Sub(pc.lastDailyStatsReset) >= DAILY_STATS_INTERVAL {
+		pc.logDailyStatistics()
+		pc.lastDailyStatsReset = now
+	}
+}
+
+// executeOverflowProtection - RESET CRÍTICO DE EMERGÊNCIA
+func (pc *PLCController) executeOverflowProtection() {
+	// LOG CRÍTICO ANTES DO RESET
+	fmt.Println("🔥 ========== OVERFLOW PROTECTION ATIVADA ==========")
+	fmt.Printf("🔥 TIMESTAMP: %s\n", time.Now().Format("2006-01-02 15:04:05"))
+	fmt.Printf("🔥 USUÁRIO: danilohenriquesilvalira\n")
+	fmt.Printf("🔥 CAUSA: Contadores próximos do overflow int32\n")
+
+	// LOG DETALHADO DOS CONTADORES
+	log.Printf("OVERFLOW_PROTECTION_TRIGGERED: packetCount=%d, caldeira=%d, jusante=%d, montante=%d",
+		pc.packetCount, pc.radarCaldeiraPackets, pc.radarPortaJusantePackets, pc.radarPortaMontantePackets)
+
+	// Calcular estatísticas antes do reset
+	totalPackets := pc.packetCount
+	totalErrors := pc.errorCount
+	uptime := time.Since(pc.startTime)
+	errorRate := float64(0)
+	if totalPackets > 0 {
+		errorRate = float64(totalErrors) / float64(totalPackets) * 100
+	}
+
+	// LOG ESTATÍSTICAS IMPORTANTES
+	fmt.Printf("📊 STATS ANTES RESET: Packets=%d, Errors=%d, Uptime=%v, ErrorRate=%.2f%%\n",
+		totalPackets, totalErrors, uptime, errorRate)
+	log.Printf("OVERFLOW_STATS_BEFORE_RESET: packets=%d, errors=%d, uptime=%v, error_rate=%.2f%%",
+		totalPackets, totalErrors, uptime, errorRate)
+
+	// RESET DOS CONTADORES DE PACOTES (CRÍTICO)
+	fmt.Println("🔄 RESETANDO contadores de pacotes...")
+	pc.packetCount = 0
+	pc.radarCaldeiraPackets = 0
+	pc.radarPortaJusantePackets = 0
+	pc.radarPortaMontantePackets = 0
+
+	// MANTER CONTADORES DE ERRO (IMPORTANTES PARA DIAGNÓSTICO)
+	// NÃO resetar: errorCount, consecutiveErrors, radarXXXErrors
+
+	// ATUALIZAR TIMESTAMPS
+	pc.dailyStatsStartTime = time.Now()
+
+	fmt.Println("✅ OVERFLOW PROTECTION: Contadores de pacotes resetados com sucesso")
+	log.Printf("OVERFLOW_PROTECTION_SUCCESS: Packet counters reset, error counters preserved")
+	fmt.Println("🔥 ===============================================")
+}
+
+// logDailyStatistics - LOG ESTATÍSTICAS DIÁRIAS
+func (pc *PLCController) logDailyStatistics() {
+	totalPackets := pc.packetCount
+	totalErrors := pc.errorCount
+	uptime := time.Since(pc.dailyStatsStartTime)
+
+	errorRate := float64(0)
+	if totalPackets > 0 {
+		errorRate = float64(totalErrors) / float64(totalPackets) * 100
+	}
+
+	// Calcular packets por radar
+	caldeiraPercent := float64(0)
+	jusantePercent := float64(0)
+	montantePercent := float64(0)
+
+	if totalPackets > 0 {
+		caldeiraPercent = float64(pc.radarCaldeiraPackets) / float64(totalPackets) * 100
+		jusantePercent = float64(pc.radarPortaJusantePackets) / float64(totalPackets) * 100
+		montantePercent = float64(pc.radarPortaMontantePackets) / float64(totalPackets) * 100
+	}
+
+	fmt.Printf("📊 STATS DIÁRIAS: Total=%d, Errors=%d, ErrorRate=%.2f%%, Uptime=%v\n",
+		totalPackets, totalErrors, errorRate, uptime)
+	fmt.Printf("📡 RADARES: Caldeira=%d(%.1f%%), Jusante=%d(%.1f%%), Montante=%d(%.1f%%)\n",
+		pc.radarCaldeiraPackets, caldeiraPercent,
+		pc.radarPortaJusantePackets, jusantePercent,
+		pc.radarPortaMontantePackets, montantePercent)
+
+	log.Printf("DAILY_STATISTICS: total_packets=%d, total_errors=%d, error_rate=%.2f%%, uptime=%v",
+		totalPackets, totalErrors, errorRate, uptime)
+	log.Printf("DAILY_RADAR_STATS: caldeira=%d(%.1f%%), jusante=%d(%.1f%%), montante=%d(%.1f%%)",
+		pc.radarCaldeiraPackets, caldeiraPercent,
+		pc.radarPortaJusantePackets, jusantePercent,
+		pc.radarPortaMontantePackets, montantePercent)
+}
+
 // Start inicia o controlador PLC
 func (pc *PLCController) Start() {
-	fmt.Println("🚀 PLC Controller: Iniciando controlador bidirecional com DETECÇÃO DE RECONEXÃO v2.4...")
+	fmt.Println("🚀 PLC Controller: Iniciando controlador PRODUÇÃO v2.9 RADAR SICK LIMPO...")
 
-	// Iniciar tickers COM INTERVALOS OTIMIZADOS
+	// Iniciar tickers
 	pc.liveBitTicker = time.NewTicker(3 * time.Second)
-	pc.statusTicker = time.NewTicker(1 * time.Second) // Mais rápido para detectar problemas
+	pc.statusTicker = time.NewTicker(1 * time.Second)
 	pc.commandTicker = time.NewTicker(2 * time.Second)
 	pc.radarMonitorTicker = time.NewTicker(5 * time.Second)
 
-	// 🔧 CORREÇÃO CRÍTICA: Iniciar goroutines com WaitGroup
-	pc.wg.Add(5) // ✅ EXATAMENTE 5 GOROUTINES
+	// Iniciar goroutines
+	pc.wg.Add(5)
 	go pc.liveBitLoop()
 	go pc.statusWriteLoop()
 	go pc.commandReadLoop()
 	go pc.commandProcessor()
 	go pc.radarConnectionMonitorLoop()
 
-	fmt.Println("✅ PLC Controller: Controlador iniciado com LÓGICA DE RECONEXÃO INTELIGENTE - 5 goroutines ativas")
+	fmt.Println("✅ PLC Controller: Sistema RADAR SICK PRODUÇÃO iniciado - SEM MÉTRICAS SERVIDOR")
 }
 
-// Stop para o controlador COM SHUTDOWN GRACIOSO
+// Stop para o controlador
 func (pc *PLCController) Stop() {
 	fmt.Println("🛑 PLC Controller: Iniciando parada gracioso...")
 
-	// 🔧 CORREÇÃO: Cancelar context PRIMEIRO
-	pc.cancel()
-	fmt.Println("   ✅ Context cancelado")
+	// CANCELAR TIMER DE REBOOT SE ATIVO
+	pc.cancelRebootTimer()
 
-	// Parar tickers COM PROTEÇÃO
+	// LOG FINAL ANTES DE PARAR
+	pc.mutex.RLock()
+	totalPackets := pc.packetCount
+	totalErrors := pc.errorCount
+	uptime := time.Since(pc.startTime)
+	pc.mutex.RUnlock()
+
+	fmt.Printf("📊 STATS FINAIS: Packets=%d, Errors=%d, Uptime=%v\n", totalPackets, totalErrors, uptime)
+	log.Printf("FINAL_STATISTICS: packets=%d, errors=%d, uptime=%v", totalPackets, totalErrors, uptime)
+
+	// Cancelar context
+	pc.cancel()
+
+	// Parar tickers
 	if pc.liveBitTicker != nil {
 		pc.liveBitTicker.Stop()
-		fmt.Println("   ✅ LiveBit ticker parado")
 	}
 	if pc.statusTicker != nil {
 		pc.statusTicker.Stop()
-		fmt.Println("   ✅ Status ticker parado")
 	}
 	if pc.commandTicker != nil {
 		pc.commandTicker.Stop()
-		fmt.Println("   ✅ Command ticker parado")
 	}
 	if pc.radarMonitorTicker != nil {
 		pc.radarMonitorTicker.Stop()
-		fmt.Println("   ✅ Radar monitor ticker parado")
 	}
 
-	// 🔧 CORREÇÃO: Fechar channel COM PROTEÇÃO
-	select {
-	case <-pc.commandChan:
-		// Channel já vazio
-	default:
-		// Channel tem dados
-	}
+	// Fechar channel
 	close(pc.commandChan)
-	fmt.Println("   ✅ Command channel fechado")
 
-	// 🔧 CORREÇÃO CRÍTICA: Aguardar TODAS as goroutines terminarem
-	fmt.Println("   ⏳ Aguardando todas as 5 goroutines terminarem...")
+	// Aguardar goroutines
 	done := make(chan struct{})
 	go func() {
 		pc.wg.Wait()
 		close(done)
 	}()
 
-	// Timeout de segurança para evitar travamento
 	select {
 	case <-done:
-		fmt.Println("   ✅ TODAS as 5 goroutines terminadas com sucesso")
+		fmt.Println("   ✅ Todas as goroutines terminadas")
 	case <-time.After(10 * time.Second):
-		fmt.Println("   ⚠️ Timeout ao aguardar goroutines - forçando parada")
+		fmt.Println("   ⚠️ Timeout - forçando parada")
 	}
 
-	// Sinalizar parada COM PROTEÇÃO
-	select {
-	case pc.stopChan <- true:
-		// Sinal enviado
-	case <-time.After(1 * time.Second):
-		// Timeout no sinal
-	}
 	close(pc.stopChan)
-
-	fmt.Println("✅ PLC Controller: Controlador parado com sucesso")
+	fmt.Println("✅ PLC Controller: Parado com sucesso")
 }
 
-// 🆕 detectPLCReconnection detecta se PLC reconectou
+// cancelRebootTimer cancela timer de reboot se ativo
+func (pc *PLCController) cancelRebootTimer() {
+	pc.rebootMutex.Lock()
+	defer pc.rebootMutex.Unlock()
+
+	if pc.rebootTimerActive && pc.rebootTimer != nil {
+		pc.rebootTimer.Stop()
+		elapsed := time.Since(pc.rebootStartTime)
+		pc.rebootTimerActive = false
+
+		fmt.Printf("🚨 REBOOT CANCELADO: Bit DB100.0.3 solto após %.1fs (antes dos 10s)\n", elapsed.Seconds())
+		log.Printf("PRODUCTION_REBOOT_CANCELLED: ResetErrors bit released after %.1fs", elapsed.Seconds())
+	}
+}
+
+// startRebootTimer inicia timer de reboot de 10s
+func (pc *PLCController) startRebootTimer() {
+	pc.rebootMutex.Lock()
+	defer pc.rebootMutex.Unlock()
+
+	// Se já tem timer ativo, não criar outro
+	if pc.rebootTimerActive {
+		return
+	}
+
+	pc.rebootStartTime = time.Now()
+	fmt.Printf("🚨 REBOOT TIMER INICIADO: %ds para REBOOT COMPLETO do servidor (PRODUÇÃO)\n", REBOOT_TIMEOUT_SECONDS)
+	fmt.Printf("🚨 TIMESTAMP: %s\n", pc.rebootStartTime.Format("2006-01-02 15:04:05"))
+
+	// Log crítico para produção
+	log.Printf("PRODUCTION_REBOOT_TIMER_STARTED: 10 second countdown initiated at %s", pc.rebootStartTime.Format("2006-01-02 15:04:05"))
+
+	pc.rebootTimerActive = true
+
+	pc.rebootTimer = time.AfterFunc(REBOOT_TIMEOUT_SECONDS*time.Second, func() {
+		pc.executeProductionReboot()
+	})
+}
+
+// executeProductionReboot - REBOOT COMPLETO PARA PRODUÇÃO
+func (pc *PLCController) executeProductionReboot() {
+	pc.rebootMutex.Lock()
+	defer pc.rebootMutex.Unlock()
+
+	rebootTime := time.Now()
+	uptime := rebootTime.Sub(pc.rebootStartTime)
+
+	fmt.Println("🔥 ========== EXECUTANDO REBOOT COMPLETO DE PRODUÇÃO ==========")
+	fmt.Printf("🔥 TIMESTAMP: %s\n", rebootTime.Format("2006-01-02 15:04:05"))
+	fmt.Printf("🔥 USUÁRIO: danilohenriquesilvalira\n")
+	fmt.Printf("🔥 TRIGGER: DB100.0.3 mantido por %.1fs\n", uptime.Seconds())
+
+	// Log crítico para auditoria
+	log.Printf("PRODUCTION_REBOOT_EXECUTING: Full server reboot triggered by PLC DB100.0.3 after %.1fs", uptime.Seconds())
+
+	// STEP 1: RESETAR BIT DB100.0.3 NO PLC (CRÍTICO PARA EVITAR LOOP!)
+	fmt.Println("🔥 STEP 1/5: Resetando bit DB100.0.3 no PLC (ANTI-LOOP)...")
+	err := pc.writer.ResetCommand(0, 3)
+	if err != nil {
+		fmt.Printf("❌ ERRO ao resetar DB100.0.3: %v\n", err)
+		log.Printf("PRODUCTION_REBOOT_ERROR: Failed to reset DB100.0.3 - %v", err)
+	} else {
+		fmt.Println("✅ Bit DB100.0.3 resetado com sucesso")
+		log.Printf("PRODUCTION_REBOOT_SUCCESS: DB100.0.3 reset successful")
+	}
+
+	// STEP 2: AGUARDAR CONFIRMAÇÃO
+	fmt.Printf("🔥 STEP 2/5: Aguardando %.1fs para confirmação...\n", REBOOT_CONFIRMATION_DELAY.Seconds())
+	time.Sleep(REBOOT_CONFIRMATION_DELAY)
+
+	// STEP 3: SYNC SISTEMA (FORÇA FLUSH DE DADOS)
+	fmt.Println("🔥 STEP 3/5: Sincronizando sistema de arquivos...")
+	syncCmd := exec.Command("/bin/sync")
+	syncErr := syncCmd.Run()
+	if syncErr != nil {
+		fmt.Printf("⚠️ Aviso: Erro no sync - %v\n", syncErr)
+	} else {
+		fmt.Println("✅ Sistema sincronizado")
+	}
+
+	// STEP 4: RESETAR ESTADO LOCAL
+	pc.rebootTimerActive = false
+	pc.lastResetErrorsState = false
+
+	// STEP 5: EXECUTAR REBOOT COM MÚLTIPLAS TENTATIVAS
+	fmt.Println("🔥 STEP 5/5: Executando REBOOT COMPLETO do servidor...")
+	log.Printf("PRODUCTION_REBOOT_FINAL: Executing full server reboot now")
+
+	success := false
+
+	// TENTATIVA 1: Script personalizado
+	if !success {
+		fmt.Println("🔥 TENTATIVA 1: Script personalizado /usr/local/bin/radar-reboot...")
+		cmd := exec.Command("/usr/local/bin/radar-reboot")
+		err := cmd.Run()
+		if err == nil {
+			fmt.Println("✅ Script personalizado executado com sucesso")
+			log.Printf("PRODUCTION_REBOOT_SUCCESS: Custom script executed")
+			success = true
+		} else {
+			fmt.Printf("❌ Script personalizado falhou: %v\n", err)
+		}
+	}
+
+	// TENTATIVA 2: systemctl reboot
+	if !success {
+		fmt.Println("🔥 TENTATIVA 2: systemctl reboot...")
+		cmd := exec.Command("/bin/systemctl", "reboot")
+		err := cmd.Run()
+		if err == nil {
+			fmt.Println("✅ systemctl reboot executado")
+			log.Printf("PRODUCTION_REBOOT_SUCCESS: systemctl reboot executed")
+			success = true
+		} else {
+			fmt.Printf("❌ systemctl reboot falhou: %v\n", err)
+		}
+	}
+
+	// TENTATIVA 3: /sbin/reboot direto
+	if !success {
+		fmt.Println("🔥 TENTATIVA 3: /sbin/reboot direto...")
+		cmd := exec.Command("/sbin/reboot")
+		err := cmd.Run()
+		if err == nil {
+			fmt.Println("✅ /sbin/reboot executado")
+			log.Printf("PRODUCTION_REBOOT_SUCCESS: Direct reboot executed")
+			success = true
+		} else {
+			fmt.Printf("❌ /sbin/reboot falhou: %v\n", err)
+		}
+	}
+
+	// TENTATIVA 4: reboot via sh
+	if !success {
+		fmt.Println("🔥 TENTATIVA 4: reboot via shell...")
+		cmd := exec.Command("/bin/sh", "-c", "reboot")
+		err := cmd.Run()
+		if err == nil {
+			fmt.Println("✅ Shell reboot executado")
+			log.Printf("PRODUCTION_REBOOT_SUCCESS: Shell reboot executed")
+			success = true
+		} else {
+			fmt.Printf("❌ Shell reboot falhou: %v\n", err)
+		}
+	}
+
+	if !success {
+		fmt.Println("❌ ERRO CRÍTICO: TODAS as tentativas de reboot falharam!")
+		log.Printf("PRODUCTION_REBOOT_CRITICAL_ERROR: All reboot attempts failed")
+
+		// Log de emergência
+		emergencyLog := fmt.Sprintf("CRITICAL: Server reboot failed at %s - Manual intervention required",
+			rebootTime.Format("2006-01-02 15:04:05"))
+
+		// Tentar escrever em arquivo de emergência
+		emergencyFile, err := os.OpenFile("/var/log/radar-emergency.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err == nil {
+			emergencyFile.WriteString(emergencyLog + "\n")
+			emergencyFile.Close()
+		}
+	}
+
+	fmt.Println("🔥 ========== REBOOT DE PRODUÇÃO FINALIZADO ==========")
+}
+
+// getCurrentUser obtém usuário atual
+func getCurrentUser() string {
+	if user := os.Getenv("USER"); user != "" {
+		return user
+	}
+	if user := os.Getenv("USERNAME"); user != "" {
+		return user
+	}
+	return "danilohenriquesilvalira"
+}
+
+// detectPLCReconnection detecta se PLC reconectou
 func (pc *PLCController) detectPLCReconnection() bool {
 	now := time.Now()
 
-	// Verificar a cada 10 segundos
 	if now.Sub(pc.lastConnectionCheck) < 10*time.Second {
 		return false
 	}
 
 	pc.lastConnectionCheck = now
 
-	// Se writer está em estado de erro grave, pode indicar reconexão
 	if pc.writer.NeedsReset() {
 		fmt.Println("🔍 Writer em estado de erro grave - possível reconexão detectada")
 		return true
@@ -265,21 +664,17 @@ func (pc *PLCController) detectPLCReconnection() bool {
 	return false
 }
 
-// 🆕 resetAfterReconnection reseta estado após reconexão detectada
+// resetAfterReconnection reseta estado após reconexão detectada
 func (pc *PLCController) resetAfterReconnection() error {
 	pc.mutex.Lock()
 	pc.plcResetInProgress = true
 	pc.mutex.Unlock()
 
 	fmt.Println("🔄 RESET APÓS RECONEXÃO INICIADO...")
-
-	// Aguardar um pouco para PLC estabilizar
 	time.Sleep(2 * time.Second)
 
-	// Reset state do writer
 	pc.writer.ResetErrorState()
 
-	// Reset contadores de erro
 	pc.mutex.Lock()
 	pc.consecutiveErrors = 0
 	pc.errorCount = 0
@@ -292,9 +687,9 @@ func (pc *PLCController) resetAfterReconnection() error {
 	return nil
 }
 
-// 🔧 CORREÇÃO CRÍTICA: liveBitLoop com WaitGroup
+// liveBitLoop com WaitGroup
 func (pc *PLCController) liveBitLoop() {
-	defer pc.wg.Done() // ✅ CORREÇÃO FUNDAMENTAL - WG.DONE()
+	defer pc.wg.Done()
 
 	fmt.Println("🔄 LiveBit goroutine iniciada")
 	defer fmt.Println("🔄 LiveBit goroutine finalizada")
@@ -303,7 +698,7 @@ func (pc *PLCController) liveBitLoop() {
 		select {
 		case <-pc.liveBitTicker.C:
 			pc.mutex.Lock()
-			pc.liveBit = !pc.liveBit // Toggle do live bit
+			pc.liveBit = !pc.liveBit
 			pc.mutex.Unlock()
 
 		case <-pc.ctx.Done():
@@ -313,27 +708,34 @@ func (pc *PLCController) liveBitLoop() {
 	}
 }
 
-// 🔧 CORREÇÃO CRÍTICA: statusWriteLoop com WaitGroup
+// statusWriteLoop com WaitGroup
 func (pc *PLCController) statusWriteLoop() {
-	defer pc.wg.Done() // ✅ CORREÇÃO FUNDAMENTAL - WG.DONE()
+	defer pc.wg.Done()
 
 	fmt.Println("📤 StatusWrite goroutine iniciada")
 	defer fmt.Println("📤 StatusWrite goroutine finalizada")
 
+	// VARIÁVEL PARA CONTROLE DE OVERFLOW CHECK
+	lastOverflowCheck := time.Now()
+
 	for {
 		select {
 		case <-pc.statusTicker.C:
-			// 🆕 DETECTAR RECONEXÃO PLC
+			// VERIFICAÇÃO DE OVERFLOW A CADA HORA
+			if time.Since(lastOverflowCheck) >= OVERFLOW_CHECK_INTERVAL {
+				pc.checkOverflowProtection()
+				lastOverflowCheck = time.Now()
+			}
+
 			if pc.detectPLCReconnection() {
 				fmt.Println("🔄 Reconexão PLC detectada - executando reset...")
 				err := pc.resetAfterReconnection()
 				if err != nil {
 					fmt.Printf("❌ Erro no reset: %v\n", err)
 				}
-				continue // Pular este ciclo
+				continue
 			}
 
-			// 🆕 PULAR SE RESET EM PROGRESSO
 			pc.mutex.RLock()
 			resetInProgress := pc.plcResetInProgress
 			pc.mutex.RUnlock()
@@ -342,7 +744,6 @@ func (pc *PLCController) statusWriteLoop() {
 				continue
 			}
 
-			// Pular se muitos erros consecutivos
 			if pc.shouldSkipOperation() {
 				continue
 			}
@@ -352,10 +753,8 @@ func (pc *PLCController) statusWriteLoop() {
 				pc.markOperationError(err)
 				if pc.isConnectionError(err) {
 					if pc.consecutiveErrors == 1 {
-						log.Printf("🔌 PLC: Problema de conexão detectado - tentando recuperar...")
+						log.Printf("🔌 PLC: Problema de conexão detectado")
 					}
-				} else {
-					log.Printf("PLC Controller: Erro ao escrever status: %v", err)
 				}
 				pc.incrementErrorCount()
 			} else {
@@ -369,9 +768,9 @@ func (pc *PLCController) statusWriteLoop() {
 	}
 }
 
-// 🔧 CORREÇÃO CRÍTICA: commandReadLoop com WaitGroup
+// commandReadLoop com WaitGroup
 func (pc *PLCController) commandReadLoop() {
-	defer pc.wg.Done() // ✅ CORREÇÃO FUNDAMENTAL - WG.DONE()
+	defer pc.wg.Done()
 
 	fmt.Println("📥 CommandRead goroutine iniciada")
 	defer fmt.Println("📥 CommandRead goroutine finalizada")
@@ -379,7 +778,6 @@ func (pc *PLCController) commandReadLoop() {
 	for {
 		select {
 		case <-pc.commandTicker.C:
-			// 🆕 PULAR SE RESET EM PROGRESSO
 			pc.mutex.RLock()
 			resetInProgress := pc.plcResetInProgress
 			pc.mutex.RUnlock()
@@ -388,7 +786,6 @@ func (pc *PLCController) commandReadLoop() {
 				continue
 			}
 
-			// Pular se muitos erros consecutivos
 			if pc.shouldSkipOperation() {
 				continue
 			}
@@ -396,13 +793,6 @@ func (pc *PLCController) commandReadLoop() {
 			commands, err := pc.reader.ReadCommands()
 			if err != nil {
 				pc.markOperationError(err)
-				if pc.isConnectionError(err) {
-					if pc.consecutiveErrors == 1 {
-						log.Printf("🔌 PLC: Problema de conexão detectado ao ler comandos...")
-					}
-				} else {
-					log.Printf("PLC Controller: Erro ao ler comandos: %v", err)
-				}
 				pc.incrementErrorCount()
 				continue
 			}
@@ -417,9 +807,9 @@ func (pc *PLCController) commandReadLoop() {
 	}
 }
 
-// 🔧 CORREÇÃO CRÍTICA: commandProcessor com WaitGroup e Channel Protection
+// commandProcessor com WaitGroup
 func (pc *PLCController) commandProcessor() {
-	defer pc.wg.Done() // ✅ CORREÇÃO FUNDAMENTAL - WG.DONE()
+	defer pc.wg.Done()
 
 	fmt.Println("⚡ CommandProcessor goroutine iniciada")
 	defer fmt.Println("⚡ CommandProcessor goroutine finalizada")
@@ -428,7 +818,6 @@ func (pc *PLCController) commandProcessor() {
 		select {
 		case cmd, ok := <-pc.commandChan:
 			if !ok {
-				// Channel fechado graciosamente
 				fmt.Println("   ⚡ CommandProcessor: Channel fechado")
 				return
 			}
@@ -441,9 +830,9 @@ func (pc *PLCController) commandProcessor() {
 	}
 }
 
-// 🔧 CORREÇÃO CRÍTICA: radarConnectionMonitorLoop com WaitGroup
+// radarConnectionMonitorLoop com WaitGroup
 func (pc *PLCController) radarConnectionMonitorLoop() {
-	defer pc.wg.Done() // ✅ CORREÇÃO FUNDAMENTAL - WG.DONE()
+	defer pc.wg.Done()
 
 	fmt.Println("🌐 RadarMonitor goroutine iniciada")
 	defer fmt.Println("🌐 RadarMonitor goroutine finalizada")
@@ -460,96 +849,46 @@ func (pc *PLCController) radarConnectionMonitorLoop() {
 	}
 }
 
-// checkRadarConnectionTimeouts verifica se radares estão enviando dados recentemente
-func (pc *PLCController) checkRadarConnectionTimeouts() {
-	pc.mutex.Lock()
-	defer pc.mutex.Unlock()
-
-	now := time.Now()
-
-	// Verificar cada radar individualmente APENAS SE HABILITADO
-	if pc.radarCaldeiraEnabled {
-		timeSinceLastUpdate := now.Sub(pc.lastRadarCaldeiraUpdate)
-		if timeSinceLastUpdate > pc.radarTimeoutDuration && pc.radarCaldeiraConnected {
-			fmt.Printf("⚠️ Radar CALDEIRA (HABILITADO): Sem dados há %.1fs - marcando como DESCONECTADO\n",
-				timeSinceLastUpdate.Seconds())
-			pc.radarCaldeiraConnected = false
-		}
-	}
-
-	if pc.radarPortaJusanteEnabled {
-		timeSinceLastUpdate := now.Sub(pc.lastRadarPortaJusanteUpdate)
-		if timeSinceLastUpdate > pc.radarTimeoutDuration && pc.radarPortaJusanteConnected {
-			fmt.Printf("⚠️ Radar PORTA JUSANTE (HABILITADO): Sem dados há %.1fs - marcando como DESCONECTADO\n",
-				timeSinceLastUpdate.Seconds())
-			pc.radarPortaJusanteConnected = false
-		}
-	}
-
-	if pc.radarPortaMontanteEnabled {
-		timeSinceLastUpdate := now.Sub(pc.lastRadarPortaMontanteUpdate)
-		if timeSinceLastUpdate > pc.radarTimeoutDuration && pc.radarPortaMontanteConnected {
-			fmt.Printf("⚠️ Radar PORTA MONTANTE (HABILITADO): Sem dados há %.1fs - marcando como DESCONECTADO\n",
-				timeSinceLastUpdate.Seconds())
-			pc.radarPortaMontanteConnected = false
-		}
-	}
-}
-
-// markOperationSuccess marca operação bem-sucedida
-func (pc *PLCController) markOperationSuccess() {
-	pc.mutex.Lock()
-	pc.consecutiveErrors = 0
-	pc.lastSuccessfulOp = time.Now()
-	pc.mutex.Unlock()
-}
-
-// markOperationError marca erro de operação
-func (pc *PLCController) markOperationError(err error) {
-	if pc.isConnectionError(err) {
-		pc.mutex.Lock()
-		pc.consecutiveErrors++
-		pc.mutex.Unlock()
-	}
-}
-
-// isConnectionError verifica se é erro de conexão
-func (pc *PLCController) isConnectionError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	errStr := strings.ToLower(err.Error())
-	connectionErrors := []string{
-		"i/o timeout",
-		"connection reset",
-		"broken pipe",
-		"connection refused",
-		"network unreachable",
-		"no route to host",
-		"invalid pdu",
-		"invalid buffer",
-	}
-
-	for _, connErr := range connectionErrors {
-		if strings.Contains(errStr, connErr) {
-			return true
-		}
-	}
-	return false
-}
-
-// shouldSkipOperation verifica se deve pular operação por muitos erros
-func (pc *PLCController) shouldSkipOperation() bool {
-	pc.mutex.RLock()
-	defer pc.mutex.RUnlock()
-	return pc.consecutiveErrors >= pc.maxConsecutiveErrors
-}
-
-// processCommands processa comandos recebidos do PLC (MULTI-RADAR)
+// processCommands com LÓGICA DE REBOOT SEGURO
 func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 	if commands == nil {
 		return
+	}
+
+	// LÓGICA DE REBOOT SEGURO PARA DB100.0.3 (ResetErrors)
+	if commands.ResetErrors != pc.lastResetErrorsState {
+		if commands.ResetErrors {
+			// Bit ativado - iniciar timer de 10s
+			fmt.Printf("🚨 DB100.0.3 (ResetErrors) ATIVADO às %s - Timer de REBOOT COMPLETO iniciado\n",
+				time.Now().Format("15:04:05"))
+			log.Printf("PRODUCTION_ALERT: DB100.0.3 activated - full server reboot timer started")
+			pc.startRebootTimer()
+		} else {
+			// Bit desativado - cancelar timer
+			fmt.Printf("🚨 DB100.0.3 (ResetErrors) DESATIVADO às %s - Timer cancelado\n",
+				time.Now().Format("15:04:05"))
+			log.Printf("PRODUCTION_INFO: DB100.0.3 deactivated - reboot timer cancelled")
+			pc.cancelRebootTimer()
+		}
+		pc.lastResetErrorsState = commands.ResetErrors
+	}
+
+	// Se timer de reboot está ativo, não processar comando normal ResetErrors
+	pc.rebootMutex.Lock()
+	rebootActive := pc.rebootTimerActive
+	pc.rebootMutex.Unlock()
+
+	if commands.ResetErrors && !rebootActive {
+		// Processar comando normal de reset se não há timer ativo
+		select {
+		case pc.commandChan <- models.CmdResetErrors:
+		case <-pc.ctx.Done():
+			return
+		}
+		// NÃO resetar o bit se timer está rodando
+		if err := pc.writer.ResetCommand(0, 3); err != nil {
+			log.Printf("Erro ao resetar ResetErrors: %v", err)
+		}
 	}
 
 	// ========== COMANDOS GLOBAIS ==========
@@ -572,17 +911,6 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 		}
 		if err := pc.writer.ResetCommand(0, 1); err != nil {
 			log.Printf("Erro ao resetar StopCollection: %v", err)
-		}
-	}
-
-	if commands.ResetErrors {
-		select {
-		case pc.commandChan <- models.CmdResetErrors:
-		case <-pc.ctx.Done():
-			return
-		}
-		if err := pc.writer.ResetCommand(0, 3); err != nil {
-			log.Printf("Erro ao resetar ResetErrors: %v", err)
 		}
 	}
 
@@ -675,7 +1003,7 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 	}
 }
 
-// executeCommand executa um comando específico COM PROTEÇÃO
+// executeCommand COM LIMPEZA DE DADOS RADAR SICK
 func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
@@ -694,14 +1022,36 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 		fmt.Println("PLC Controller: 🔄 Reinício do sistema solicitado via PLC")
 
 	case models.CmdResetErrors:
+		fmt.Println("🧹 ========== RESET COMPLETO INICIADO ==========")
+
+		// 1️⃣ Reset de contadores (como antes)
 		pc.errorCount = 0
 		pc.consecutiveErrors = 0
 		pc.radarCaldeiraErrors = 0
 		pc.radarPortaJusanteErrors = 0
 		pc.radarPortaMontanteErrors = 0
-		// 🆕 RESET DO WRITER TAMBÉM
 		pc.writer.ResetErrorState()
-		fmt.Println("PLC Controller: 🧹 Erros RESETADOS (todos os radares) via comando PLC")
+
+		fmt.Println("PLC Controller: 🧹 CONTADORES resetados")
+		log.Printf("RESET_COUNTERS: All error counters reset to zero")
+
+		// 2️⃣ NOVO: ENVIAR DADOS RADAR SICK ZERADOS PARA PLC
+		pc.mutex.Unlock() // Unlock temporário para operação PLC
+
+		fmt.Println("🧹 Iniciando limpeza dos dados RADAR SICK...")
+		err := pc.sendCleanRadarSickDataToPLC()
+
+		pc.mutex.Lock() // Lock novamente
+
+		if err != nil {
+			fmt.Printf("⚠️ AVISO: Erro na limpeza dos dados RADAR SICK: %v\n", err)
+			log.Printf("RESET_WARNING: Error cleaning radar sick data - %v", err)
+		} else {
+			fmt.Println("PLC Controller: 🧹 DADOS RADAR SICK ZERADOS enviados ao PLC")
+			log.Printf("RESET_COMPLETE: Error counters and radar sick data fully cleaned")
+		}
+
+		fmt.Println("🧹 ========== RESET COMPLETO FINALIZADO ==========")
 
 	case models.CmdEmergencyStop:
 		pc.emergencyStop = true
@@ -782,18 +1132,9 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 	}
 }
 
-// writeSystemStatus escreve status do sistema no PLC
+// 🧹 writeSystemStatus SEM MÉTRICAS SERVIDOR - LIMPO
 func (pc *PLCController) writeSystemStatus() error {
 	pc.mutex.RLock()
-
-	cpuUsage := pc.getLinuxCPUUsage()
-	memUsage := pc.getLinuxMemoryUsage()
-	diskUsage := pc.getLinuxDiskUsage()
-
-	if pc.debugMode {
-		fmt.Printf("Sistema Linux - CPU: %.1f%%, Memória: %.1f%%, Disco: %.1f%%\n",
-			cpuUsage, memUsage, diskUsage)
-	}
 
 	status := &models.PLCSystemStatus{
 		LiveBit:                     pc.liveBit,
@@ -812,16 +1153,14 @@ func (pc *PLCController) writeSystemStatus() error {
 
 // WriteMultiRadarData escreve dados de múltiplos radares no PLC COM PROTEÇÃO INTELIGENTE
 func (pc *PLCController) WriteMultiRadarData(data models.MultiRadarData) error {
-	// 🆕 PULAR SE RESET EM PROGRESSO
 	pc.mutex.RLock()
 	resetInProgress := pc.plcResetInProgress
 	pc.mutex.RUnlock()
 
 	if resetInProgress {
-		return nil // Aguardar reset terminar
+		return nil
 	}
 
-	// Pular se muitos erros consecutivos
 	if pc.shouldSkipOperation() {
 		return nil
 	}
@@ -854,7 +1193,6 @@ func (pc *PLCController) WriteMultiRadarData(data models.MultiRadarData) error {
 			pc.markOperationError(err)
 			pc.IncrementRadarErrors(radarData.RadarID)
 
-			// 🆕 SE ERRO DE PROTOCOLO, MARCAR PARA RESET
 			if pc.isConnectionError(err) {
 				pc.mutex.Lock()
 				pc.needsDB100Reset = true
@@ -874,6 +1212,41 @@ func (pc *PLCController) WriteMultiRadarData(data models.MultiRadarData) error {
 	}
 
 	return nil
+}
+
+// checkRadarConnectionTimeouts verifica se radares estão enviando dados recentemente
+func (pc *PLCController) checkRadarConnectionTimeouts() {
+	pc.mutex.Lock()
+	defer pc.mutex.Unlock()
+
+	now := time.Now()
+
+	if pc.radarCaldeiraEnabled {
+		timeSinceLastUpdate := now.Sub(pc.lastRadarCaldeiraUpdate)
+		if timeSinceLastUpdate > pc.radarTimeoutDuration && pc.radarCaldeiraConnected {
+			fmt.Printf("⚠️ Radar CALDEIRA (HABILITADO): Sem dados há %.1fs - marcando como DESCONECTADO\n",
+				timeSinceLastUpdate.Seconds())
+			pc.radarCaldeiraConnected = false
+		}
+	}
+
+	if pc.radarPortaJusanteEnabled {
+		timeSinceLastUpdate := now.Sub(pc.lastRadarPortaJusanteUpdate)
+		if timeSinceLastUpdate > pc.radarTimeoutDuration && pc.radarPortaJusanteConnected {
+			fmt.Printf("⚠️ Radar PORTA JUSANTE (HABILITADO): Sem dados há %.1fs - marcando como DESCONECTADO\n",
+				timeSinceLastUpdate.Seconds())
+			pc.radarPortaJusanteConnected = false
+		}
+	}
+
+	if pc.radarPortaMontanteEnabled {
+		timeSinceLastUpdate := now.Sub(pc.lastRadarPortaMontanteUpdate)
+		if timeSinceLastUpdate > pc.radarTimeoutDuration && pc.radarPortaMontanteConnected {
+			fmt.Printf("⚠️ Radar PORTA MONTANTE (HABILITADO): Sem dados há %.1fs - marcando como DESCONECTADO\n",
+				timeSinceLastUpdate.Seconds())
+			pc.radarPortaMontanteConnected = false
+		}
+	}
 }
 
 // updateRadarConnectionStatus atualiza status de conexão com timestamp
@@ -914,6 +1287,51 @@ func (pc *PLCController) updateRadarConnectionStatus(radarID string, connected b
 	}
 }
 
+// markOperationSuccess marca operação bem-sucedida
+func (pc *PLCController) markOperationSuccess() {
+	pc.mutex.Lock()
+	pc.consecutiveErrors = 0
+	pc.lastSuccessfulOp = time.Now()
+	pc.mutex.Unlock()
+}
+
+// markOperationError marca erro de operação
+func (pc *PLCController) markOperationError(err error) {
+	if pc.isConnectionError(err) {
+		pc.mutex.Lock()
+		pc.consecutiveErrors++
+		pc.mutex.Unlock()
+	}
+}
+
+// isConnectionError verifica se é erro de conexão
+func (pc *PLCController) isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+	connectionErrors := []string{
+		"i/o timeout", "connection reset", "broken pipe",
+		"connection refused", "network unreachable", "no route to host",
+		"invalid pdu", "invalid buffer",
+	}
+
+	for _, connErr := range connectionErrors {
+		if strings.Contains(errStr, connErr) {
+			return true
+		}
+	}
+	return false
+}
+
+// shouldSkipOperation verifica se deve pular operação por muitos erros
+func (pc *PLCController) shouldSkipOperation() bool {
+	pc.mutex.RLock()
+	defer pc.mutex.RUnlock()
+	return pc.consecutiveErrors >= pc.maxConsecutiveErrors
+}
+
 // ========== MÉTODOS PÚBLICOS THREAD-SAFE ==========
 
 func (pc *PLCController) IsCollectionActive() bool {
@@ -940,7 +1358,6 @@ func (pc *PLCController) IncrementPacketCount() {
 	pc.mutex.Unlock()
 }
 
-// SetRadarConnected - compatibilidade
 func (pc *PLCController) SetRadarConnected(connected bool) {
 	pc.mutex.Lock()
 	pc.radarCaldeiraConnected = connected
@@ -950,7 +1367,6 @@ func (pc *PLCController) SetRadarConnected(connected bool) {
 	pc.mutex.Unlock()
 }
 
-// SetRadarsConnected atualiza status de conexão de todos os radares
 func (pc *PLCController) SetRadarsConnected(status map[string]bool) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
@@ -983,12 +1399,10 @@ func (pc *PLCController) SetRadarsConnected(status map[string]bool) {
 	}
 }
 
-// SetRadarConnectedByID atualiza status de um radar específico
 func (pc *PLCController) SetRadarConnectedByID(radarID string, connected bool) {
 	pc.updateRadarConnectionStatus(radarID, connected)
 }
 
-// IsRadarEnabled verifica se um radar está habilitado
 func (pc *PLCController) IsRadarEnabled(radarID string) bool {
 	pc.mutex.RLock()
 	defer pc.mutex.RUnlock()
@@ -1005,7 +1419,6 @@ func (pc *PLCController) IsRadarEnabled(radarID string) bool {
 	}
 }
 
-// GetRadarsEnabled retorna mapa com status de habilitação
 func (pc *PLCController) GetRadarsEnabled() map[string]bool {
 	pc.mutex.RLock()
 	defer pc.mutex.RUnlock()
@@ -1017,7 +1430,6 @@ func (pc *PLCController) GetRadarsEnabled() map[string]bool {
 	}
 }
 
-// GetRadarsConnected retorna mapa com status de conexão
 func (pc *PLCController) GetRadarsConnected() map[string]bool {
 	pc.mutex.RLock()
 	defer pc.mutex.RUnlock()
@@ -1029,7 +1441,6 @@ func (pc *PLCController) GetRadarsConnected() map[string]bool {
 	}
 }
 
-// IncrementRadarPackets incrementa contador de um radar específico
 func (pc *PLCController) IncrementRadarPackets(radarID string) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
@@ -1046,7 +1457,6 @@ func (pc *PLCController) IncrementRadarPackets(radarID string) {
 	}
 }
 
-// IncrementRadarErrors incrementa contador de erros
 func (pc *PLCController) IncrementRadarErrors(radarID string) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
@@ -1063,81 +1473,13 @@ func (pc *PLCController) IncrementRadarErrors(radarID string) {
 	}
 }
 
-// getLinuxCPUUsage obtém uso de CPU
-func (pc *PLCController) getLinuxCPUUsage() float32 {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	numGoroutines := float32(runtime.NumGoroutine())
-	numCPU := float32(runtime.NumCPU())
-
-	cpuActivity := (numGoroutines / numCPU) * 15
-	gcFactor := float32(m.NumGC%100) * 0.5
-	totalUsage := cpuActivity + gcFactor
-
-	if totalUsage > 100 {
-		totalUsage = 100
-	}
-	if totalUsage < 0 {
-		totalUsage = 0
-	}
-
-	return totalUsage
-}
-
-// getLinuxMemoryUsage obtém uso de memória
-func (pc *PLCController) getLinuxMemoryUsage() float32 {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	allocMB := float32(m.Alloc) / (1024 * 1024)
-	sysMB := float32(m.Sys) / (1024 * 1024)
-	estimatedTotalMB := float32(4096)
-
-	usedMB := allocMB
-	if sysMB > allocMB {
-		usedMB = sysMB
-	}
-
-	usage := (usedMB / estimatedTotalMB) * 100
-
-	if usage > 100 {
-		usage = 100
-	}
-	if usage < 0 {
-		usage = 0
-	}
-
-	return usage
-}
-
-// getLinuxDiskUsage obtém uso de disco
-func (pc *PLCController) getLinuxDiskUsage() float32 {
-	uptime := time.Since(pc.startTime)
-	baseUsage := float32(35.0)
-	timeEffect := float32(uptime.Hours()) * 0.1
-	totalUsage := baseUsage + timeEffect
-
-	if totalUsage > 95 {
-		totalUsage = 95
-	}
-	if totalUsage < 0 {
-		totalUsage = 0
-	}
-
-	return totalUsage
-}
-
-// incrementErrorCount incrementa contador de erro COM PROTEÇÃO
 func (pc *PLCController) incrementErrorCount() {
 	pc.mutex.Lock()
 	pc.errorCount++
 	pc.mutex.Unlock()
 }
 
-// isSystemHealthy verifica se sistema está saudável
 func (pc *PLCController) isSystemHealthy() bool {
-	// Deve ser chamado com mutex já locked
 	atLeastOneRadarHealthy := false
 	if pc.radarCaldeiraEnabled && pc.radarCaldeiraConnected {
 		atLeastOneRadarHealthy = true

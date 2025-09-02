@@ -1,0 +1,636 @@
+[RADAR] 2025/09/02 08:48:31.844162 ========== LOG DE RADARES ==========
+[RADAR] 2025/09/02 08:48:31.844238 CONFIG: Radar Caldeira ID=caldeira IP=192.168.1.84:2111
+[RADAR] 2025/09/02 08:48:31.844245 CONFIG: Radar Porta Jusante ID=porta_jusante IP=192.168.1.85:2111
+[RADAR] 2025/09/02 08:48:31.844252 CONFIG: Radar Porta Montante ID=porta_montante IP=192.168.1.86:2111
+[RADAR] 2025/09/02 08:48:35.553769 CONNECT_START: Radar Caldeira (192.168.1.84)
+[RADAR] 2025/09/02 08:48:35.857833 CONNECT_SUCCESS: Radar Caldeira
+[RADAR] 2025/09/02 08:48:41.116964 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:48:41.116987 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:48:41.116990 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:48:47.298748 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:48:47.298807 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:48:47.298821 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:48:51.441100 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:48:52.533115 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:48:52.533158 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:48:52.533170 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:48:57.809310 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:48:57.809360 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:48:57.809372 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:04.001952 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:49:04.002009 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:04.002021 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:07.125754 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:49:09.283739 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:09.283779 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:09.283791 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:49:15.235237 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:49:15.235289 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:15.235302 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:20.503915 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:49:20.503968 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:20.503981 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:22.555182 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:49:25.748999 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:49:25.749045 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:25.749057 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:30.926183 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:30.926235 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:49:30.926247 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:37.120708 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:37.120761 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:49:37.120774 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:38.131103 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:49:42.386916 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:49:42.386969 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:42.386982 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:47.630384 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:49:47.630433 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:47.630446 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:52.819764 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:49:52.819853 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:52.819864 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:53.830447 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:49:58.132345 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:49:58.132396 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:49:58.132408 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:03.213467 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:50:03.213494 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:03.213499 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:08.472761 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:08.472813 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:50:08.472826 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:09.484261 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:50:13.705650 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:50:13.705696 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:13.705709 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:18.847979 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:18.848030 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:18.848043 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:50:24.126260 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:24.126310 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:24.126323 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:50:25.135734 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:50:29.254955 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:50:29.255005 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:29.255019 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:35.174181 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:50:35.174231 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:35.174244 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:40.389159 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:50:40.430228 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:50:40.430271 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:40.430283 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:46.314981 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:50:46.315029 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:46.315041 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:52.207223 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:50:52.207269 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:52.207280 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:56.360203 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:50:57.457221 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:50:57.457265 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:50:57.457277 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:02.704493 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:51:02.704545 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:02.704558 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:07.860938 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:07.860988 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:07.861001 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:51:12.028901 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:51:13.149569 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:13.149631 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:13.149648 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:51:18.259753 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:18.259801 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:18.259813 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:51:23.525570 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:51:23.525650 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:23.525712 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:27.679187 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:51:28.765695 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:51:28.765738 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:28.765749 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:34.267969 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:51:34.268017 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:34.268031 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:39.398093 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:51:39.398146 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:39.398159 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:43.554764 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:51:44.655896 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:51:44.655938 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:44.655950 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:49.927411 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:49.927461 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:51:49.927473 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:56.113956 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:51:56.114009 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:56.114022 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:51:59.235065 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:52:01.363067 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:52:01.363106 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:01.363117 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:07.271879 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:52:07.271931 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:07.271943 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:13.159986 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:52:13.160034 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:13.160045 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:15.211984 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:52:18.408261 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:18.408306 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:52:18.408318 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:23.572824 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:52:23.572874 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:23.572887 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:28.723735 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:52:28.723786 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:28.723827 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:30.777269 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:52:33.981168 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:52:33.981210 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:33.981221 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:39.257611 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:52:39.257661 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:39.257674 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:45.132618 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:52:45.132670 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:45.132683 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:46.142990 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:52:50.384343 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:50.384390 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:50.384403 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:52:56.257282 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:52:56.257332 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:52:56.257345 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:02.108662 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:53:02.150798 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:02.150837 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:53:02.150848 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:07.388265 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:53:07.388319 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:07.388333 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:12.540327 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:12.540376 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:53:12.540388 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:17.700735 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:17.700784 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:53:17.700797 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:18.710669 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:53:22.982507 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:53:22.982556 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:22.982569 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:28.110477 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:28.110529 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:53:28.110541 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:33.361585 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:33.361666 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:53:33.361680 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:34.371804 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:53:38.610750 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:38.610800 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:38.610813 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:53:43.676580 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:43.676658 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:53:43.676672 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:48.920004 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:53:48.920051 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:48.920090 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:49.930627 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:53:54.113363 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:54.113416 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:53:54.113429 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:59.141640 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:53:59.141693 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:53:59.141706 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:04.410397 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:54:04.410445 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:04.410458 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:05.420067 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:54:10.259866 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:54:10.259921 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:10.259935 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:15.540254 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:54:15.540303 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:15.540315 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:20.749447 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:54:20.795791 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:54:20.795831 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:20.795842 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:26.282984 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:54:26.283035 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:26.283048 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:31.504989 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:31.505038 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:31.505051 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:54:36.712453 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:54:36.759770 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:54:36.759818 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:36.759830 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:42.039461 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:42.039509 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:54:42.039523 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:48.620583 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:54:48.620663 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:48.620676 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:51.724777 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:54:53.876098 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:54:53.876148 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:53.876161 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:59.034641 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:54:59.034689 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:54:59.034702 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:04.338255 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:55:04.338305 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:04.338317 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:07.443492 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:55:09.591304 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:55:09.591362 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:09.591375 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:14.719132 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:55:14.719182 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:14.719196 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:20.911325 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:55:20.911381 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:20.911394 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:22.973766 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:55:26.187484 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:26.187536 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:55:26.187548 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:31.444927 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:55:31.444976 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:31.444989 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:37.113021 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:55:37.113071 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:37.113083 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:38.123042 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:55:42.391272 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:55:42.391315 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:42.391328 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:48.256210 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:55:48.256259 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:48.256271 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:53.488859 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:55:53.537700 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:55:53.537740 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:53.537751 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:58.779890 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:55:58.779949 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:55:58.779962 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:03.908954 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:03.909005 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:56:03.909017 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:09.129972 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:56:10.121835 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:56:10.121882 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:10.121894 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:15.375928 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:56:15.375987 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:15.376000 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:21.243440 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:21.243526 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:56:21.243541 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:24.340838 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:56:27.171077 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:56:27.171123 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:27.171136 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:32.425707 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:32.425755 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:32.425767 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:56:38.325730 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:56:38.325781 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:38.325794 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:40.381222 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:56:43.457095 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:56:43.457138 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:43.457151 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:48.739530 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:56:48.739583 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:48.739622 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:53.972188 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:56:53.972238 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:53.972251 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:56.023278 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:56:59.270830 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:56:59.270872 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:56:59.270885 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:04.512420 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:04.512469 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:04.512481 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:57:09.767663 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:09.767715 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:09.767727 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:57:11.831341 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:57:14.996792 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:57:14.996834 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:14.996846 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:20.262467 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:57:20.262514 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:20.262525 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:25.519575 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:25.519642 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:25.519659 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:57:27.576212 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:57:30.765019 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:57:30.765064 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:30.765077 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:36.050427 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:36.050479 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:57:36.050492 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:41.294960 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:57:41.295009 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:41.295022 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:43.348766 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:57:46.556973 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:46.557020 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:57:46.557058 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:51.801353 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:57:51.801405 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:51.801418 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:56.922634 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:56.922685 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:57:56.922697 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:57:58.986863 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:58:02.202373 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:58:02.202417 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:02.202430 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:07.452528 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:07.452578 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:07.452612 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:58:12.719863 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:58:12.719912 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:12.719924 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:14.772130 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:58:17.965200 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:58:17.965245 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:17.965257 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:23.227852 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:58:23.227905 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:23.227918 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:28.467303 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:58:28.467358 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:28.467372 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:30.521764 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:58:33.713349 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:58:33.713392 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:33.713405 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:38.949008 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:58:38.949059 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:38.949073 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:45.202959 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:58:45.203009 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:45.203022 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:46.213106 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:58:50.473406 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:58:50.473448 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:50.473459 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:55.612017 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:58:55.612065 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:58:55.612077 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:01.789354 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:01.789386 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:59:01.789389 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:02.798951 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:59:07.029270 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:59:07.029343 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:07.029353 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:12.315429 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:59:12.315481 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:12.315495 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:18.006582 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:59:18.006656 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:18.006669 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:19.016198 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:59:23.258140 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:59:23.258187 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:23.258199 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:29.281936 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:59:29.281988 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:29.282001 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:34.425981 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:59:34.426033 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:34.426046 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:35.435289 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:59:39.660617 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:39.660670 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:59:39.660683 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:44.912632 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:59:44.912687 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:44.912701 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:51.023761 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:59:51.023813 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:51.023826 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:52.034550 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 08:59:56.344761 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 08:59:56.344806 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 08:59:56.344819 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:02.163994 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:00:02.164049 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:02.164062 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:07.378722 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:00:07.420852 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:00:07.420895 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:07.420908 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:12.673610 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:00:12.673661 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:12.673673 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:17.839584 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:00:17.839658 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:17.839671 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:23.035284 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:00:24.000697 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:00:24.000747 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:24.000760 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:29.279548 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:29.279650 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:00:29.279666 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:35.157145 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:35.157193 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:35.157206 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:00:38.265802 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:00:41.075684 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:41.075726 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:41.075737 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:00:46.319004 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:46.319054 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:00:46.319067 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:52.243832 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:00:52.243883 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:52.243896 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:54.311315 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:00:57.471748 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:00:57.471787 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:00:57.471798 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:02.712818 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:02.712871 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:01:02.712884 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:07.882250 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:01:07.882302 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:07.882314 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:09.935759 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:01:13.025492 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:01:13.025539 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:13.025552 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:18.316121 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:01:18.316173 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:18.316186 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:24.176413 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:01:24.176464 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:24.176476 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:25.186677 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:01:30.075330 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:01:30.075375 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:30.075388 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:35.334210 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:01:35.334260 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:35.334273 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:40.392781 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:01:40.437421 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:01:40.437462 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:40.437474 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:45.711504 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:01:45.711564 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:45.711577 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:50.953969 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:01:50.954016 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:50.954027 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:56.050380 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:01:56.128563 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:01:56.128624 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:01:56.128640 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:01.997846 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:01.997900 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:02:01.997913 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:07.252178 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:02:07.252227 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:07.252240 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:11.415075 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:02:12.515264 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:02:12.515308 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:12.515321 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:18.002436 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:02:18.002488 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:18.002501 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:23.288764 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:23.288812 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:02:23.288825 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:27.324659 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:02:28.431431 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:02:28.431476 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:28.431489 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:33.690274 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:02:33.690324 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:33.690336 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:38.935845 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:02:38.935902 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:38.935915 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:44.028744 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:02:44.083990 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:02:44.084021 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:44.084028 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:49.342427 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:49.342475 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:49.342519 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:02:55.223733 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:02:55.223784 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:55.223797 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:02:59.387555 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:03:00.472550 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:03:00.472615 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:00.472628 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:05.710624 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:03:05.710674 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:05.710713 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:10.875746 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:10.875793 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:03:10.875806 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:15.013806 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:03:16.008347 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:16.008395 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:16.008407 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:03:21.291080 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:21.291130 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:21.291142 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:03:27.163536 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:03:27.163611 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:27.163629 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:30.266977 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:03:33.057782 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:33.057826 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:33.057837 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:03:38.312980 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:03:38.313036 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:38.313051 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:44.243261 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:03:44.243318 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:44.243331 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:46.299759 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:03:49.374893 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:03:49.374936 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:49.374948 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:54.629876 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:54.629924 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:03:54.629936 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:59.764358 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:03:59.764412 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:03:59.764424 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:04:01.821342 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:04:04.938633 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:04:04.938681 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:04:04.938694 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:04:10.215877 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:04:10.215928 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:04:10.215939 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:04:16.189674 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:04:16.189725 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:04:16.189737 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:04:17.200121 CHECK: Verificando radares habilitados
+[RADAR] 2025/09/02 09:04:22.089405 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:04:22.089454 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:04:22.089468 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:04:27.339571 OK: Radar Caldeira (192.168.1.84) CONECTADO
+[RADAR] 2025/09/02 09:04:27.339652 DISABLED: Radar Porta Jusante desabilitado via PLC
+[RADAR] 2025/09/02 09:04:27.339960 DISABLED: Radar Porta Montante desabilitado via PLC
+[RADAR] 2025/09/02 09:04:31.557037 SHUTDOWN: Sistema de radares encerrado
+[RADAR] 2025/09/02 09:04:32.850023 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 09:04:42.207413 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 09:58:17.433925 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 09:58:26.637621 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 10:18:27.735955 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 10:52:43.868731 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 10:52:53.144378 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 10:54:24.252902 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 12:06:05.292218 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 12:06:14.562010 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 12:09:12.171721 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 12:24:36.866484 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 12:24:46.221508 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 12:47:38.988431 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 12:47:48.310359 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 12:49:47.372566 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 12:55:57.277677 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 12:56:07.460760 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 13:04:42.021341 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 13:04:52.362617 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 13:43:05.814366 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 13:43:15.152914 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 13:51:20.543076 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 13:51:29.882508 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 14:03:53.725175 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 14:04:03.117652 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 14:04:35.331342 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 14:08:01.125535 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 14:08:10.491649 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 14:21:43.232486 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 14:21:52.431210 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 14:26:15.055767 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 14:26:24.398089 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 14:33:24.004458 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 14:33:33.382232 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 14:40:57.435985 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 14:41:06.761704 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 14:41:14.413519 ========== MUDANÇAS DE ESTADO DOS RADARES ==========
+[RADAR] 2025/09/02 14:41:23.809230 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 15:18:54.519292 RADAR_ONLINE: Radar Caldeira (192.168.1.84) conectado
+[RADAR] 2025/09/02 15:35:28.451018 RADAR_OFFLINE: Radar Caldeira (192.168.1.84) perdeu conexão
