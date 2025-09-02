@@ -1,7 +1,6 @@
 package plc
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"runtime"
@@ -18,11 +17,8 @@ type PLCController struct {
 	reader *PLCReader
 	writer *PLCWriter
 
-	// 🔧 CORREÇÃO: Context para controle de goroutines
+	// Canais para comandos
 	commandChan chan models.SystemCommand
-	ctx         context.Context
-	cancel      context.CancelFunc
-	wg          sync.WaitGroup
 
 	// Estados do sistema
 	liveBit          bool
@@ -56,12 +52,11 @@ type PLCController struct {
 	radarPortaJusanteErrors   int32
 	radarPortaMontanteErrors  int32
 
-	// Controle de tickers
-	liveBitTicker      *time.Ticker
-	statusTicker       *time.Ticker
-	commandTicker      *time.Ticker
-	radarMonitorTicker *time.Ticker
-	stopChan           chan bool
+	// Controle de live bit
+	liveBitTicker *time.Ticker
+	statusTicker  *time.Ticker
+	commandTicker *time.Ticker
+	stopChan      chan bool
 
 	// CONTROLE DE ERROS CONSECUTIVOS
 	consecutiveErrors    int32
@@ -69,6 +64,7 @@ type PLCController struct {
 	maxConsecutiveErrors int32
 
 	// MONITORAMENTO DE CONEXÃO DOS RADARES
+	radarMonitorTicker   *time.Ticker
 	radarTimeoutDuration time.Duration
 
 	// 🆕 DETECÇÃO DE RECONEXÃO E RESET
@@ -77,15 +73,15 @@ type PLCController struct {
 	reconnectionDetected bool
 	plcResetInProgress   bool
 
-	// 🛡️ PROTEÇÃO THREAD-SAFE
+	// Mutex
 	mutex sync.RWMutex
 
 	// Sistema de monitoramento multiplataforma
 	systemMonitor *SystemMonitor
 }
 
+// SystemMonitor para monitoramento do sistema Linux/Unix
 type SystemMonitor struct {
-	// SystemMonitor para monitoramento do sistema Linux/Unix
 	lastCPUTime  time.Time
 	lastCPUIdle  uint64
 	lastCPUTotal uint64
@@ -101,12 +97,8 @@ func NewSystemMonitor() *SystemMonitor {
 // NewPLCController cria um novo controlador PLC (MULTI-RADAR)
 func NewPLCController(plcClient PLCClient) *PLCController {
 	now := time.Now()
-	ctx, cancel := context.WithCancel(context.Background())
-
 	controller := &PLCController{
 		plc:              plcClient,
-		ctx:              ctx,
-		cancel:           cancel,
 		reader:           NewPLCReader(plcClient),
 		writer:           NewPLCWriter(plcClient),
 		commandChan:      make(chan models.SystemCommand, 20),
@@ -119,7 +111,7 @@ func NewPLCController(plcClient PLCClient) *PLCController {
 		radarPortaJusanteEnabled:  true,
 		radarPortaMontanteEnabled: true,
 
-		startTime:   now,
+		startTime:   time.Now(),
 		packetCount: 0,
 		errorCount:  0,
 
@@ -141,7 +133,7 @@ func NewPLCController(plcClient PLCClient) *PLCController {
 
 		// CONTROLE DE ERROS
 		consecutiveErrors:    0,
-		lastSuccessfulOp:     now,
+		lastSuccessfulOp:     time.Now(),
 		maxConsecutiveErrors: 8, // Aumentado para evitar paradas desnecessárias
 
 		// MONITORAMENTO DE RADARES
@@ -153,7 +145,7 @@ func NewPLCController(plcClient PLCClient) *PLCController {
 		reconnectionDetected: false,
 		plcResetInProgress:   false,
 
-		stopChan:      make(chan bool, 1), // 🔧 CORREÇÃO: Buffer para evitar deadlock
+		stopChan:      make(chan bool),
 		systemMonitor: NewSystemMonitor(),
 	}
 
@@ -162,7 +154,7 @@ func NewPLCController(plcClient PLCClient) *PLCController {
 
 // Start inicia o controlador PLC
 func (pc *PLCController) Start() {
-	fmt.Println("🚀 PLC Controller: Iniciando controlador bidirecional com DETECÇÃO DE RECONEXÃO v2.4...")
+	fmt.Println("PLC Controller: Iniciando controlador bidirecional com DETECÇÃO DE RECONEXÃO...")
 
 	// Iniciar tickers COM INTERVALOS OTIMIZADOS
 	pc.liveBitTicker = time.NewTicker(3 * time.Second)
@@ -170,79 +162,38 @@ func (pc *PLCController) Start() {
 	pc.commandTicker = time.NewTicker(2 * time.Second)
 	pc.radarMonitorTicker = time.NewTicker(5 * time.Second)
 
-	// 🔧 CORREÇÃO CRÍTICA: Iniciar goroutines com WaitGroup
-	pc.wg.Add(5) // ✅ EXATAMENTE 5 GOROUTINES
+	// Iniciar goroutines
 	go pc.liveBitLoop()
 	go pc.statusWriteLoop()
 	go pc.commandReadLoop()
 	go pc.commandProcessor()
 	go pc.radarConnectionMonitorLoop()
 
-	fmt.Println("✅ PLC Controller: Controlador iniciado com LÓGICA DE RECONEXÃO INTELIGENTE - 5 goroutines ativas")
+	fmt.Println("PLC Controller: Controlador iniciado com LÓGICA DE RECONEXÃO INTELIGENTE")
 }
 
-// Stop para o controlador COM SHUTDOWN GRACIOSO
+// Stop para o controlador
 func (pc *PLCController) Stop() {
-	fmt.Println("🛑 PLC Controller: Iniciando parada gracioso...")
+	fmt.Println("PLC Controller: Parando controlador...")
 
-	// 🔧 CORREÇÃO: Cancelar context PRIMEIRO
-	pc.cancel()
-	fmt.Println("   ✅ Context cancelado")
-
-	// Parar tickers COM PROTEÇÃO
+	// Parar tickers
 	if pc.liveBitTicker != nil {
 		pc.liveBitTicker.Stop()
-		fmt.Println("   ✅ LiveBit ticker parado")
 	}
 	if pc.statusTicker != nil {
 		pc.statusTicker.Stop()
-		fmt.Println("   ✅ Status ticker parado")
 	}
 	if pc.commandTicker != nil {
 		pc.commandTicker.Stop()
-		fmt.Println("   ✅ Command ticker parado")
 	}
 	if pc.radarMonitorTicker != nil {
 		pc.radarMonitorTicker.Stop()
-		fmt.Println("   ✅ Radar monitor ticker parado")
 	}
 
-	// 🔧 CORREÇÃO: Fechar channel COM PROTEÇÃO
-	select {
-	case <-pc.commandChan:
-		// Channel já vazio
-	default:
-		// Channel tem dados
-	}
-	close(pc.commandChan)
-	fmt.Println("   ✅ Command channel fechado")
-
-	// 🔧 CORREÇÃO CRÍTICA: Aguardar TODAS as goroutines terminarem
-	fmt.Println("   ⏳ Aguardando todas as 5 goroutines terminarem...")
-	done := make(chan struct{})
-	go func() {
-		pc.wg.Wait()
-		close(done)
-	}()
-
-	// Timeout de segurança para evitar travamento
-	select {
-	case <-done:
-		fmt.Println("   ✅ TODAS as 5 goroutines terminadas com sucesso")
-	case <-time.After(10 * time.Second):
-		fmt.Println("   ⚠️ Timeout ao aguardar goroutines - forçando parada")
-	}
-
-	// Sinalizar parada COM PROTEÇÃO
-	select {
-	case pc.stopChan <- true:
-		// Sinal enviado
-	case <-time.After(1 * time.Second):
-		// Timeout no sinal
-	}
+	// Sinalizar parada
 	close(pc.stopChan)
 
-	fmt.Println("✅ PLC Controller: Controlador parado com sucesso")
+	fmt.Println("PLC Controller: Controlador parado")
 }
 
 // 🆕 detectPLCReconnection detecta se PLC reconectou
@@ -292,34 +243,8 @@ func (pc *PLCController) resetAfterReconnection() error {
 	return nil
 }
 
-// 🔧 CORREÇÃO CRÍTICA: liveBitLoop com WaitGroup
-func (pc *PLCController) liveBitLoop() {
-	defer pc.wg.Done() // ✅ CORREÇÃO FUNDAMENTAL - WG.DONE()
-
-	fmt.Println("🔄 LiveBit goroutine iniciada")
-	defer fmt.Println("🔄 LiveBit goroutine finalizada")
-
-	for {
-		select {
-		case <-pc.liveBitTicker.C:
-			pc.mutex.Lock()
-			pc.liveBit = !pc.liveBit // Toggle do live bit
-			pc.mutex.Unlock()
-
-		case <-pc.ctx.Done():
-			fmt.Println("   🔄 LiveBit recebeu sinal de parada")
-			return
-		}
-	}
-}
-
-// 🔧 CORREÇÃO CRÍTICA: statusWriteLoop com WaitGroup
+// statusWriteLoop escreve status no PLC COM DETECÇÃO DE RECONEXÃO
 func (pc *PLCController) statusWriteLoop() {
-	defer pc.wg.Done() // ✅ CORREÇÃO FUNDAMENTAL - WG.DONE()
-
-	fmt.Println("📤 StatusWrite goroutine iniciada")
-	defer fmt.Println("📤 StatusWrite goroutine finalizada")
-
 	for {
 		select {
 		case <-pc.statusTicker.C:
@@ -362,99 +287,20 @@ func (pc *PLCController) statusWriteLoop() {
 				pc.markOperationSuccess()
 			}
 
-		case <-pc.ctx.Done():
-			fmt.Println("   📤 StatusWrite recebeu sinal de parada")
+		case <-pc.stopChan:
 			return
 		}
 	}
 }
 
-// 🔧 CORREÇÃO CRÍTICA: commandReadLoop com WaitGroup
-func (pc *PLCController) commandReadLoop() {
-	defer pc.wg.Done() // ✅ CORREÇÃO FUNDAMENTAL - WG.DONE()
-
-	fmt.Println("📥 CommandRead goroutine iniciada")
-	defer fmt.Println("📥 CommandRead goroutine finalizada")
-
-	for {
-		select {
-		case <-pc.commandTicker.C:
-			// 🆕 PULAR SE RESET EM PROGRESSO
-			pc.mutex.RLock()
-			resetInProgress := pc.plcResetInProgress
-			pc.mutex.RUnlock()
-
-			if resetInProgress {
-				continue
-			}
-
-			// Pular se muitos erros consecutivos
-			if pc.shouldSkipOperation() {
-				continue
-			}
-
-			commands, err := pc.reader.ReadCommands()
-			if err != nil {
-				pc.markOperationError(err)
-				if pc.isConnectionError(err) {
-					if pc.consecutiveErrors == 1 {
-						log.Printf("🔌 PLC: Problema de conexão detectado ao ler comandos...")
-					}
-				} else {
-					log.Printf("PLC Controller: Erro ao ler comandos: %v", err)
-				}
-				pc.incrementErrorCount()
-				continue
-			}
-
-			pc.markOperationSuccess()
-			pc.processCommands(commands)
-
-		case <-pc.ctx.Done():
-			fmt.Println("   📥 CommandRead recebeu sinal de parada")
-			return
-		}
-	}
-}
-
-// 🔧 CORREÇÃO CRÍTICA: commandProcessor com WaitGroup e Channel Protection
-func (pc *PLCController) commandProcessor() {
-	defer pc.wg.Done() // ✅ CORREÇÃO FUNDAMENTAL - WG.DONE()
-
-	fmt.Println("⚡ CommandProcessor goroutine iniciada")
-	defer fmt.Println("⚡ CommandProcessor goroutine finalizada")
-
-	for {
-		select {
-		case cmd, ok := <-pc.commandChan:
-			if !ok {
-				// Channel fechado graciosamente
-				fmt.Println("   ⚡ CommandProcessor: Channel fechado")
-				return
-			}
-			pc.executeCommand(cmd)
-
-		case <-pc.ctx.Done():
-			fmt.Println("   ⚡ CommandProcessor recebeu sinal de parada")
-			return
-		}
-	}
-}
-
-// 🔧 CORREÇÃO CRÍTICA: radarConnectionMonitorLoop com WaitGroup
+// radarConnectionMonitorLoop monitora conexões dos radares e atualiza status
 func (pc *PLCController) radarConnectionMonitorLoop() {
-	defer pc.wg.Done() // ✅ CORREÇÃO FUNDAMENTAL - WG.DONE()
-
-	fmt.Println("🌐 RadarMonitor goroutine iniciada")
-	defer fmt.Println("🌐 RadarMonitor goroutine finalizada")
-
 	for {
 		select {
 		case <-pc.radarMonitorTicker.C:
 			pc.checkRadarConnectionTimeouts()
 
-		case <-pc.ctx.Done():
-			fmt.Println("   🌐 RadarMonitor recebeu sinal de parada")
+		case <-pc.stopChan:
 			return
 		}
 	}
@@ -546,52 +392,89 @@ func (pc *PLCController) shouldSkipOperation() bool {
 	return pc.consecutiveErrors >= pc.maxConsecutiveErrors
 }
 
-// processCommands processa comandos recebidos do PLC (MULTI-RADAR)
-func (pc *PLCController) processCommands(commands *models.PLCCommands) {
-	if commands == nil {
-		return
-	}
-
-	// ========== COMANDOS GLOBAIS ==========
-	if commands.StartCollection && !pc.IsCollectionActive() {
+// liveBitLoop gerencia o live bit
+func (pc *PLCController) liveBitLoop() {
+	for {
 		select {
-		case pc.commandChan <- models.CmdStartCollection:
-		case <-pc.ctx.Done():
+		case <-pc.liveBitTicker.C:
+			pc.mutex.Lock()
+			pc.liveBit = !pc.liveBit // Toggle do live bit
+			pc.mutex.Unlock()
+
+		case <-pc.stopChan:
 			return
 		}
+	}
+}
+
+// commandReadLoop lê comandos do PLC COM PROTEÇÃO
+func (pc *PLCController) commandReadLoop() {
+	for {
+		select {
+		case <-pc.commandTicker.C:
+			// 🆕 PULAR SE RESET EM PROGRESSO
+			pc.mutex.RLock()
+			resetInProgress := pc.plcResetInProgress
+			pc.mutex.RUnlock()
+
+			if resetInProgress {
+				continue
+			}
+
+			// Pular se muitos erros consecutivos
+			if pc.shouldSkipOperation() {
+				continue
+			}
+
+			commands, err := pc.reader.ReadCommands()
+			if err != nil {
+				pc.markOperationError(err)
+				if pc.isConnectionError(err) {
+					if pc.consecutiveErrors == 1 {
+						log.Printf("🔌 PLC: Problema de conexão detectado ao ler comandos...")
+					}
+				} else {
+					log.Printf("PLC Controller: Erro ao ler comandos: %v", err)
+				}
+				pc.incrementErrorCount()
+				continue
+			}
+
+			pc.markOperationSuccess()
+			pc.processCommands(commands)
+
+		case <-pc.stopChan:
+			return
+		}
+	}
+}
+
+// processCommands processa comandos recebidos do PLC (MULTI-RADAR)
+func (pc *PLCController) processCommands(commands *models.PLCCommands) {
+	// ========== COMANDOS GLOBAIS ==========
+	if commands.StartCollection && !pc.IsCollectionActive() {
+		pc.commandChan <- models.CmdStartCollection
 		if err := pc.writer.ResetCommand(0, 0); err != nil {
 			log.Printf("Erro ao resetar StartCollection: %v", err)
 		}
 	}
 
 	if commands.StopCollection && pc.IsCollectionActive() {
-		select {
-		case pc.commandChan <- models.CmdStopCollection:
-		case <-pc.ctx.Done():
-			return
-		}
+		pc.commandChan <- models.CmdStopCollection
 		if err := pc.writer.ResetCommand(0, 1); err != nil {
 			log.Printf("Erro ao resetar StopCollection: %v", err)
 		}
 	}
 
 	if commands.ResetErrors {
-		select {
-		case pc.commandChan <- models.CmdResetErrors:
-		case <-pc.ctx.Done():
-			return
-		}
+		pc.commandChan <- models.CmdResetErrors
 		if err := pc.writer.ResetCommand(0, 3); err != nil {
 			log.Printf("Erro ao resetar ResetErrors: %v", err)
 		}
 	}
 
 	if commands.Emergency {
-		select {
-		case pc.commandChan <- models.CmdEmergencyStop:
-		case <-pc.ctx.Done():
-			return
-		}
+		pc.commandChan <- models.CmdEmergencyStop
 		if err := pc.writer.ResetCommand(0, 2); err != nil {
 			log.Printf("Erro ao resetar Emergency: %v", err)
 		}
@@ -599,83 +482,60 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 
 	// ========== COMANDOS INDIVIDUAIS DOS RADARES ==========
 	if commands.EnableRadarCaldeira != pc.IsRadarEnabled("caldeira") {
-		var cmd models.SystemCommand
 		if commands.EnableRadarCaldeira {
-			cmd = models.CmdEnableRadarCaldeira
+			pc.commandChan <- models.CmdEnableRadarCaldeira
 		} else {
-			cmd = models.CmdDisableRadarCaldeira
-		}
-		select {
-		case pc.commandChan <- cmd:
-		case <-pc.ctx.Done():
-			return
+			pc.commandChan <- models.CmdDisableRadarCaldeira
 		}
 	}
 
 	if commands.EnableRadarPortaJusante != pc.IsRadarEnabled("porta_jusante") {
-		var cmd models.SystemCommand
 		if commands.EnableRadarPortaJusante {
-			cmd = models.CmdEnableRadarPortaJusante
+			pc.commandChan <- models.CmdEnableRadarPortaJusante
 		} else {
-			cmd = models.CmdDisableRadarPortaJusante
-		}
-		select {
-		case pc.commandChan <- cmd:
-		case <-pc.ctx.Done():
-			return
+			pc.commandChan <- models.CmdDisableRadarPortaJusante
 		}
 	}
 
 	if commands.EnableRadarPortaMontante != pc.IsRadarEnabled("porta_montante") {
-		var cmd models.SystemCommand
 		if commands.EnableRadarPortaMontante {
-			cmd = models.CmdEnableRadarPortaMontante
+			pc.commandChan <- models.CmdEnableRadarPortaMontante
 		} else {
-			cmd = models.CmdDisableRadarPortaMontante
-		}
-		select {
-		case pc.commandChan <- cmd:
-		case <-pc.ctx.Done():
-			return
+			pc.commandChan <- models.CmdDisableRadarPortaMontante
 		}
 	}
 
 	// ========== COMANDOS ESPECÍFICOS POR RADAR ==========
 	if commands.RestartRadarCaldeira {
-		select {
-		case pc.commandChan <- models.CmdRestartRadarCaldeira:
-		case <-pc.ctx.Done():
-			return
-		}
+		pc.commandChan <- models.CmdRestartRadarCaldeira
 		if err := pc.writer.ResetCommand(0, 7); err != nil {
 			log.Printf("Erro ao resetar RestartRadarCaldeira: %v", err)
 		}
 	}
 
 	if commands.RestartRadarPortaJusante {
-		select {
-		case pc.commandChan <- models.CmdRestartRadarPortaJusante:
-		case <-pc.ctx.Done():
-			return
-		}
+		pc.commandChan <- models.CmdRestartRadarPortaJusante
 		if err := pc.writer.ResetCommand(1, 0); err != nil {
 			log.Printf("Erro ao resetar RestartRadarPortaJusante: %v", err)
 		}
 	}
 
 	if commands.RestartRadarPortaMontante {
-		select {
-		case pc.commandChan <- models.CmdRestartRadarPortaMontante:
-		case <-pc.ctx.Done():
-			return
-		}
+		pc.commandChan <- models.CmdRestartRadarPortaMontante
 		if err := pc.writer.ResetCommand(1, 1); err != nil {
 			log.Printf("Erro ao resetar RestartRadarPortaMontante: %v", err)
 		}
 	}
 }
 
-// executeCommand executa um comando específico COM PROTEÇÃO
+// commandProcessor processa comandos do canal
+func (pc *PLCController) commandProcessor() {
+	for cmd := range pc.commandChan {
+		pc.executeCommand(cmd)
+	}
+}
+
+// executeCommand executa um comando específico
 func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 	pc.mutex.Lock()
 	defer pc.mutex.Unlock()
@@ -856,9 +716,7 @@ func (pc *PLCController) WriteMultiRadarData(data models.MultiRadarData) error {
 
 			// 🆕 SE ERRO DE PROTOCOLO, MARCAR PARA RESET
 			if pc.isConnectionError(err) {
-				pc.mutex.Lock()
 				pc.needsDB100Reset = true
-				pc.mutex.Unlock()
 			}
 
 			errors = append(errors, fmt.Sprintf("erro ao escrever dados do radar %s: %v", radarData.RadarName, err))
@@ -914,7 +772,7 @@ func (pc *PLCController) updateRadarConnectionStatus(radarID string, connected b
 	}
 }
 
-// ========== MÉTODOS PÚBLICOS THREAD-SAFE ==========
+// ========== MÉTODOS PÚBLICOS ==========
 
 func (pc *PLCController) IsCollectionActive() bool {
 	pc.mutex.RLock()
@@ -944,9 +802,6 @@ func (pc *PLCController) IncrementPacketCount() {
 func (pc *PLCController) SetRadarConnected(connected bool) {
 	pc.mutex.Lock()
 	pc.radarCaldeiraConnected = connected
-	if connected {
-		pc.lastRadarCaldeiraUpdate = time.Now()
-	}
 	pc.mutex.Unlock()
 }
 
@@ -1128,7 +983,7 @@ func (pc *PLCController) getLinuxDiskUsage() float32 {
 	return totalUsage
 }
 
-// incrementErrorCount incrementa contador de erro COM PROTEÇÃO
+// incrementErrorCount incrementa contador de erro
 func (pc *PLCController) incrementErrorCount() {
 	pc.mutex.Lock()
 	pc.errorCount++
@@ -1137,7 +992,6 @@ func (pc *PLCController) incrementErrorCount() {
 
 // isSystemHealthy verifica se sistema está saudável
 func (pc *PLCController) isSystemHealthy() bool {
-	// Deve ser chamado com mutex já locked
 	atLeastOneRadarHealthy := false
 	if pc.radarCaldeiraEnabled && pc.radarCaldeiraConnected {
 		atLeastOneRadarHealthy = true

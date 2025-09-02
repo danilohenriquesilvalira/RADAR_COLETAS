@@ -132,3 +132,244 @@
 [SYSTEM] 2025/09/01 19:57:28.676150 Radar Radar Porta Jusante desabilitado - não conectando
 [SYSTEM] 2025/09/01 19:57:28.676169 Radar Radar Porta Montante desabilitado - não conectando
 [SYSTEM] 2025/09/01 19:57:28.676182 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 20:07:33.044668 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 20:07:33.044791 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 20:07:34.296306 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 20:07:34.296330 Usuário: rls
+[SYSTEM] 2025/09/01 20:07:34.296336 Data/Hora: 2025-09-01 20:07:34
+[SYSTEM] 2025/09/01 20:07:34.296359 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 20:07:34.296366 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 20:07:34.296393 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 20:07:34.296397 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 20:07:34.296400 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 20:07:36.505014 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 20:07:39.506146 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[RADAR]  2025/09/01 20:07:39.506246 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 20:07:40.508569 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 20:07:40.508683 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 20:07:40.508717 Radar Radar Porta Montante desabilitado - não conectando
+[SYSTEM] 2025/09/01 20:07:40.508732 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 20:08:16.438925 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 20:08:16.439025 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 20:08:17.883871 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 20:08:17.883909 Usuário: rls
+[SYSTEM] 2025/09/01 20:08:17.883914 Data/Hora: 2025-09-01 20:08:17
+[SYSTEM] 2025/09/01 20:08:17.883937 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 20:08:17.883944 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 20:08:17.883949 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 20:08:17.883952 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 20:08:17.883955 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 20:08:20.093564 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 20:08:23.094649 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[RADAR]  2025/09/01 20:08:23.094728 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 20:08:24.096259 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 20:08:24.096323 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 20:08:24.096343 Radar Radar Porta Montante desabilitado - não conectando
+[SYSTEM] 2025/09/01 20:08:24.096354 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 20:29:50.994180 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 20:29:50.994306 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 20:36:23.469634 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 20:36:23.469655 Usuário: rls
+[SYSTEM] 2025/09/01 20:36:23.469660 Data/Hora: 2025-09-01 20:36:23
+[SYSTEM] 2025/09/01 20:36:23.469704 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 20:36:23.469724 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 20:36:23.469746 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 20:36:23.469750 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 20:36:23.469753 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 20:36:25.680661 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 20:36:28.681045 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[RADAR]  2025/09/01 20:36:28.681193 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 20:36:29.692226 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 20:36:29.692304 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 20:36:29.692324 Radar Radar Porta Montante desabilitado - não conectando
+[SYSTEM] 2025/09/01 20:36:29.692338 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 20:36:33.885502 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 20:36:33.885648 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 20:37:07.520625 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 20:37:07.520658 Usuário: rls
+[SYSTEM] 2025/09/01 20:37:07.520680 Data/Hora: 2025-09-01 20:37:07
+[SYSTEM] 2025/09/01 20:37:07.520708 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 20:37:07.520716 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 20:37:07.520722 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 20:37:07.520726 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 20:37:07.520729 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 20:37:09.729983 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 20:37:12.730450 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[RADAR]  2025/09/01 20:37:12.730531 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 20:37:13.733555 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 20:37:13.733644 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 20:37:13.733666 Radar Radar Porta Montante desabilitado - não conectando
+[SYSTEM] 2025/09/01 20:37:13.733680 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 20:52:24.855735 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 20:52:24.855839 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 20:52:26.246743 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 20:52:26.246759 Usuário: rls
+[SYSTEM] 2025/09/01 20:52:26.246773 Data/Hora: 2025-09-01 20:52:26
+[SYSTEM] 2025/09/01 20:52:26.246820 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 20:52:26.246827 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 20:52:26.246832 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 20:52:26.246835 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 20:52:26.246838 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 20:52:28.456649 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 20:52:31.456955 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[RADAR]  2025/09/01 20:52:31.457325 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 20:52:32.459690 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 20:52:32.459774 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 20:52:32.459795 Radar Radar Porta Montante desabilitado - não conectando
+[SYSTEM] 2025/09/01 20:52:32.459809 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 20:59:54.225836 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 20:59:54.225957 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 21:01:58.885235 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 21:01:58.885255 Usuário: rls
+[SYSTEM] 2025/09/01 21:01:58.885261 Data/Hora: 2025-09-01 21:01:58
+[SYSTEM] 2025/09/01 21:01:58.885282 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 21:01:58.885289 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 21:01:58.885295 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 21:01:58.885298 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 21:01:58.885302 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 21:02:01.095656 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 21:02:04.096704 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[SYSTEM] 2025/09/01 21:02:04.096794 Radar Radar Porta Montante desabilitado - não conectando
+[RADAR]  2025/09/01 21:02:04.096814 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 21:02:05.100577 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 21:02:05.100671 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 21:02:05.100690 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 21:17:17.806671 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 21:17:17.806789 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 21:24:03.485567 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 21:24:03.485597 Usuário: rls
+[SYSTEM] 2025/09/01 21:24:03.485605 Data/Hora: 2025-09-01 21:24:03
+[SYSTEM] 2025/09/01 21:24:03.485633 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 21:24:03.485639 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 21:24:03.485645 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 21:24:03.485649 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 21:24:03.485653 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 21:24:05.695649 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 21:24:08.695828 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[SYSTEM] 2025/09/01 21:24:08.696201 Radar Radar Porta Montante desabilitado - não conectando
+[RADAR]  2025/09/01 21:24:08.696268 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 21:24:09.702023 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 21:24:09.702063 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 21:24:09.702072 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 21:34:35.680179 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 21:34:35.680296 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 21:34:36.876900 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 21:34:36.876923 Usuário: rls
+[SYSTEM] 2025/09/01 21:34:36.876952 Data/Hora: 2025-09-01 21:34:36
+[SYSTEM] 2025/09/01 21:34:36.876980 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 21:34:36.876987 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 21:34:36.876993 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 21:34:36.876996 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 21:34:36.876999 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 21:34:39.086220 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 21:34:42.086707 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[SYSTEM] 2025/09/01 21:34:42.086790 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 21:34:42.086811 Radar Radar Porta Montante desabilitado - não conectando
+[RADAR]  2025/09/01 21:34:42.086827 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 21:34:43.105377 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 21:34:43.105446 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 21:37:24.953131 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 21:37:24.953265 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 21:37:26.005053 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 21:37:26.005074 Usuário: rls
+[SYSTEM] 2025/09/01 21:37:26.005079 Data/Hora: 2025-09-01 21:37:26
+[SYSTEM] 2025/09/01 21:37:26.005101 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 21:37:26.005108 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 21:37:26.005139 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 21:37:26.005143 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 21:37:26.005147 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 21:37:28.214224 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 21:37:31.214902 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[RADAR]  2025/09/01 21:37:31.214985 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 21:37:31.517770 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 21:37:31.517843 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 21:37:31.517862 Radar Radar Porta Montante desabilitado - não conectando
+[SYSTEM] 2025/09/01 21:37:31.517875 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 21:38:04.161030 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 21:38:04.161215 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 21:38:05.438737 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 21:38:05.438768 Usuário: rls
+[SYSTEM] 2025/09/01 21:38:05.438773 Data/Hora: 2025-09-01 21:38:05
+[SYSTEM] 2025/09/01 21:38:05.438799 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 21:38:05.438807 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 21:38:05.438814 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 21:38:05.438818 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 21:38:05.438822 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 21:38:07.648721 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 21:38:10.648904 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[SYSTEM] 2025/09/01 21:38:10.649021 Radar Radar Porta Montante desabilitado - não conectando
+[RADAR]  2025/09/01 21:38:10.649092 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 21:38:10.953163 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 21:38:10.953240 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 21:38:10.953259 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 21:44:49.423245 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 21:44:49.423377 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 21:44:50.629538 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 21:44:50.629564 Usuário: rls
+[SYSTEM] 2025/09/01 21:44:50.629570 Data/Hora: 2025-09-01 21:44:50
+[SYSTEM] 2025/09/01 21:44:50.629619 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 21:44:50.629629 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 21:44:50.629635 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 21:44:50.629638 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 21:44:50.629642 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 21:44:52.839115 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 21:44:55.839269 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[RADAR]  2025/09/01 21:44:55.839335 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 21:44:56.141783 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 21:44:56.141848 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 21:44:56.141863 Radar Radar Porta Montante desabilitado - não conectando
+[SYSTEM] 2025/09/01 21:44:56.141876 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 22:26:15.541176 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 22:26:15.541290 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 23:20:04.804810 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 23:20:04.804843 Usuário: rls
+[SYSTEM] 2025/09/01 23:20:04.804848 Data/Hora: 2025-09-01 23:20:04
+[SYSTEM] 2025/09/01 23:20:04.804870 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 23:20:04.804877 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 23:20:04.804883 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 23:20:04.804886 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 23:20:04.804890 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 23:20:07.016913 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 23:20:10.017712 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[RADAR]  2025/09/01 23:20:10.017788 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 23:20:10.321854 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 23:20:10.321933 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 23:20:10.321951 Radar Radar Porta Montante desabilitado - não conectando
+[SYSTEM] 2025/09/01 23:20:10.321964 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 23:22:53.748488 Encerramento solicitado pelo usuário
+[SYSTEM] 2025/09/01 23:22:53.748638 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 23:22:55.172196 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 23:22:55.172221 Usuário: rls
+[SYSTEM] 2025/09/01 23:22:55.172226 Data/Hora: 2025-09-01 23:22:55
+[SYSTEM] 2025/09/01 23:22:55.172247 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 23:22:55.172254 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 23:22:55.172260 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 23:22:55.172262 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 23:22:55.172266 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 23:22:56.880640 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 23:22:58.881146 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[SYSTEM] 2025/09/01 23:22:58.881220 Radar Radar Porta Montante desabilitado - não conectando
+[RADAR]  2025/09/01 23:22:58.881239 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 23:22:59.185130 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 23:22:59.185201 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 23:22:59.185219 Sistema iniciado - Loop principal ativo
+[SYSTEM] 2025/09/01 23:30:01.596465 Encerramento solicitado pelo usuário - Sinal: interrupt
+[SYSTEM] 2025/09/01 23:30:01.596540 ========== SISTEMA ENCERRADO ==========
+[SYSTEM] 2025/09/01 23:30:01.596558 Tempo total ativo: 7m6.424368746s
+[SYSTEM] 2025/09/01 23:30:01.596579 Total de operações: 404
+[SYSTEM] 2025/09/01 23:30:01.596622 Total de erros: 0
+[SYSTEM] 2025/09/01 23:30:02.820160 ========== SISTEMA RADAR SICK INICIADO ==========
+[SYSTEM] 2025/09/01 23:30:02.820188 Usuário: rls
+[SYSTEM] 2025/09/01 23:30:02.820193 Data/Hora: 2025-09-01 23:30:02
+[SYSTEM] 2025/09/01 23:30:02.820217 Radar Radar Caldeira adicionado com sucesso
+[SYSTEM] 2025/09/01 23:30:02.820224 Radar Radar Porta Jusante adicionado com sucesso
+[SYSTEM] 2025/09/01 23:30:02.820229 Radar Radar Porta Montante adicionado com sucesso
+[SYSTEM] 2025/09/01 23:30:02.820231 Conectando ao PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 23:30:02.820234 Tentando reconectar PLC Siemens 192.168.1.33...
+[PLC]    2025/09/01 23:30:04.530015 PLC CONECTADO com sucesso!
+[SYSTEM] 2025/09/01 23:30:06.530534 Estados PLC: Caldeira=true, Porta Jusante=false, Porta Montante=false
+[RADAR]  2025/09/01 23:30:06.530644 Conectando radar habilitado: Radar Caldeira
+[RADAR]  2025/09/01 23:30:06.835271 Radar Radar Caldeira conectado com sucesso
+[SYSTEM] 2025/09/01 23:30:06.835340 Radar Radar Porta Jusante desabilitado - não conectando
+[SYSTEM] 2025/09/01 23:30:06.835354 Radar Radar Porta Montante desabilitado - não conectando
+[SYSTEM] 2025/09/01 23:30:06.835364 Sistema iniciado - Loop principal ativo

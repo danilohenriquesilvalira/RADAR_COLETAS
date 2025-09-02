@@ -1,0 +1,877 @@
+package main
+
+import (
+	"fmt"
+	"log"
+	"net"
+	"os"
+	"os/signal"
+	"runtime"
+	"runtime/debug"
+	"strings"
+	"syscall"
+	"time"
+
+	"backend/internal/monitoring"
+	"backend/internal/plc"
+	"backend/internal/radar"
+)
+
+var (
+	// 📝 LOGGERS ESPECIALIZADOS COMPLETOS
+	systemLogger      *log.Logger
+	errorLogger       *log.Logger
+	radarLogger       *log.Logger
+	plcLogger         *log.Logger
+	criticalLogger    *log.Logger
+	performanceLogger *log.Logger
+	connectionLogger  *log.Logger
+
+	// 📁 ARQUIVOS DE LOG ESPECIALIZADOS
+	systemLogFile      *os.File
+	criticalLogFile    *os.File
+	performanceLogFile *os.File
+
+	// 🛡️ HEALTH MONITOR GLOBAL
+	healthMonitor *monitoring.HealthMonitor
+)
+
+// 📊 MÉTRICAS EXPANDIDAS DO SISTEMA
+type SystemMetrics struct {
+	StartTime          time.Time
+	PLCConnections     int64
+	PLCDisconnections  int64
+	PLCReconnections   int64
+	RadarReconnections map[string]int64
+	TotalPackets       int64
+	TotalErrors        int64
+	CriticalAlerts     int64
+	LastUpdate         time.Time
+
+	// 🆕 PERFORMANCE METRICS
+	AvgProcessingTime time.Duration
+	MaxProcessingTime time.Duration
+	TotalOperations   int64
+	GoroutinesPeak    int
+	MemoryPeakMB      float64
+
+	// 🆕 RADAR SPECIFIC METRICS
+	RadarDataReceived map[string]int64
+	RadarErrors       map[string]int64
+	LastRadarData     map[string]time.Time
+}
+
+var metrics *SystemMetrics
+
+func main() {
+	// 🛡️ PANIC RECOVERY GLOBAL
+	defer func() {
+		if r := recover(); r != nil {
+			// Stack trace completo
+			stack := debug.Stack()
+
+			if criticalLogger != nil {
+				criticalLogger.Printf("🔥 PANIC CRÍTICO RECUPERADO: %v", r)
+				criticalLogger.Printf("🔥 STACK TRACE COMPLETO:\n%s", string(stack))
+			}
+
+			fmt.Printf("🔥 SISTEMA CRASHED - PANIC RECUPERADO: %v\n", r)
+			fmt.Printf("🔥 Stack trace salvo nos logs críticos\n")
+
+			// Cleanup antes de sair
+			if healthMonitor != nil {
+				healthMonitor.Stop()
+			}
+			closeAllLogging()
+
+			os.Exit(1)
+		}
+	}()
+
+	// 🛡️ INTERCEPTAÇÃO DE SINAIS
+	setupAdvancedGracefulShutdown()
+
+	// 📝 INICIALIZAR SISTEMA DE LOGS ROBUSTO
+	initAdvancedLogging()
+	defer closeAllLogging()
+
+	// 📊 INICIALIZAR MÉTRICAS EXPANDIDAS
+	initExpandedMetrics()
+
+	// 🛡️ INICIALIZAR HEALTH MONITOR CRÍTICO
+	healthMonitor = monitoring.NewHealthMonitor(systemLogger, criticalLogger, performanceLogger)
+	healthMonitor.Start()
+	defer healthMonitor.Stop()
+
+	// 🎨 HEADER AVANÇADO DO SISTEMA
+	printAdvancedSystemHeader()
+
+	// 📝 LOG INICIAL COMPLETO
+	logSystemStartup()
+
+	// 📡 CRIAR GERENCIADOR DE RADARES
+	radarManager := radar.NewRadarManager()
+	addRadarsToManager(radarManager)
+
+	// 🔌 VARIÁVEIS DE CONTROLE PLC
+	var plcSiemens *plc.SiemensPLC
+	var plcController *plc.PLCController
+	plcConnected := false
+	lastPLCAttempt := time.Time{}
+	consecutivePLCErrors := 0
+
+	// 🔄 FUNÇÃO DE RECONEXÃO PLC ROBUSTA COM HEALTH MONITORING
+	tryReconnectPLC := func() bool {
+		startTime := time.Now()
+		now := time.Now()
+
+		// ✅ VERIFICAR SE JÁ ESTÁ CONECTADO
+		if plcConnected && plcSiemens != nil && plcSiemens.IsConnected() {
+			healthMonitor.UpdatePLCResponse()
+			return true
+		}
+
+		// ⏰ RATE LIMITING
+		if now.Sub(lastPLCAttempt) < 8*time.Second {
+			return false
+		}
+
+		lastPLCAttempt = now
+		connectionLogger.Printf("🔄 Tentando reconectar PLC Siemens 192.168.1.33...")
+
+		// 🧹 CLEANUP COMPLETO DAS CONEXÕES ANTIGAS
+		if plcController != nil {
+			plcController.Stop()
+			time.Sleep(500 * time.Millisecond) // Aguardar goroutines pararem
+			plcController = nil
+		}
+
+		if plcSiemens != nil && plcSiemens.IsConnected() {
+			plcSiemens.Disconnect()
+			metrics.PLCDisconnections++
+		}
+
+		// 🆕 NOVA CONEXÃO COM TIMEOUT
+		plcSiemens = plc.NewSiemensPLC("192.168.1.33")
+		err := plcSiemens.Connect()
+		if err != nil {
+			consecutivePLCErrors++
+			errorLogger.Printf("❌ PLC: Erro na conexão (tentativa %d): %v", consecutivePLCErrors, err)
+			plcConnected = false
+
+			// 🚨 ALERTA CRÍTICO APÓS MUITOS ERROS
+			if consecutivePLCErrors >= 5 {
+				criticalLogger.Printf("🔥 PLC: %d falhas consecutivas de conexão - PROBLEMA CRÍTICO", consecutivePLCErrors)
+			}
+			return false
+		}
+
+		// ✅ VERIFICAR SE CONEXÃO ESTÁ REALMENTE ATIVA
+		if !plcSiemens.IsConnected() {
+			consecutivePLCErrors++
+			errorLogger.Printf("❌ PLC: Conexão não confirmada (tentativa %d)", consecutivePLCErrors)
+			plcConnected = false
+			return false
+		}
+
+		// 🎛️ CRIAR CONTROLADOR PLC
+		plcController = plc.NewPLCController(plcSiemens.Client)
+		go plcController.Start()
+		time.Sleep(2 * time.Second) // Aguardar inicialização
+
+		// ✅ SUCESSO NA CONEXÃO
+		consecutivePLCErrors = 0
+		plcConnected = true
+		metrics.PLCConnections++
+		metrics.PLCReconnections++
+
+		// 🛡️ ATUALIZAR HEALTH MONITOR
+		healthMonitor.UpdatePLCResponse()
+		healthMonitor.UpdatePLCReconnection()
+
+		// 📊 LOG DE PERFORMANCE
+		connectionTime := time.Since(startTime)
+		performanceLogger.Printf("PLC_CONNECT_SUCCESS: Conexão estabelecida em %v (Reconexão #%d)",
+			connectionTime, metrics.PLCReconnections)
+		plcLogger.Printf("✅ PLC CONECTADO com sucesso! (Reconexão #%d)", metrics.PLCReconnections)
+
+		return true
+	}
+
+	// 🔌 PRIMEIRA CONEXÃO
+	systemLogger.Println("🔌 Iniciando conexão com PLC Siemens 192.168.1.33...")
+	tryReconnectPLC()
+	time.Sleep(3 * time.Second)
+
+	// 📡 CONECTAR RADARES BASEADO NO ESTADO DO PLC
+	enabledRadars := getInitialRadarStates(plcConnected, plcController)
+	connectEnabledRadars(radarManager, enabledRadars)
+
+	systemLogger.Println("🚀 Sistema iniciado - Loop principal ativo")
+	criticalLogger.Println("🛡️ Sistema RADAR SICK v2.5 - Loop principal iniciado")
+
+	// 🔄 LOOP PRINCIPAL OTIMIZADO COM MONITORAMENTO CRÍTICO
+	lastReconnectCheck := time.Now()
+	lastMetricsUpdate := time.Now()
+	lastDisplayUpdate := time.Now()
+	lastHealthCheck := time.Now()
+
+	for {
+		loopStartTime := time.Now()
+
+		// 📊 ATUALIZAR TIMESTAMP GLOBAL
+		metrics.LastUpdate = time.Now()
+
+		// 🛡️ HEALTH CHECK CRÍTICO A CADA 30 SEGUNDOS
+		if time.Since(lastHealthCheck) >= 30*time.Second {
+			systemHealth := healthMonitor.GetSystemHealth()
+			if !systemHealth.IsHealthy {
+				criticalLogger.Printf("🚨 SISTEMA EM ESTADO CRÍTICO - Goroutines:%d Memory:%.1fMB",
+					systemHealth.Goroutines, systemHealth.MemoryMB)
+			}
+			lastHealthCheck = time.Now()
+		}
+
+		// 🔌 RECONECTAR PLC COM MONITORING
+		plcReconnectStart := time.Now()
+		plcConnected = tryReconnectPLC()
+		plcReconnectTime := time.Since(plcReconnectStart)
+
+		// 📊 LOG PERFORMANCE SE RECONEXÃO DEMOROU
+		if plcReconnectTime > 1*time.Second {
+			performanceLogger.Printf("PLC_RECONNECT_SLOW: %v", plcReconnectTime)
+		}
+
+		// 🎛️ ESTADOS ATUAIS DO SISTEMA
+		collectionActive := true
+		var currentEnabledRadars map[string]bool
+
+		if plcConnected && plcController != nil {
+			collectionActive = plcController.IsCollectionActive()
+			currentEnabledRadars = plcController.GetRadarsEnabled()
+
+			// 🚨 VERIFICAR PARADA DE EMERGÊNCIA
+			if plcController.IsEmergencyStop() {
+				criticalLogger.Println("🚨 PARADA DE EMERGÊNCIA ATIVADA VIA PLC - SISTEMA PAUSADO")
+				errorLogger.Println("🚨 PARADA DE EMERGÊNCIA ATIVADA VIA PLC")
+				time.Sleep(2 * time.Second)
+				continue
+			}
+
+			// 🔄 RECONEXÃO CONTROLADA DOS RADARES
+			if time.Since(lastReconnectCheck) >= 8*time.Second {
+				radarReconnectStart := time.Now()
+				radarManager.CheckAndReconnectEnabled(currentEnabledRadars)
+				radarReconnectTime := time.Since(radarReconnectStart)
+
+				// 📊 LOG SE RECONEXÃO DE RADARES DEMOROU
+				if radarReconnectTime > 2*time.Second {
+					performanceLogger.Printf("RADAR_RECONNECT_SLOW: %v", radarReconnectTime)
+				}
+
+				lastReconnectCheck = time.Now()
+			}
+		} else {
+			// PLC desconectado - desabilitar todos os radares
+			currentEnabledRadars = map[string]bool{
+				"caldeira":       false,
+				"porta_jusante":  false,
+				"porta_montante": false,
+			}
+		}
+
+		// ⏸️ PAUSAR SE COLETA INATIVA
+		if !collectionActive {
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+
+		// 📡 COLETAR DADOS DOS RADARES COM PERFORMANCE MONITORING
+		dataCollectionStart := time.Now()
+		multiRadarData := radarManager.CollectEnabledRadarsData(currentEnabledRadars)
+		dataCollectionTime := time.Since(dataCollectionStart)
+
+		// 📊 ATUALIZAR MÉTRICAS DE PERFORMANCE
+		metrics.TotalPackets++
+		metrics.TotalOperations++
+
+		// Atualizar tempo de processamento
+		if dataCollectionTime > metrics.MaxProcessingTime {
+			metrics.MaxProcessingTime = dataCollectionTime
+		}
+
+		if metrics.AvgProcessingTime == 0 {
+			metrics.AvgProcessingTime = dataCollectionTime
+		} else {
+			metrics.AvgProcessingTime = (metrics.AvgProcessingTime + dataCollectionTime) / 2
+		}
+
+		// 🛡️ ATUALIZAR HEALTH MONITOR
+		healthMonitor.UpdateRadarData()
+		healthMonitor.UpdateOperationTime(dataCollectionTime)
+
+		// 📊 LOG SE COLETA DEMOROU
+		if dataCollectionTime > 500*time.Millisecond {
+			performanceLogger.Printf("DATA_COLLECTION_SLOW: %v para %d radares",
+				dataCollectionTime, len(multiRadarData.Radars))
+		}
+
+		// 🔌 ATUALIZAR PLC COM DADOS DOS RADARES
+		if plcConnected && plcController != nil {
+			writeStartTime := time.Now()
+			connectionStatus := radarManager.GetConnectionStatus()
+
+			// Escrever dados no PLC
+			err := plcController.WriteMultiRadarData(multiRadarData)
+			writeTime := time.Since(writeStartTime)
+
+			if err != nil {
+				metrics.TotalErrors++
+
+				if isConnectionError(err) {
+					connectionLogger.Printf("🔌 Conexão PLC perdida durante escrita - reconectando...")
+					plcConnected = false
+					metrics.PLCDisconnections++
+					criticalLogger.Printf("🔌 PLC: Conexão perdida durante escrita: %v", err)
+				} else {
+					errorLogger.Printf("❌ Erro ao escrever DB100: %v", err)
+				}
+			} else {
+				// 📊 LOG DE PERFORMANCE DE ESCRITA
+				if writeTime > 100*time.Millisecond {
+					performanceLogger.Printf("PLC_WRITE_SLOW: %v para %d bytes de dados",
+						writeTime, len(multiRadarData.Radars))
+				}
+			}
+
+			// Atualizar status de conexão dos radares
+			plcController.SetRadarsConnected(connectionStatus)
+		}
+
+		// 🎨 EXIBIR STATUS CRÍTICO NO TERMINAL
+		if time.Since(lastDisplayUpdate) >= 2*time.Second {
+			displayAdvancedSystemStatus(plcConnected, currentEnabledRadars, radarManager)
+			lastDisplayUpdate = time.Now()
+		}
+
+		// 📊 LOG DE MÉTRICAS DETALHADAS
+		if time.Since(lastMetricsUpdate) >= 15*time.Second {
+			logDetailedSystemMetrics()
+			lastMetricsUpdate = time.Now()
+		}
+
+		// 📊 MONITORAR PERFORMANCE DO LOOP PRINCIPAL
+		loopTime := time.Since(loopStartTime)
+		if loopTime > 800*time.Millisecond {
+			performanceLogger.Printf("MAIN_LOOP_SLOW: %v - possível gargalo detectado", loopTime)
+		}
+
+		// ⏰ CONTROLE DE RATE LIMITING
+		time.Sleep(1 * time.Second)
+	}
+}
+
+// 📝 SISTEMA DE LOGGING AVANÇADO E ROBUSTO
+func initAdvancedLogging() {
+	// 📁 CRIAR ESTRUTURA DE DIRETÓRIOS
+	createAdvancedLogDirectories()
+
+	// 📅 NOMES DOS ARQUIVOS COM DATA E HORA
+	now := time.Now()
+	dateStr := now.Format("2006-01-02")
+	timeStr := now.Format("15-04-05")
+
+	// 🗂️ ARQUIVO PRINCIPAL DO SISTEMA
+	systemLogFile = createLogFile(fmt.Sprintf("logs/system/radar_system_%s.log", dateStr))
+
+	// 🚨 ARQUIVO DE ALERTAS CRÍTICOS
+	criticalLogFile = createLogFile(fmt.Sprintf("logs/critical/critical_alerts_%s_%s.log", dateStr, timeStr))
+
+	// 📊 ARQUIVO DE PERFORMANCE
+	performanceLogFile = createLogFile(fmt.Sprintf("logs/performance/performance_%s.log", dateStr))
+
+	// 🔧 CONFIGURAR LOGGERS ESPECIALIZADOS
+	systemLogger = log.New(systemLogFile, "[SYSTEM] ", log.LstdFlags|log.Lmicroseconds)
+	errorLogger = log.New(systemLogFile, "[ERROR]  ", log.LstdFlags|log.Lmicroseconds)
+	radarLogger = log.New(systemLogFile, "[RADAR]  ", log.LstdFlags|log.Lmicroseconds)
+	plcLogger = log.New(systemLogFile, "[PLC]    ", log.LstdFlags|log.Lmicroseconds)
+	connectionLogger = log.New(systemLogFile, "[CONN]   ", log.LstdFlags|log.Lmicroseconds)
+
+	// 🚨 LOGGER CRÍTICO (arquivo separado + console)
+	criticalLogger = log.New(criticalLogFile, "[CRITICAL] ", log.LstdFlags|log.Lmicroseconds)
+
+	// 📊 LOGGER DE PERFORMANCE (arquivo separado)
+	performanceLogger = log.New(performanceLogFile, "[PERF] ", log.LstdFlags|log.Lmicroseconds)
+
+	// 📝 INFORMAÇÕES DOS LOGS
+	fmt.Printf("📝 Sistema de logs ROBUSTO ativo:\n")
+	fmt.Printf("   📋 Sistema: logs/system/radar_system_%s.log\n", dateStr)
+	fmt.Printf("   🚨 Críticos: logs/critical/critical_alerts_%s_%s.log\n", dateStr, timeStr)
+	fmt.Printf("   📊 Performance: logs/performance/performance_%s.log\n", dateStr)
+	fmt.Printf("   📁 Total de 3 arquivos especializados criados\n")
+}
+
+func createAdvancedLogDirectories() {
+	dirs := []string{
+		"logs",
+		"logs/system",
+		"logs/critical",
+		"logs/performance",
+		"logs/radar",
+		"logs/plc",
+		"logs/archive",
+	}
+
+	for _, dir := range dirs {
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				log.Fatalf("❌ Erro ao criar diretório %s: %v", dir, err)
+			}
+		}
+	}
+}
+
+func createLogFile(filename string) *os.File {
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+		log.Fatalf("❌ Erro ao criar arquivo de log %s: %v", filename, err)
+	}
+	return file
+}
+
+// 📝 LOG INICIAL COMPLETO DO SISTEMA
+func logSystemStartup() {
+	systemLogger.Println("========== RADAR SICK v2.5 INICIADO ==========")
+	systemLogger.Printf("👤 Usuário: %s", getCurrentUser())
+	systemLogger.Printf("💻 Sistema: %s %s", runtime.GOOS, runtime.GOARCH)
+	systemLogger.Printf("🐹 Go Version: %s", runtime.Version())
+	systemLogger.Printf("🖥️ CPUs: %d", runtime.NumCPU())
+	systemLogger.Printf("📅 Data/Hora: %s", time.Now().Format("2006-01-02 15:04:05"))
+	systemLogger.Printf("🏠 Diretório: %s", getCurrentDirectory())
+	systemLogger.Printf("🔧 PID: %d", os.Getpid())
+
+	criticalLogger.Printf("🛡️ SISTEMA RADAR SICK v2.5 INICIADO - MONITORAMENTO CRÍTICO ATIVO")
+	performanceLogger.Printf("📊 PERFORMANCE MONITORING INICIADO - PID:%d CPUs:%d", os.Getpid(), runtime.NumCPU())
+}
+
+// 🎨 DISPLAY AVANÇADO COM SAÚDE CRÍTICA EM TEMPO REAL
+func displayAdvancedSystemStatus(plcConnected bool, enabledRadars map[string]bool, radarManager *radar.RadarManager) {
+	// 🛡️ OBTER SAÚDE COMPLETA DO SISTEMA
+	health := healthMonitor.GetSystemHealth()
+
+	// 🧹 LIMPAR ÁREA DE STATUS (mantém header)
+	fmt.Print("\033[10H\033[J")
+
+	// 🛡️ STATUS DE SAÚDE CRÍTICA COM INDICADORES VISUAIS
+	healthStatus := "🟢 SAUDÁVEL"
+	healthDetails := ""
+
+	if !health.IsHealthy {
+		healthStatus = "🔴 CRÍTICO"
+		healthDetails = " - ATENÇÃO REQUERIDA!"
+	}
+
+	fmt.Printf("🛡️  SAÚDE DO SISTEMA: %s%s\n", healthStatus, healthDetails)
+
+	// 📊 MÉTRICAS CRÍTICAS EM TEMPO REAL COM BARRAS
+	goroutineBar := createProgressBar(health.Goroutines, 25, 10)
+	memoryBar := createProgressBar(int(health.MemoryMB), 200, 10)
+	cpuBar := createProgressBar(int(health.CPUPercent), 100, 10)
+
+	fmt.Printf("🔥 Goroutines: %2d/25  %s\n", health.Goroutines, goroutineBar)
+	fmt.Printf("💾 Memória:    %3.0f/200MB %s\n", health.MemoryMB, memoryBar)
+	fmt.Printf("🖥️ CPU:       %3.0f%%     %s\n", health.CPUPercent, cpuBar)
+
+	// 🌐 CONEXÕES TCP DETALHADAS
+	tcpInfo := ""
+	totalTCP := 0
+	for conn, count := range health.TCPConnections {
+		totalTCP += count
+		if count > 0 {
+			tcpInfo += fmt.Sprintf("%s:%d ", conn, count)
+		}
+	}
+	fmt.Printf("🌐 TCP: %d total (%s)\n", totalTCP, strings.TrimSpace(tcpInfo))
+
+	// 🔌 STATUS PLC COM TEMPO DE RESPOSTA
+	plcStatus := "🔴 DESCONECTADO"
+	plcAge := ""
+	if plcConnected {
+		plcStatus = "🟢 CONECTADO"
+		age := time.Since(health.LastPLCResponse)
+		if age < 30*time.Second {
+			plcAge = fmt.Sprintf("(há %v)", age.Truncate(time.Second))
+		} else {
+			plcAge = fmt.Sprintf("(⚠️ há %v)", age.Truncate(time.Second))
+		}
+	}
+	fmt.Printf("🎛️  PLC Siemens:     %s %s\n", plcStatus, plcAge)
+
+	// 📡 STATUS DOS RADARES COM RECONEXÕES
+	fmt.Println("┌─────────────────────────────────────────────────────────────┐")
+	connectionStatus := radarManager.GetConnectionStatus()
+	connectedCount := 0
+	enabledCount := 0
+
+	radarConfigs := []struct{ id, name string }{
+		{"caldeira", "Radar Caldeira"},
+		{"porta_jusante", "Radar Porta Jusante"},
+		{"porta_montante", "Radar Porta Montante"},
+	}
+
+	for _, config := range radarConfigs {
+		isEnabled := enabledRadars[config.id]
+		isConnected := connectionStatus[config.id]
+
+		if isEnabled {
+			enabledCount++
+		}
+		if isConnected && isEnabled {
+			connectedCount++
+		}
+
+		status := "🔴 DESCONECTADO"
+		if !isEnabled {
+			status = "⚫ DESABILITADO"
+		} else if isConnected {
+			status = "🟢 CONECTADO   "
+		}
+
+		// 🔄 INFORMAÇÕES DE RECONEXÃO
+		reconns := health.RadarReconnections[config.id]
+		reconnInfo := ""
+		if reconns > 0 {
+			reconnInfo = fmt.Sprintf(" (R:%d)", reconns)
+		}
+
+		// 📊 DADOS RECEBIDOS
+		dataInfo := ""
+		if lastData, exists := metrics.LastRadarData[config.id]; exists {
+			dataAge := time.Since(lastData)
+			if dataAge < 10*time.Second {
+				dataInfo = " 📊"
+			}
+		}
+
+		fmt.Printf("│ %-20s %s%s%s                │\n", config.name+":", status, reconnInfo, dataInfo)
+	}
+
+	fmt.Println("└─────────────────────────────────────────────────────────────┘")
+	fmt.Printf("📊 Resumo: %d/%d habilitados | %d conectados\n", enabledCount, 3, connectedCount)
+
+	// 🚨 ALERTAS CRÍTICOS RECENTES
+	if len(health.RecentAlerts) > 0 {
+		fmt.Println("\n🚨 ALERTAS CRÍTICOS RECENTES:")
+		for i, alert := range health.RecentAlerts {
+			if i >= 3 { // Mostrar apenas os 3 mais recentes
+				break
+			}
+			age := time.Since(alert.Timestamp)
+			levelIcon := "⚠️"
+			if alert.Level == "CRITICAL" {
+				levelIcon = "🔥"
+			}
+			fmt.Printf("   %s [%s] %s (há %v)\n",
+				levelIcon, alert.Category, alert.Message, age.Truncate(time.Second))
+		}
+	}
+
+	// 📊 MÉTRICAS EXPANDIDAS DO SISTEMA
+	uptime := time.Since(metrics.StartTime)
+	fmt.Println("\n📈 MÉTRICAS DETALHADAS:")
+	fmt.Printf("   ⏱️  Tempo ativo:       %s\n", formatDuration(uptime))
+	fmt.Printf("   🔌 PLC:               %d conexões | %d reconexões\n",
+		metrics.PLCConnections, metrics.PLCReconnections)
+	fmt.Printf("   📦 Dados:             %d pacotes processados\n", metrics.TotalPackets)
+	fmt.Printf("   ❌ Problemas:         %d erros | %d alertas críticos\n",
+		metrics.TotalErrors, health.TotalAlerts)
+	fmt.Printf("   ⚡ Performance:       %d operações totais\n", metrics.TotalOperations)
+	fmt.Printf("   🕐 Processamento:     médio %v | máximo %v\n",
+		metrics.AvgProcessingTime.Truncate(time.Microsecond),
+		metrics.MaxProcessingTime.Truncate(time.Microsecond))
+	fmt.Printf("   🕐 Última atualização: %s\n", metrics.LastUpdate.Format("15:04:05"))
+
+	fmt.Println()
+	fmt.Printf("📝 Logs: system/ | critical/ | performance/\n")
+	fmt.Printf("🛡️ Health Monitor: %d goroutines | %.1fMB memória\n",
+		health.Goroutines, health.MemoryMB)
+	fmt.Println("🔄 Sistema RADAR SICK v2.5 em execução... Pressione Ctrl+C para parar.")
+}
+
+// 🎨 CRIAR BARRA DE PROGRESSO VISUAL
+func createProgressBar(current, max, width int) string {
+	if max <= 0 {
+		return strings.Repeat("░", width)
+	}
+
+	percentage := float64(current) / float64(max)
+	if percentage > 1.0 {
+		percentage = 1.0
+	}
+
+	filled := int(percentage * float64(width))
+	bar := ""
+
+	for i := 0; i < width; i++ {
+		if i < filled {
+			if percentage > 0.8 {
+				bar += "█" // Vermelho crítico
+			} else if percentage > 0.6 {
+				bar += "▇" // Amarelo warning
+			} else {
+				bar += "▆" // Verde normal
+			}
+		} else {
+			bar += "░"
+		}
+	}
+
+	return bar
+}
+
+// 📊 LOG DE MÉTRICAS DETALHADAS DO SISTEMA
+func logDetailedSystemMetrics() {
+	health := healthMonitor.GetSystemHealth()
+
+	// Log de performance detalhado
+	performanceLogger.Printf("SYSTEM_METRICS: UP:%v G:%d M:%.1fMB CPU:%.1f%% TCP:%d PLC-R:%d ALERTS:%d OPS:%d AVG:%v MAX:%v",
+		health.Uptime.Truncate(time.Second),
+		health.Goroutines,
+		health.MemoryMB,
+		health.CPUPercent,
+		getTotalTCPFromHealth(health.TCPConnections),
+		health.PLCReconnections,
+		health.TotalAlerts,
+		metrics.TotalOperations,
+		metrics.AvgProcessingTime.Truncate(time.Microsecond),
+		metrics.MaxProcessingTime.Truncate(time.Microsecond))
+
+	// Log de saúde crítica se necessário
+	if !health.IsHealthy {
+		criticalLogger.Printf("SYSTEM_CRITICAL: G:%d M:%.1fMB TCP:%d ALERTS:%d",
+			health.Goroutines, health.MemoryMB,
+			getTotalTCPFromHealth(health.TCPConnections), health.TotalAlerts)
+	}
+}
+
+func getTotalTCPFromHealth(connections map[string]int) int {
+	total := 0
+	for _, count := range connections {
+		total += count
+	}
+	return total
+}
+
+// 📊 INICIALIZAR MÉTRICAS EXPANDIDAS
+func initExpandedMetrics() {
+	metrics = &SystemMetrics{
+		StartTime:          time.Now(),
+		PLCConnections:     0,
+		PLCDisconnections:  0,
+		PLCReconnections:   0,
+		RadarReconnections: make(map[string]int64),
+		TotalPackets:       0,
+		TotalErrors:        0,
+		CriticalAlerts:     0,
+		LastUpdate:         time.Now(),
+		AvgProcessingTime:  0,
+		MaxProcessingTime:  0,
+		TotalOperations:    0,
+		GoroutinesPeak:     0,
+		MemoryPeakMB:       0,
+		RadarDataReceived:  make(map[string]int64),
+		RadarErrors:        make(map[string]int64),
+		LastRadarData:      make(map[string]time.Time),
+	}
+
+	// Inicializar contadores específicos por radar
+	radarIDs := []string{"caldeira", "porta_jusante", "porta_montante"}
+	for _, id := range radarIDs {
+		metrics.RadarReconnections[id] = 0
+		metrics.RadarDataReceived[id] = 0
+		metrics.RadarErrors[id] = 0
+		metrics.LastRadarData[id] = time.Now()
+	}
+}
+
+// 🎨 HEADER AVANÇADO DO SISTEMA
+func printAdvancedSystemHeader() {
+	fmt.Print("\033[2J\033[H") // Limpar tela
+	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
+	fmt.Println("║                 SISTEMA RADAR SICK v2.5                     ║")
+	fmt.Println("║              🛡️ MONITORAMENTO CRÍTICO ATIVO 🛡️              ║")
+	fmt.Println("╠══════════════════════════════════════════════════════════════╣")
+	fmt.Printf("║ 👤 Usuário: %-15s         📅 Data: %s ║\n",
+		getCurrentUser(), time.Now().Format("2006-01-02"))
+	fmt.Printf("║ 🕐 Hora: %-18s      💻 Sistema: %-8s ║\n",
+		time.Now().Format("15:04:05"), runtime.GOOS)
+	fmt.Printf("║ 🖥️ CPUs: %-2d                       🐹 Go: %-10s ║\n",
+		runtime.NumCPU(), strings.TrimPrefix(runtime.Version(), "go"))
+	fmt.Printf("║ 🔧 PID: %-8d                📊 Health Monitor: ON  ║\n", os.Getpid())
+	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
+	fmt.Println()
+}
+
+// 🧹 CLEANUP AVANÇADO DE TODOS OS RECURSOS
+func closeAllLogging() {
+	if systemLogFile != nil {
+		systemLogger.Println("========== SISTEMA RADAR SICK ENCERRADO ==========")
+		systemLogger.Printf("Tempo total ativo: %v", time.Since(metrics.StartTime))
+		systemLogger.Printf("Total de operações: %d", metrics.TotalOperations)
+		systemLogger.Printf("Total de erros: %d", metrics.TotalErrors)
+		systemLogFile.Close()
+	}
+
+	if criticalLogFile != nil {
+		criticalLogger.Println("🛡️ SISTEMA DE MONITORAMENTO CRÍTICO FINALIZADO")
+		criticalLogger.Printf("Total de alertas críticos: %d", metrics.CriticalAlerts)
+		criticalLogFile.Close()
+	}
+
+	if performanceLogFile != nil {
+		performanceLogger.Println("📊 LOGS DE PERFORMANCE FINALIZADOS")
+		performanceLogger.Printf("Tempo médio de operação: %v", metrics.AvgProcessingTime)
+		performanceLogger.Printf("Tempo máximo de operação: %v", metrics.MaxProcessingTime)
+		performanceLogFile.Close()
+	}
+}
+
+// 🛡️ GRACEFUL SHUTDOWN AVANÇADO E ROBUSTO
+func setupAdvancedGracefulShutdown() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+
+	go func() {
+		sig := <-c
+		fmt.Printf("\n\n🛑 Sinal recebido: %v - Encerrando sistema...\n", sig)
+
+		if criticalLogger != nil {
+			criticalLogger.Printf("🛑 ENCERRAMENTO SOLICITADO - Sinal: %v", sig)
+		}
+		if systemLogger != nil {
+			systemLogger.Printf("Encerramento gracioso solicitado - Sinal: %v", sig)
+		}
+
+		// 🛡️ PARAR HEALTH MONITOR PRIMEIRO
+		if healthMonitor != nil {
+			fmt.Println("🛡️ Parando health monitor...")
+			healthMonitor.Stop()
+		}
+
+		// 🧹 CLEANUP DE LOGS
+		fmt.Println("📝 Finalizando logs...")
+		closeAllLogging()
+
+		fmt.Println("✅ Sistema encerrado com sucesso!")
+		os.Exit(0)
+	}()
+}
+
+// FUNÇÕES AUXILIARES MANTIDAS DO CÓDIGO ORIGINAL
+func addRadarsToManager(radarManager *radar.RadarManager) {
+	radars := []radar.RadarConfig{
+		{ID: "caldeira", Name: "Radar Caldeira", IP: "192.168.1.84", Port: 2111},
+		{ID: "porta_jusante", Name: "Radar Porta Jusante", IP: "192.168.1.85", Port: 2111},
+		{ID: "porta_montante", Name: "Radar Porta Montante", IP: "192.168.1.86", Port: 2111},
+	}
+
+	for _, config := range radars {
+		if err := radarManager.AddRadar(config); err != nil {
+			errorLogger.Printf("❌ Erro ao adicionar radar %s: %v", config.Name, err)
+		} else {
+			systemLogger.Printf("✅ Radar %s adicionado com sucesso", config.Name)
+		}
+	}
+}
+
+func getInitialRadarStates(plcConnected bool, plcController *plc.PLCController) map[string]bool {
+	if plcConnected && plcController != nil {
+		enables := plcController.GetRadarsEnabled()
+		systemLogger.Printf("📡 Estados PLC: Caldeira=%t, Porta Jusante=%t, Porta Montante=%t",
+			enables["caldeira"], enables["porta_jusante"], enables["porta_montante"])
+		return enables
+	}
+
+	systemLogger.Println("🔴 PLC desconectado - todos radares desabilitados")
+	return map[string]bool{
+		"caldeira":       false,
+		"porta_jusante":  false,
+		"porta_montante": false,
+	}
+}
+
+func connectEnabledRadars(radarManager *radar.RadarManager, enabledRadars map[string]bool) {
+	for id, enabled := range enabledRadars {
+		config, _ := radarManager.GetRadarConfig(id)
+
+		if enabled {
+			radar, _ := radarManager.GetRadar(id)
+			radarLogger.Printf("🔌 Conectando radar habilitado: %s", config.Name)
+
+			err := radarManager.ConnectRadarWithRetry(radar, 3)
+			if err != nil {
+				errorLogger.Printf("❌ Falha ao conectar radar %s: %v", config.Name, err)
+			} else {
+				radarLogger.Printf("✅ Radar %s conectado com sucesso", config.Name)
+			}
+		} else {
+			systemLogger.Printf("⚫ Radar %s desabilitado - não conectando", config.Name)
+		}
+	}
+}
+
+func getCurrentUser() string {
+	if user := os.Getenv("USER"); user != "" {
+		return user
+	}
+	if user := os.Getenv("USERNAME"); user != "" {
+		return user
+	}
+	return "unknown"
+}
+
+func getCurrentDirectory() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "unknown"
+	}
+	return dir
+}
+
+func formatDuration(d time.Duration) string {
+	hours := int(d.Hours())
+	minutes := int(d.Minutes()) % 60
+	seconds := int(d.Seconds()) % 60
+
+	if hours > 0 {
+		return fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+	} else if minutes > 0 {
+		return fmt.Sprintf("%dm %ds", minutes, seconds)
+	}
+	return fmt.Sprintf("%ds", seconds)
+}
+
+func isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+	connectionErrors := []string{
+		"connection reset", "connection refused", "broken pipe",
+		"network unreachable", "no route to host", "i/o timeout",
+		"forcibly closed", "use of closed network connection",
+	}
+
+	for _, connErr := range connectionErrors {
+		if strings.Contains(errStr, connErr) {
+			return true
+		}
+	}
+
+	if netErr, ok := err.(net.Error); ok {
+		return netErr.Timeout() || !netErr.Temporary()
+	}
+
+	return false
+}

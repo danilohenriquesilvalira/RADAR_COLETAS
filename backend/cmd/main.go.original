@@ -6,8 +6,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"runtime"
-	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -41,27 +39,6 @@ type SystemMetrics struct {
 var metrics *SystemMetrics
 
 func main() {
-	// 🆕 PANIC RECOVERY SIMPLES (SÓ ADICIONEI ISSO)
-	defer func() {
-		if r := recover(); r != nil {
-			timestamp := time.Now().Format("2006-01-02 15:04:05")
-
-			// Log simples do crash
-			if systemLogger != nil {
-				systemLogger.Printf("🔥 CRASH: %s - %v", timestamp, r)
-				systemLogger.Printf("🔥 Stack: %s", string(debug.Stack()))
-			}
-
-			// Console simples
-			fmt.Printf("\n🔥 CRASH DETECTADO: %s\n", timestamp)
-			fmt.Printf("🔥 Erro: %v\n", r)
-			fmt.Printf("🔥 Detalhes nos logs!\n")
-
-			closeLogging()
-			os.Exit(1)
-		}
-	}()
-
 	// Configurar interceptação de sinais
 	setupGracefulShutdown()
 
@@ -100,8 +77,7 @@ func main() {
 			return true
 		}
 
-		// 🔧 OTIMIZAÇÃO: Aumentado de 8s para 12s
-		if now.Sub(lastPLCAttempt) < 12*time.Second {
+		if now.Sub(lastPLCAttempt) < 8*time.Second {
 			return false
 		}
 
@@ -111,8 +87,6 @@ func main() {
 		// Limpar conexões antigas
 		if plcController != nil {
 			plcController.Stop()
-			// 🔧 OTIMIZAÇÃO: Reduzido tempo de espera
-			time.Sleep(300 * time.Millisecond)
 			plcController = nil
 		}
 		if plcSiemens != nil && plcSiemens.IsConnected() {
@@ -125,21 +99,14 @@ func main() {
 		err := plcSiemens.Connect()
 		if err != nil {
 			consecutivePLCErrors++
-			// 🔧 OTIMIZAÇÃO: Log menos frequente de erros
-			if consecutivePLCErrors%5 == 1 {
-				errorLogger.Printf("PLC: Erro na conexão (tentativa %d): %v", consecutivePLCErrors, err)
-				// 🆕 LOG SIMPLES DE REDE (SÓ ADICIONEI ISSO)
-				errorLogger.Printf("🌐 REDE_ERRO: PLC 192.168.1.33 - %v", err)
-			}
+			errorLogger.Printf("PLC: Erro na conexão (tentativa %d): %v", consecutivePLCErrors, err)
 			plcConnected = false
 			return false
 		}
 
 		if !plcSiemens.IsConnected() {
 			consecutivePLCErrors++
-			if consecutivePLCErrors%5 == 1 {
-				errorLogger.Printf("PLC: Conexão não confirmada (tentativa %d)", consecutivePLCErrors)
-			}
+			errorLogger.Printf("PLC: Conexão não confirmada (tentativa %d)", consecutivePLCErrors)
 			plcConnected = false
 			return false
 		}
@@ -147,8 +114,7 @@ func main() {
 		// Criar controlador
 		plcController = plc.NewPLCController(plcSiemens.Client)
 		go plcController.Start()
-		// 🔧 OTIMIZAÇÃO: Reduzido tempo de espera
-		time.Sleep(1500 * time.Millisecond)
+		time.Sleep(2 * time.Second)
 
 		consecutivePLCErrors = 0
 		plcConnected = true
@@ -161,8 +127,8 @@ func main() {
 	systemLogger.Println("Conectando ao PLC Siemens 192.168.1.33...")
 	tryReconnectPLC()
 
-	// 🔧 OTIMIZAÇÃO: Reduzido tempo de espera inicial
-	time.Sleep(2 * time.Second)
+	// Aguardar comandos iniciais
+	time.Sleep(3 * time.Second)
 
 	// Conectar radares baseado no PLC
 	enabledRadars := getInitialRadarStates(plcConnected, plcController)
@@ -191,13 +157,12 @@ func main() {
 
 			if plcController.IsEmergencyStop() {
 				errorLogger.Println("PARADA DE EMERGÊNCIA ATIVADA VIA PLC")
-				// 🔧 OTIMIZAÇÃO: Aumentado tempo de pausa
-				time.Sleep(3 * time.Second)
+				time.Sleep(2 * time.Second)
 				continue
 			}
 
-			// 🔧 OTIMIZAÇÃO: Reconexão de radares menos frequente (8s -> 15s)
-			if time.Since(lastReconnectCheck) >= 15*time.Second {
+			// Reconexão controlada dos radares
+			if time.Since(lastReconnectCheck) >= 8*time.Second {
 				radarManager.CheckAndReconnectEnabled(currentEnabledRadars)
 				lastReconnectCheck = time.Now()
 			}
@@ -210,8 +175,7 @@ func main() {
 		}
 
 		if !collectionActive {
-			// 🔧 OTIMIZAÇÃO: Aumentado tempo de pausa quando inativo
-			time.Sleep(1 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 			continue
 		}
 
@@ -226,8 +190,6 @@ func main() {
 			if err != nil {
 				if isConnectionError(err) {
 					plcLogger.Println("Conexão PLC perdida durante escrita - reconectando...")
-					// 🆕 LOG SIMPLES DE REDE (SÓ ADICIONEI ISSO)
-					errorLogger.Printf("🌐 REDE_ERRO: PLC_WRITE 192.168.1.33 - %v", err)
 					plcConnected = false
 					metrics.PLCDisconnections++
 				} else {
@@ -238,14 +200,13 @@ func main() {
 			plcController.SetRadarsConnected(connectionStatus)
 		}
 
-		// 🔧 OTIMIZAÇÃO: Display menos frequente (2s -> 5s)
-		if time.Since(lastMetricsUpdate) >= 5*time.Second {
+		// Exibir status a cada 2 segundos
+		if time.Since(lastMetricsUpdate) >= 2*time.Second {
 			displaySystemStatus(plcConnected, currentEnabledRadars, radarManager)
 			lastMetricsUpdate = time.Now()
 		}
 
-		// 🔧 OTIMIZAÇÃO: Sleep principal aumentado (200ms -> 1s)
-		time.Sleep(1 * time.Second)
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 
@@ -277,11 +238,7 @@ func initLogging() {
 // Fechar sistema de logging
 func closeLogging() {
 	if logFile != nil {
-		uptime := time.Since(metrics.StartTime)
 		systemLogger.Println("========== SISTEMA ENCERRADO ==========")
-		systemLogger.Printf("Tempo total ativo: %v", uptime)
-		systemLogger.Printf("Total de operações: %d", metrics.TotalPackets)
-		systemLogger.Printf("Total de erros: %d", metrics.TotalErrors)
 		logFile.Close()
 	}
 }
@@ -309,11 +266,11 @@ func printSystemHeader() {
 	fmt.Print("\033[2J\033[H") // Limpar tela
 	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
 	fmt.Println("║                    SISTEMA RADAR SICK                       ║")
-	fmt.Println("║                 🚀 VERSÃO OTIMIZADA 🚀                      ║")
+	fmt.Println("║                   MONITORAMENTO ATIVO                       ║")
 	fmt.Println("╠══════════════════════════════════════════════════════════════╣")
 	fmt.Printf("║ Usuário: %-15s                    Data: %s ║\n",
 		getCurrentUser(), time.Now().Format("2006-01-02"))
-	fmt.Printf("║ Hora: %-18s                 Versão: v2.1.0 ║\n",
+	fmt.Printf("║ Hora: %-18s                 Versão: v2.0.0 ║\n",
 		time.Now().Format("15:04:05"))
 	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
 	fmt.Println()
@@ -368,26 +325,19 @@ func displaySystemStatus(plcConnected bool, enabledRadars map[string]bool, radar
 	fmt.Println("└─────────────────────────────────────────────────────────────┘")
 	fmt.Printf("📊 Resumo: %d/%d habilitados | %d conectados\n", enabledCount, 3, connectedCount)
 
-	// 🔧 OTIMIZAÇÃO: Métricas do sistema com informações de recursos
+	// Métricas do sistema
 	uptime := time.Since(metrics.StartTime)
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	memMB := float64(m.Alloc) / (1024 * 1024)
-	goroutines := runtime.NumGoroutine()
-
 	fmt.Println()
 	fmt.Println("📈 MÉTRICAS DO SISTEMA:")
-	fmt.Printf("   ⏱️  Tempo ativo:        %s\n", formatDuration(uptime))
-	fmt.Printf("   🔌 Conexões PLC:       %d\n", metrics.PLCConnections)
+	fmt.Printf("   ⏱️  Tempo ativo:      %s\n", formatDuration(uptime))
+	fmt.Printf("   🔌 Conexões PLC:     %d\n", metrics.PLCConnections)
 	fmt.Printf("   📦 Pacotes processados: %d\n", metrics.TotalPackets)
-	fmt.Printf("   ❌ Erros registrados:   %d\n", metrics.TotalErrors)
-	fmt.Printf("   🔥 Goroutines:         %d\n", goroutines)
-	fmt.Printf("   💾 Memória:            %.1fMB\n", memMB)
-	fmt.Printf("   🕐 Última atualização:  %s\n", metrics.LastUpdate.Format("15:04:05"))
+	fmt.Printf("   ❌ Erros registrados: %d\n", metrics.TotalErrors)
+	fmt.Printf("   🕐 Última atualização: %s\n", metrics.LastUpdate.Format("15:04:05"))
 
 	fmt.Println()
 	fmt.Printf("📝 Logs: logs/radar_system_%s.log\n", time.Now().Format("2006-01-02"))
-	fmt.Println("🔄 Sistema OTIMIZADO em execução... Pressione Ctrl+C para parar.")
+	fmt.Println("🔄 Sistema em execução... Pressione Ctrl+C para parar.")
 }
 
 // Adicionar radares ao manager
@@ -401,8 +351,6 @@ func addRadarsToManager(radarManager *radar.RadarManager) {
 	for _, config := range radars {
 		if err := radarManager.AddRadar(config); err != nil {
 			errorLogger.Printf("Erro ao adicionar radar %s: %v", config.Name, err)
-			// 🆕 LOG SIMPLES DE REDE (SÓ ADICIONEI ISSO)
-			errorLogger.Printf("🌐 REDE_ERRO: RADAR %s %s - %v", config.Name, config.IP, err)
 		} else {
 			systemLogger.Printf("Radar %s adicionado com sucesso", config.Name)
 		}
@@ -435,12 +383,9 @@ func connectEnabledRadars(radarManager *radar.RadarManager, enabledRadars map[st
 			radar, _ := radarManager.GetRadar(id)
 			radarLogger.Printf("Conectando radar habilitado: %s", config.Name)
 
-			// 🔧 OTIMIZAÇÃO: Reduzido número de tentativas de 3 para 2
-			err := radarManager.ConnectRadarWithRetry(radar, 2)
+			err := radarManager.ConnectRadarWithRetry(radar, 3)
 			if err != nil {
 				errorLogger.Printf("Falha ao conectar radar %s: %v", config.Name, err)
-				// 🆕 LOG SIMPLES DE REDE (SÓ ADICIONEI ISSO)
-				errorLogger.Printf("🌐 REDE_ERRO: RADAR_CONNECT %s %s - %v", config.Name, config.IP, err)
 			} else {
 				radarLogger.Printf("Radar %s conectado com sucesso", config.Name)
 			}
@@ -453,16 +398,15 @@ func connectEnabledRadars(radarManager *radar.RadarManager, enabledRadars map[st
 // Configurar encerramento gracioso
 func setupGracefulShutdown() {
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
-		sig := <-c
-		fmt.Printf("\n\n🛑 Sinal recebido: %v - Encerrando sistema...\n", sig)
+		<-c
+		fmt.Println("\n\n🛑 Encerrando sistema...")
 		if systemLogger != nil {
-			systemLogger.Printf("Encerramento solicitado pelo usuário - Sinal: %v", sig)
+			systemLogger.Println("Encerramento solicitado pelo usuário")
 		}
 		closeLogging()
-		fmt.Println("✅ Sistema encerrado com sucesso!")
 		os.Exit(0)
 	}()
 }
@@ -475,7 +419,7 @@ func getCurrentUser() string {
 	if user := os.Getenv("USERNAME"); user != "" {
 		return user
 	}
-	return "danilohenriquesilvalira"
+	return "unknown"
 }
 
 // Formatar duração
@@ -502,7 +446,6 @@ func isConnectionError(err error) bool {
 	connectionErrors := []string{
 		"connection reset", "connection refused", "broken pipe",
 		"network unreachable", "no route to host", "i/o timeout",
-		"forcibly closed", "use of closed network connection",
 	}
 
 	for _, connErr := range connectionErrors {
