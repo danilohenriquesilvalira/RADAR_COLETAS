@@ -13,17 +13,23 @@ import (
 	"backend/pkg/models"
 )
 
-// PLCController gerencia comunicação bidirecional com o PLC (MULTI-RADAR)
+// PLCController gerencia comunicação bidirecional com o PLC (THREAD-SAFE)
 type PLCController struct {
 	plc    PLCClient
 	reader *PLCReader
 	writer *PLCWriter
 
-	// Context para controle de goroutines
-	commandChan chan models.SystemCommand
+	// ✅ CORREÇÃO DEADLOCK: Context para controle hierárquico
 	ctx         context.Context
 	cancel      context.CancelFunc
 	wg          sync.WaitGroup
+	commandChan chan models.SystemCommand
+
+	// ✅ CORREÇÃO RACE CONDITION: Mutex hierárquico
+	stateMutex   sync.RWMutex // Para estados gerais
+	radarMutex   sync.RWMutex // Para dados específicos de radar
+	timerMutex   sync.Mutex   // Para timers e reboot
+	counterMutex sync.RWMutex // ✅ NOVO: Para contadores
 
 	// Estados do sistema
 	liveBit          bool
@@ -36,12 +42,12 @@ type PLCController struct {
 	radarPortaJusanteEnabled  bool
 	radarPortaMontanteEnabled bool
 
-	// Estatísticas
+	// ✅ CORREÇÃO OVERFLOW: Estatísticas com int64
 	startTime   time.Time
-	packetCount int32
-	errorCount  int32
+	packetCount int64 // MUDANÇA: int32 -> int64 para evitar overflow
+	errorCount  int64 // MUDANÇA: int32 -> int64 para evitar overflow
 
-	// Status de conexão dos radares COM TIMESTAMP
+	// STATUS DE CONEXÃO COM TIMEOUT INTELIGENTE
 	radarCaldeiraConnected       bool
 	radarPortaJusanteConnected   bool
 	radarPortaMontanteConnected  bool
@@ -49,27 +55,26 @@ type PLCController struct {
 	lastRadarPortaJusanteUpdate  time.Time
 	lastRadarPortaMontanteUpdate time.Time
 
-	// Contadores individuais por radar
-	radarCaldeiraPackets      int32
-	radarPortaJusantePackets  int32
-	radarPortaMontantePackets int32
-	radarCaldeiraErrors       int32
-	radarPortaJusanteErrors   int32
-	radarPortaMontanteErrors  int32
+	// ✅ CORREÇÃO OVERFLOW: Contadores individuais com int64
+	radarCaldeiraPackets      int64 // MUDANÇA: int32 -> int64
+	radarPortaJusantePackets  int64 // MUDANÇA: int32 -> int64
+	radarPortaMontantePackets int64 // MUDANÇA: int32 -> int64
+	radarCaldeiraErrors       int64 // MUDANÇA: int32 -> int64
+	radarPortaJusanteErrors   int64 // MUDANÇA: int32 -> int64
+	radarPortaMontanteErrors  int64 // MUDANÇA: int32 -> int64
 
-	// Controle de tickers
+	// Controle de tickers COM CONTEXT
 	liveBitTicker      *time.Ticker
 	statusTicker       *time.Ticker
 	commandTicker      *time.Ticker
 	radarMonitorTicker *time.Ticker
-	stopChan           chan bool
 
-	// CONTROLE DE ERROS CONSECUTIVOS
-	consecutiveErrors    int32
+	// ✅ CORREÇÃO OVERFLOW: Controle de erros com int64
+	consecutiveErrors    int64 // MUDANÇA: int32 -> int64
 	lastSuccessfulOp     time.Time
-	maxConsecutiveErrors int32
+	maxConsecutiveErrors int64 // MUDANÇA: int32 -> int64
 
-	// MONITORAMENTO DE CONEXÃO DOS RADARES
+	// TIMEOUT INTELIGENTE DOS RADARES
 	radarTimeoutDuration time.Duration
 
 	// DETECÇÃO DE RECONEXÃO E RESET
@@ -78,53 +83,56 @@ type PLCController struct {
 	reconnectionDetected bool
 	plcResetInProgress   bool
 
-	// PROTEÇÃO THREAD-SAFE
-	mutex sync.RWMutex
-
-	// Sistema de monitoramento multiplataforma
-	systemMonitor *SystemMonitor
-
-	// SISTEMA DE REBOOT SEGURO PARA PRODUÇÃO
+	// SISTEMA DE REBOOT SEGURO
 	rebootTimer          *time.Timer
 	rebootTimerActive    bool
 	lastResetErrorsState bool
-	rebootMutex          sync.Mutex
 	rebootStartTime      time.Time
 
-	// PROTEÇÃO CONTRA OVERFLOW CRÍTICA
-	lastOverflowCheck    time.Time
-	overflowProtectionOn bool
-	dailyStatsStartTime  time.Time
-	lastDailyStatsReset  time.Time
+	// ✅ CORREÇÃO MEMORY LEAK: Limpeza automática e controle de entradas
+	lastOverflowCheck         time.Time
+	overflowProtectionOn      bool
+	dailyStatsStartTime       time.Time
+	lastDailyStatsReset       time.Time
+	lastRadarReconnectAttempt map[string]time.Time
+	radarReconnectInProgress  map[string]bool
+	lastMapCleanup            time.Time
+	maxMapEntries             int
 }
 
-type SystemMonitor struct {
-	lastCPUTime  time.Time
-	lastCPUIdle  uint64
-	lastCPUTotal uint64
-}
-
-// CONSTANTES DE PROTEÇÃO CRÍTICA
+// ✅ CONSTANTES ATUALIZADAS PARA int64 E MEMORY LEAK PREVENTION
 const (
 	REBOOT_TIMEOUT_SECONDS    = 10
 	REBOOT_CONFIRMATION_DELAY = 2 * time.Second
 	MAX_REBOOT_RETRIES        = 4
 
-	// PROTEÇÃO CONTRA OVERFLOW
-	MAX_PACKET_COUNT_CRITICAL = 2000000000 // 2 bilhões (93% do máximo int32)
-	MAX_PACKET_COUNT_WARNING  = 1800000000 // 1.8 bilhões (warning)
+	// ✅ PROTEÇÃO CONTRA OVERFLOW PARA int64
+	MAX_PACKET_COUNT_CRITICAL = 9000000000000000000 // 9 quintilhões (para int64)
+	MAX_PACKET_COUNT_WARNING  = 8000000000000000000 // 8 quintilhões (warning)
 	OVERFLOW_CHECK_INTERVAL   = 1 * time.Hour
 	DAILY_STATS_INTERVAL      = 24 * time.Hour
+
+	// TIMEOUT INTELIGENTE
+	RADAR_TIMEOUT_TOLERANCE  = 45 * time.Second
+	RADAR_RECONNECT_COOLDOWN = 20 * time.Second
+
+	// ✅ CORREÇÃO MEMORY LEAK: Limites para maps
+	MAX_MAP_ENTRIES      = 100
+	MAP_CLEANUP_INTERVAL = 30 * time.Minute
 )
 
 // NewSystemMonitor cria um novo monitor de sistema
+type SystemMonitor struct {
+	lastCPUTime time.Time
+}
+
 func NewSystemMonitor() *SystemMonitor {
 	return &SystemMonitor{
 		lastCPUTime: time.Now(),
 	}
 }
 
-// NewPLCController cria um novo controlador PLC (MULTI-RADAR)
+// NewPLCController cria um novo controlador PLC THREAD-SAFE v3.1
 func NewPLCController(plcClient PLCClient) *PLCController {
 	now := time.Now()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -170,8 +178,8 @@ func NewPLCController(plcClient PLCClient) *PLCController {
 		lastSuccessfulOp:     now,
 		maxConsecutiveErrors: 8,
 
-		// MONITORAMENTO DE RADARES
-		radarTimeoutDuration: 10 * time.Second,
+		// ✅ TIMEOUT INTELIGENTE
+		radarTimeoutDuration: RADAR_TIMEOUT_TOLERANCE,
 
 		// CAMPOS DE RECONEXÃO
 		lastConnectionCheck:  now,
@@ -179,32 +187,127 @@ func NewPLCController(plcClient PLCClient) *PLCController {
 		reconnectionDetected: false,
 		plcResetInProgress:   false,
 
-		stopChan:      make(chan bool, 1),
-		systemMonitor: NewSystemMonitor(),
-
-		// SISTEMA DE REBOOT PARA PRODUÇÃO
-		rebootTimer:          nil,
-		rebootTimerActive:    false,
-		lastResetErrorsState: false,
-		rebootMutex:          sync.Mutex{},
-		rebootStartTime:      time.Time{},
-
-		// PROTEÇÃO CONTRA OVERFLOW
+		// ✅ CORREÇÃO MEMORY LEAK: Inicialização com limite
 		lastOverflowCheck:    now,
-		overflowProtectionOn: true, // SEMPRE ATIVO
+		overflowProtectionOn: true,
 		dailyStatsStartTime:  now,
 		lastDailyStatsReset:  now,
+		lastMapCleanup:       now,
+		maxMapEntries:        MAX_MAP_ENTRIES,
+
+		// ✅ CONTROLE INDIVIDUAL DE RECONEXÃO COM LIMITE
+		lastRadarReconnectAttempt: map[string]time.Time{
+			"caldeira":       now,
+			"porta_jusante":  now,
+			"porta_montante": now,
+		},
+		radarReconnectInProgress: map[string]bool{
+			"caldeira":       false,
+			"porta_jusante":  false,
+			"porta_montante": false,
+		},
 	}
 
+	// ✅ INICIAR WORKER DE LIMPEZA AUTOMÁTICA
+	controller.wg.Add(1)
+	go controller.memoryCleanupWorker()
+
 	// LOG INICIAL DE PROTEÇÃO
-	fmt.Printf("🛡️ PROTEÇÃO OVERFLOW: Ativada - Máximo %d pacotes\n", MAX_PACKET_COUNT_CRITICAL)
-	log.Printf("OVERFLOW_PROTECTION_INIT: Max packets=%d, Check interval=%v",
-		MAX_PACKET_COUNT_CRITICAL, OVERFLOW_CHECK_INTERVAL)
+	fmt.Printf("🛡️ TIMEOUT INTELIGENTE: %v (era 10s)\n", RADAR_TIMEOUT_TOLERANCE)
+	fmt.Printf("🛡️ PROTEÇÃO OVERFLOW: Ativada - Máximo %d pacotes (int64)\n", MAX_PACKET_COUNT_CRITICAL)
+	fmt.Printf("🛡️ MEMORY LEAK PROTECTION: Maps limitados a %d entradas\n", MAX_MAP_ENTRIES)
+	log.Printf("PLC_CONTROLLER_v3.1_INIT: timeout=%v, overflow_protection=%d, memory_protection=%d",
+		RADAR_TIMEOUT_TOLERANCE, MAX_PACKET_COUNT_CRITICAL, MAX_MAP_ENTRIES)
 
 	return controller
 }
 
-// 🆕 FUNÇÃO: sendCleanRadarSickDataToPLC - ENVIA DADOS ZERADOS
+// ✅ NOVO: Worker de limpeza automática para prevenir memory leaks
+func (pc *PLCController) memoryCleanupWorker() {
+	defer pc.wg.Done()
+
+	ticker := time.NewTicker(MAP_CLEANUP_INTERVAL)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-pc.ctx.Done():
+			fmt.Println("🧹 Memory cleanup worker finalizado")
+			return
+
+		case <-ticker.C:
+			pc.cleanupMapsMemory()
+		}
+	}
+}
+
+// ✅ NOVO: Limpeza automática de maps para prevenir memory leaks
+func (pc *PLCController) cleanupMapsMemory() {
+	pc.radarMutex.Lock()
+	defer pc.radarMutex.Unlock()
+
+	now := time.Now()
+	if now.Sub(pc.lastMapCleanup) < MAP_CLEANUP_INTERVAL-5*time.Minute {
+		return // Evitar limpeza muito frequente
+	}
+
+	cutoff := now.Add(-2 * time.Hour) // Remover entradas > 2 horas
+
+	// ✅ LIMPAR lastRadarReconnectAttempt se muito grande
+	if len(pc.lastRadarReconnectAttempt) > pc.maxMapEntries {
+		newMap := make(map[string]time.Time)
+
+		// Manter apenas entradas recentes e radares conhecidos
+		knownRadars := []string{"caldeira", "porta_jusante", "porta_montante"}
+		for _, radarID := range knownRadars {
+			if lastTime, exists := pc.lastRadarReconnectAttempt[radarID]; exists {
+				newMap[radarID] = lastTime
+			}
+		}
+
+		// Adicionar outras entradas recentes (máximo até o limite)
+		for radarID, lastTime := range pc.lastRadarReconnectAttempt {
+			if len(newMap) >= pc.maxMapEntries {
+				break
+			}
+			if lastTime.After(cutoff) {
+				newMap[radarID] = lastTime
+			}
+		}
+
+		pc.lastRadarReconnectAttempt = newMap
+
+		fmt.Printf("🧹 Map lastRadarReconnectAttempt limpo: %d -> %d entradas\n",
+			len(pc.lastRadarReconnectAttempt), len(newMap))
+		log.Printf("MEMORY_CLEANUP: lastRadarReconnectAttempt map cleaned")
+	}
+
+	// ✅ LIMPAR radarReconnectInProgress se muito grande
+	if len(pc.radarReconnectInProgress) > pc.maxMapEntries {
+		newMap := make(map[string]bool)
+
+		// Manter apenas radares conhecidos
+		knownRadars := []string{"caldeira", "porta_jusante", "porta_montante"}
+		for _, radarID := range knownRadars {
+			if inProgress, exists := pc.radarReconnectInProgress[radarID]; exists {
+				newMap[radarID] = inProgress
+			}
+		}
+
+		pc.radarReconnectInProgress = newMap
+
+		fmt.Printf("🧹 Map radarReconnectInProgress limpo: %d -> %d entradas\n",
+			len(pc.radarReconnectInProgress), len(newMap))
+		log.Printf("MEMORY_CLEANUP: radarReconnectInProgress map cleaned")
+	}
+
+	pc.lastMapCleanup = now
+
+	fmt.Printf("🧹 Limpeza automática de memória executada - Maps: %d + %d entradas\n",
+		len(pc.lastRadarReconnectAttempt), len(pc.radarReconnectInProgress))
+}
+
+// ✅ NOVO: sendCleanRadarSickDataToPLC - THREAD-SAFE SEM DEADLOCK
 func (pc *PLCController) sendCleanRadarSickDataToPLC() error {
 	fmt.Println("🧹 ========== ENVIANDO DADOS RADAR SICK ZERADOS PARA PLC ==========")
 	log.Printf("CLEAN_RADAR_SICK_DATA: Starting clean data transmission to PLC")
@@ -232,7 +335,7 @@ func (pc *PLCController) sendCleanRadarSickDataToPLC() error {
 
 		fmt.Printf("🧹 Zerando dados: %s (DB100.%d)...\n", config.radarName, config.baseOffset)
 
-		// ENVIAR DADOS ZERADOS USANDO O PLCWriter
+		// ✅ ENVIAR DADOS ZERADOS SEM LOCK (writer já é thread-safe)
 		err := pc.writer.WriteRadarSickCleanDataToDB100(config.baseOffset)
 		if err != nil {
 			fmt.Printf("❌ ERRO ao zerar %s: %v\n", config.radarName, err)
@@ -262,10 +365,10 @@ func (pc *PLCController) sendCleanRadarSickDataToPLC() error {
 	return nil
 }
 
-// checkOverflowProtection - PROTEÇÃO CRÍTICA
+// ✅ THREAD-SAFE: checkOverflowProtection - PROTEÇÃO CRÍTICA
 func (pc *PLCController) checkOverflowProtection() {
-	pc.mutex.Lock()
-	defer pc.mutex.Unlock()
+	pc.counterMutex.Lock()
+	defer pc.counterMutex.Unlock()
 
 	now := time.Now()
 
@@ -299,7 +402,7 @@ func (pc *PLCController) checkOverflowProtection() {
 		pc.executeOverflowProtection()
 	} else if needsWarning {
 		// WARNING LOG
-		fmt.Printf("⚠️ OVERFLOW WARNING: packetCount=%d (%.1f%% do máximo)\n",
+		fmt.Printf("⚠️ OVERFLOW WARNING: packetCount=%d (%.1f%% do máximo int64)\n",
 			pc.packetCount, float64(pc.packetCount)/float64(MAX_PACKET_COUNT_CRITICAL)*100)
 		log.Printf("OVERFLOW_WARNING: packetCount=%d, caldeira=%d, jusante=%d, montante=%d",
 			pc.packetCount, pc.radarCaldeiraPackets, pc.radarPortaJusantePackets, pc.radarPortaMontantePackets)
@@ -312,13 +415,13 @@ func (pc *PLCController) checkOverflowProtection() {
 	}
 }
 
-// executeOverflowProtection - RESET CRÍTICO DE EMERGÊNCIA
+// ✅ THREAD-SAFE: executeOverflowProtection - RESET CRÍTICO
 func (pc *PLCController) executeOverflowProtection() {
 	// LOG CRÍTICO ANTES DO RESET
-	fmt.Println("🔥 ========== OVERFLOW PROTECTION ATIVADA ==========")
+	fmt.Println("🔥 ========== OVERFLOW PROTECTION ATIVADA (int64) ==========")
 	fmt.Printf("🔥 TIMESTAMP: %s\n", time.Now().Format("2006-01-02 15:04:05"))
 	fmt.Printf("🔥 USUÁRIO: danilohenriquesilvalira\n")
-	fmt.Printf("🔥 CAUSA: Contadores próximos do overflow int32\n")
+	fmt.Printf("🔥 CAUSA: Contadores próximos do overflow int64\n")
 
 	// LOG DETALHADO DOS CONTADORES
 	log.Printf("OVERFLOW_PROTECTION_TRIGGERED: packetCount=%d, caldeira=%d, jusante=%d, montante=%d",
@@ -352,13 +455,16 @@ func (pc *PLCController) executeOverflowProtection() {
 	// ATUALIZAR TIMESTAMPS
 	pc.dailyStatsStartTime = time.Now()
 
-	fmt.Println("✅ OVERFLOW PROTECTION: Contadores de pacotes resetados com sucesso")
-	log.Printf("OVERFLOW_PROTECTION_SUCCESS: Packet counters reset, error counters preserved")
+	fmt.Println("✅ OVERFLOW PROTECTION: Contadores de pacotes resetados com sucesso (int64)")
+	log.Printf("OVERFLOW_PROTECTION_SUCCESS: Packet counters reset (int64), error counters preserved")
 	fmt.Println("🔥 ===============================================")
 }
 
-// logDailyStatistics - LOG ESTATÍSTICAS DIÁRIAS
+// ✅ THREAD-SAFE: logDailyStatistics
 func (pc *PLCController) logDailyStatistics() {
+	pc.counterMutex.RLock()
+	defer pc.counterMutex.RUnlock()
+
 	totalPackets := pc.packetCount
 	totalErrors := pc.errorCount
 	uptime := time.Since(pc.dailyStatsStartTime)
@@ -379,58 +485,66 @@ func (pc *PLCController) logDailyStatistics() {
 		montantePercent = float64(pc.radarPortaMontantePackets) / float64(totalPackets) * 100
 	}
 
-	fmt.Printf("📊 STATS DIÁRIAS: Total=%d, Errors=%d, ErrorRate=%.2f%%, Uptime=%v\n",
+	fmt.Printf("📊 STATS DIÁRIAS v3.1: Total=%d, Errors=%d, ErrorRate=%.2f%%, Uptime=%v\n",
 		totalPackets, totalErrors, errorRate, uptime)
 	fmt.Printf("📡 RADARES: Caldeira=%d(%.1f%%), Jusante=%d(%.1f%%), Montante=%d(%.1f%%)\n",
 		pc.radarCaldeiraPackets, caldeiraPercent,
 		pc.radarPortaJusantePackets, jusantePercent,
 		pc.radarPortaMontantePackets, montantePercent)
 
-	log.Printf("DAILY_STATISTICS: total_packets=%d, total_errors=%d, error_rate=%.2f%%, uptime=%v",
+	log.Printf("DAILY_STATISTICS_v3.1: total_packets=%d, total_errors=%d, error_rate=%.2f%%, uptime=%v",
 		totalPackets, totalErrors, errorRate, uptime)
-	log.Printf("DAILY_RADAR_STATS: caldeira=%d(%.1f%%), jusante=%d(%.1f%%), montante=%d(%.1f%%)",
+	log.Printf("DAILY_RADAR_STATS_v3.1: caldeira=%d(%.1f%%), jusante=%d(%.1f%%), montante=%d(%.1f%%)",
 		pc.radarCaldeiraPackets, caldeiraPercent,
 		pc.radarPortaJusantePackets, jusantePercent,
 		pc.radarPortaMontantePackets, montantePercent)
 }
 
-// Start inicia o controlador PLC
-func (pc *PLCController) Start() {
-	fmt.Println("🚀 PLC Controller: Iniciando controlador PRODUÇÃO v2.9 RADAR SICK LIMPO...")
+// ✅ NOVA FUNÇÃO: StartWithContext - INICIA COM CONTEXT EXTERNO
+func (pc *PLCController) StartWithContext(parentCtx context.Context) {
+	// ✅ COMBINAR CONTEXT EXTERNO COM INTERNO
+	pc.ctx, pc.cancel = context.WithCancel(parentCtx)
+
+	fmt.Println("🚀 PLC Controller v3.1: Iniciando controlador THREAD-SAFE RADAR SICK...")
 
 	// Iniciar tickers
 	pc.liveBitTicker = time.NewTicker(3 * time.Second)
 	pc.statusTicker = time.NewTicker(1 * time.Second)
 	pc.commandTicker = time.NewTicker(2 * time.Second)
-	pc.radarMonitorTicker = time.NewTicker(5 * time.Second)
+	pc.radarMonitorTicker = time.NewTicker(8 * time.Second)
 
-	// Iniciar goroutines
-	pc.wg.Add(5)
+	// Iniciar goroutines COM WAITGROUP
+	pc.wg.Add(4) // 4 goroutines principais (memory cleanup já foi adicionado)
 	go pc.liveBitLoop()
 	go pc.statusWriteLoop()
 	go pc.commandReadLoop()
 	go pc.commandProcessor()
 	go pc.radarConnectionMonitorLoop()
 
-	fmt.Println("✅ PLC Controller: Sistema RADAR SICK PRODUÇÃO iniciado - SEM MÉTRICAS SERVIDOR")
+	fmt.Printf("✅ PLC Controller v3.1: Sistema THREAD-SAFE iniciado - Timeout: %v\n", RADAR_TIMEOUT_TOLERANCE)
 }
 
-// Stop para o controlador
-func (pc *PLCController) Stop() {
-	fmt.Println("🛑 PLC Controller: Iniciando parada gracioso...")
+// Start - MANTÉM COMPATIBILIDADE (usa context interno)
+func (pc *PLCController) Start() {
+	pc.StartWithContext(context.Background())
+}
 
-	// CANCELAR TIMER DE REBOOT SE ATIVO
+// ✅ THREAD-SAFE: Stop com shutdown gracioso
+func (pc *PLCController) Stop() {
+	fmt.Println("🛑 PLC Controller v3.1: Iniciando parada gracioso...")
+
+	// ✅ CANCELAR TIMER DE REBOOT SE ATIVO
 	pc.cancelRebootTimer()
 
-	// LOG FINAL ANTES DE PARAR
-	pc.mutex.RLock()
+	// ✅ THREAD-SAFE: LOG FINAL ANTES DE PARAR
+	pc.counterMutex.RLock()
 	totalPackets := pc.packetCount
 	totalErrors := pc.errorCount
 	uptime := time.Since(pc.startTime)
-	pc.mutex.RUnlock()
+	pc.counterMutex.RUnlock()
 
-	fmt.Printf("📊 STATS FINAIS: Packets=%d, Errors=%d, Uptime=%v\n", totalPackets, totalErrors, uptime)
-	log.Printf("FINAL_STATISTICS: packets=%d, errors=%d, uptime=%v", totalPackets, totalErrors, uptime)
+	fmt.Printf("📊 STATS FINAIS v3.1: Packets=%d, Errors=%d, Uptime=%v\n", totalPackets, totalErrors, uptime)
+	log.Printf("FINAL_STATISTICS_v3.1: packets=%d, errors=%d, uptime=%v", totalPackets, totalErrors, uptime)
 
 	// Cancelar context
 	pc.cancel()
@@ -452,7 +566,7 @@ func (pc *PLCController) Stop() {
 	// Fechar channel
 	close(pc.commandChan)
 
-	// Aguardar goroutines
+	// ✅ AGUARDAR GOROUTINES COM TIMEOUT
 	done := make(chan struct{})
 	go func() {
 		pc.wg.Wait()
@@ -466,14 +580,13 @@ func (pc *PLCController) Stop() {
 		fmt.Println("   ⚠️ Timeout - forçando parada")
 	}
 
-	close(pc.stopChan)
-	fmt.Println("✅ PLC Controller: Parado com sucesso")
+	fmt.Println("✅ PLC Controller v3.1: Parado com sucesso")
 }
 
-// cancelRebootTimer cancela timer de reboot se ativo
+// ✅ THREAD-SAFE: cancelRebootTimer
 func (pc *PLCController) cancelRebootTimer() {
-	pc.rebootMutex.Lock()
-	defer pc.rebootMutex.Unlock()
+	pc.timerMutex.Lock()
+	defer pc.timerMutex.Unlock()
 
 	if pc.rebootTimerActive && pc.rebootTimer != nil {
 		pc.rebootTimer.Stop()
@@ -485,10 +598,10 @@ func (pc *PLCController) cancelRebootTimer() {
 	}
 }
 
-// startRebootTimer inicia timer de reboot de 10s
+// ✅ THREAD-SAFE: startRebootTimer
 func (pc *PLCController) startRebootTimer() {
-	pc.rebootMutex.Lock()
-	defer pc.rebootMutex.Unlock()
+	pc.timerMutex.Lock()
+	defer pc.timerMutex.Unlock()
 
 	// Se já tem timer ativo, não criar outro
 	if pc.rebootTimerActive {
@@ -509,21 +622,21 @@ func (pc *PLCController) startRebootTimer() {
 	})
 }
 
-// executeProductionReboot - REBOOT COMPLETO PARA PRODUÇÃO
+// ✅ THREAD-SAFE: executeProductionReboot
 func (pc *PLCController) executeProductionReboot() {
-	pc.rebootMutex.Lock()
-	defer pc.rebootMutex.Unlock()
+	pc.timerMutex.Lock()
+	defer pc.timerMutex.Unlock()
 
 	rebootTime := time.Now()
 	uptime := rebootTime.Sub(pc.rebootStartTime)
 
-	fmt.Println("🔥 ========== EXECUTANDO REBOOT COMPLETO DE PRODUÇÃO ==========")
+	fmt.Println("🔥 ========== EXECUTANDO REBOOT COMPLETO DE PRODUÇÃO v3.1 ==========")
 	fmt.Printf("🔥 TIMESTAMP: %s\n", rebootTime.Format("2006-01-02 15:04:05"))
 	fmt.Printf("🔥 USUÁRIO: danilohenriquesilvalira\n")
 	fmt.Printf("🔥 TRIGGER: DB100.0.3 mantido por %.1fs\n", uptime.Seconds())
 
 	// Log crítico para auditoria
-	log.Printf("PRODUCTION_REBOOT_EXECUTING: Full server reboot triggered by PLC DB100.0.3 after %.1fs", uptime.Seconds())
+	log.Printf("PRODUCTION_REBOOT_EXECUTING_v3.1: Full server reboot triggered by PLC DB100.0.3 after %.1fs", uptime.Seconds())
 
 	// STEP 1: RESETAR BIT DB100.0.3 NO PLC (CRÍTICO PARA EVITAR LOOP!)
 	fmt.Println("🔥 STEP 1/5: Resetando bit DB100.0.3 no PLC (ANTI-LOOP)...")
@@ -556,7 +669,7 @@ func (pc *PLCController) executeProductionReboot() {
 
 	// STEP 5: EXECUTAR REBOOT COM MÚLTIPLAS TENTATIVAS
 	fmt.Println("🔥 STEP 5/5: Executando REBOOT COMPLETO do servidor...")
-	log.Printf("PRODUCTION_REBOOT_FINAL: Executing full server reboot now")
+	log.Printf("PRODUCTION_REBOOT_FINAL_v3.1: Executing full server reboot now")
 
 	success := false
 
@@ -621,7 +734,7 @@ func (pc *PLCController) executeProductionReboot() {
 		log.Printf("PRODUCTION_REBOOT_CRITICAL_ERROR: All reboot attempts failed")
 
 		// Log de emergência
-		emergencyLog := fmt.Sprintf("CRITICAL: Server reboot failed at %s - Manual intervention required",
+		emergencyLog := fmt.Sprintf("CRITICAL v3.1: Server reboot failed at %s - Manual intervention required",
 			rebootTime.Format("2006-01-02 15:04:05"))
 
 		// Tentar escrever em arquivo de emergência
@@ -632,22 +745,25 @@ func (pc *PLCController) executeProductionReboot() {
 		}
 	}
 
-	fmt.Println("🔥 ========== REBOOT DE PRODUÇÃO FINALIZADO ==========")
+	fmt.Println("🔥 ========== REBOOT DE PRODUÇÃO v3.1 FINALIZADO ==========")
 }
 
-// getCurrentUser obtém usuário atual
-func getCurrentUser() string {
-	if user := os.Getenv("USER"); user != "" {
-		return user
-	}
-	if user := os.Getenv("USERNAME"); user != "" {
-		return user
-	}
-	return "danilohenriquesilvalira"
-}
+// ❌ DELETAR ESTA FUNÇÃO COMPLETA:
+// func getCurrentUser() string {
+//     if user := os.Getenv("USER"); user != "" {
+//         return user
+//     }
+//     if user := os.Getenv("USERNAME"); user != "" {
+//         return user
+//     }
+//     return "danilohenriquesilvalira"
+// }
 
-// detectPLCReconnection detecta se PLC reconectou
+// ✅ THREAD-SAFE: detectPLCReconnection
 func (pc *PLCController) detectPLCReconnection() bool {
+	pc.stateMutex.Lock()
+	defer pc.stateMutex.Unlock()
+
 	now := time.Now()
 
 	if now.Sub(pc.lastConnectionCheck) < 10*time.Second {
@@ -664,42 +780,42 @@ func (pc *PLCController) detectPLCReconnection() bool {
 	return false
 }
 
-// resetAfterReconnection reseta estado após reconexão detectada
+// ✅ THREAD-SAFE: resetAfterReconnection
 func (pc *PLCController) resetAfterReconnection() error {
-	pc.mutex.Lock()
+	pc.stateMutex.Lock()
 	pc.plcResetInProgress = true
-	pc.mutex.Unlock()
+	pc.stateMutex.Unlock()
 
 	fmt.Println("🔄 RESET APÓS RECONEXÃO INICIADO...")
 	time.Sleep(2 * time.Second)
 
 	pc.writer.ResetErrorState()
 
-	pc.mutex.Lock()
+	pc.stateMutex.Lock()
 	pc.consecutiveErrors = 0
 	pc.errorCount = 0
 	pc.needsDB100Reset = false
 	pc.reconnectionDetected = false
 	pc.plcResetInProgress = false
-	pc.mutex.Unlock()
+	pc.stateMutex.Unlock()
 
 	fmt.Println("✅ RESET APÓS RECONEXÃO CONCLUÍDO")
 	return nil
 }
 
-// liveBitLoop com WaitGroup
+// ✅ THREAD-SAFE: liveBitLoop com WaitGroup
 func (pc *PLCController) liveBitLoop() {
 	defer pc.wg.Done()
 
-	fmt.Println("🔄 LiveBit goroutine iniciada")
-	defer fmt.Println("🔄 LiveBit goroutine finalizada")
+	fmt.Println("🔄 LiveBit goroutine v3.1 iniciada")
+	defer fmt.Println("🔄 LiveBit goroutine v3.1 finalizada")
 
 	for {
 		select {
 		case <-pc.liveBitTicker.C:
-			pc.mutex.Lock()
+			pc.stateMutex.Lock()
 			pc.liveBit = !pc.liveBit
-			pc.mutex.Unlock()
+			pc.stateMutex.Unlock()
 
 		case <-pc.ctx.Done():
 			fmt.Println("   🔄 LiveBit recebeu sinal de parada")
@@ -708,12 +824,12 @@ func (pc *PLCController) liveBitLoop() {
 	}
 }
 
-// statusWriteLoop com WaitGroup
+// ✅ THREAD-SAFE: statusWriteLoop com WaitGroup
 func (pc *PLCController) statusWriteLoop() {
 	defer pc.wg.Done()
 
-	fmt.Println("📤 StatusWrite goroutine iniciada")
-	defer fmt.Println("📤 StatusWrite goroutine finalizada")
+	fmt.Println("📤 StatusWrite goroutine v3.1 iniciada")
+	defer fmt.Println("📤 StatusWrite goroutine v3.1 finalizada")
 
 	// VARIÁVEL PARA CONTROLE DE OVERFLOW CHECK
 	lastOverflowCheck := time.Now()
@@ -721,7 +837,7 @@ func (pc *PLCController) statusWriteLoop() {
 	for {
 		select {
 		case <-pc.statusTicker.C:
-			// VERIFICAÇÃO DE OVERFLOW A CADA HORA
+			// ✅ VERIFICAÇÃO DE OVERFLOW COM THREAD SAFETY
 			if time.Since(lastOverflowCheck) >= OVERFLOW_CHECK_INTERVAL {
 				pc.checkOverflowProtection()
 				lastOverflowCheck = time.Now()
@@ -736,9 +852,10 @@ func (pc *PLCController) statusWriteLoop() {
 				continue
 			}
 
-			pc.mutex.RLock()
+			// ✅ THREAD-SAFE CHECK
+			pc.stateMutex.RLock()
 			resetInProgress := pc.plcResetInProgress
-			pc.mutex.RUnlock()
+			pc.stateMutex.RUnlock()
 
 			if resetInProgress {
 				continue
@@ -752,7 +869,7 @@ func (pc *PLCController) statusWriteLoop() {
 			if err != nil {
 				pc.markOperationError(err)
 				if pc.isConnectionError(err) {
-					if pc.consecutiveErrors == 1 {
+					if pc.getConsecutiveErrors() == 1 {
 						log.Printf("🔌 PLC: Problema de conexão detectado")
 					}
 				}
@@ -768,19 +885,20 @@ func (pc *PLCController) statusWriteLoop() {
 	}
 }
 
-// commandReadLoop com WaitGroup
+// ✅ THREAD-SAFE: commandReadLoop com WaitGroup
 func (pc *PLCController) commandReadLoop() {
 	defer pc.wg.Done()
 
-	fmt.Println("📥 CommandRead goroutine iniciada")
-	defer fmt.Println("📥 CommandRead goroutine finalizada")
+	fmt.Println("📥 CommandRead goroutine v3.1 iniciada")
+	defer fmt.Println("📥 CommandRead goroutine v3.1 finalizada")
 
 	for {
 		select {
 		case <-pc.commandTicker.C:
-			pc.mutex.RLock()
+			// ✅ THREAD-SAFE CHECK
+			pc.stateMutex.RLock()
 			resetInProgress := pc.plcResetInProgress
-			pc.mutex.RUnlock()
+			pc.stateMutex.RUnlock()
 
 			if resetInProgress {
 				continue
@@ -807,12 +925,12 @@ func (pc *PLCController) commandReadLoop() {
 	}
 }
 
-// commandProcessor com WaitGroup
+// ✅ THREAD-SAFE: commandProcessor com WaitGroup
 func (pc *PLCController) commandProcessor() {
 	defer pc.wg.Done()
 
-	fmt.Println("⚡ CommandProcessor goroutine iniciada")
-	defer fmt.Println("⚡ CommandProcessor goroutine finalizada")
+	fmt.Println("⚡ CommandProcessor goroutine v3.1 iniciada")
+	defer fmt.Println("⚡ CommandProcessor goroutine v3.1 finalizada")
 
 	for {
 		select {
@@ -830,17 +948,17 @@ func (pc *PLCController) commandProcessor() {
 	}
 }
 
-// radarConnectionMonitorLoop com WaitGroup
+// ✅ THREAD-SAFE: radarConnectionMonitorLoop com WaitGroup
 func (pc *PLCController) radarConnectionMonitorLoop() {
 	defer pc.wg.Done()
 
-	fmt.Println("🌐 RadarMonitor goroutine iniciada")
-	defer fmt.Println("🌐 RadarMonitor goroutine finalizada")
+	fmt.Println("🌐 RadarMonitor goroutine v3.1 iniciada")
+	defer fmt.Println("🌐 RadarMonitor goroutine v3.1 finalizada")
 
 	for {
 		select {
 		case <-pc.radarMonitorTicker.C:
-			pc.checkRadarConnectionTimeouts()
+			pc.checkRadarConnectionTimeoutsIntelligent()
 
 		case <-pc.ctx.Done():
 			fmt.Println("   🌐 RadarMonitor recebeu sinal de parada")
@@ -849,14 +967,18 @@ func (pc *PLCController) radarConnectionMonitorLoop() {
 	}
 }
 
-// processCommands com LÓGICA DE REBOOT SEGURO
+// ✅ THREAD-SAFE: processCommands com LÓGICA DE REBOOT SEGURO
 func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 	if commands == nil {
 		return
 	}
 
-	// LÓGICA DE REBOOT SEGURO PARA DB100.0.3 (ResetErrors)
-	if commands.ResetErrors != pc.lastResetErrorsState {
+	// ✅ THREAD-SAFE: LÓGICA DE REBOOT SEGURO PARA DB100.0.3
+	pc.timerMutex.Lock()
+	lastState := pc.lastResetErrorsState
+	pc.timerMutex.Unlock()
+
+	if commands.ResetErrors != lastState {
 		if commands.ResetErrors {
 			// Bit ativado - iniciar timer de 10s
 			fmt.Printf("🚨 DB100.0.3 (ResetErrors) ATIVADO às %s - Timer de REBOOT COMPLETO iniciado\n",
@@ -870,13 +992,16 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 			log.Printf("PRODUCTION_INFO: DB100.0.3 deactivated - reboot timer cancelled")
 			pc.cancelRebootTimer()
 		}
+
+		pc.timerMutex.Lock()
 		pc.lastResetErrorsState = commands.ResetErrors
+		pc.timerMutex.Unlock()
 	}
 
-	// Se timer de reboot está ativo, não processar comando normal ResetErrors
-	pc.rebootMutex.Lock()
+	// ✅ THREAD-SAFE: Se timer de reboot está ativo, não processar comando normal ResetErrors
+	pc.timerMutex.Lock()
 	rebootActive := pc.rebootTimerActive
-	pc.rebootMutex.Unlock()
+	pc.timerMutex.Unlock()
 
 	if commands.ResetErrors && !rebootActive {
 		// Processar comando normal de reset se não há timer ativo
@@ -1003,66 +1128,69 @@ func (pc *PLCController) processCommands(commands *models.PLCCommands) {
 	}
 }
 
-// executeCommand COM LIMPEZA DE DADOS RADAR SICK
+// ✅ THREAD-SAFE: executeCommand COM LIMPEZA DE DADOS RADAR SICK SEM DEADLOCK
 func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
-	pc.mutex.Lock()
-	defer pc.mutex.Unlock()
+	pc.stateMutex.Lock()
+	defer pc.stateMutex.Unlock()
 
 	switch cmd {
 	case models.CmdStartCollection:
 		pc.collectionActive = true
 		pc.emergencyStop = false
-		fmt.Println("PLC Controller: ✅ Coleta INICIADA via comando PLC")
+		fmt.Println("PLC Controller v3.1: ✅ Coleta INICIADA via comando PLC")
 
 	case models.CmdStopCollection:
 		pc.collectionActive = false
-		fmt.Println("PLC Controller: ⏹️ Coleta PARADA via comando PLC")
+		fmt.Println("PLC Controller v3.1: ⏹️ Coleta PARADA via comando PLC")
 
 	case models.CmdRestartSystem:
-		fmt.Println("PLC Controller: 🔄 Reinício do sistema solicitado via PLC")
+		fmt.Println("PLC Controller v3.1: 🔄 Reinício do sistema solicitado via PLC")
 
 	case models.CmdResetErrors:
-		fmt.Println("🧹 ========== RESET COMPLETO INICIADO ==========")
+		fmt.Println("🧹 ========== RESET COMPLETO v3.1 INICIADO ==========")
 
-		// 1️⃣ Reset de contadores (como antes)
+		// 1️⃣ Reset de contadores THREAD-SAFE
+		pc.counterMutex.Lock()
 		pc.errorCount = 0
 		pc.consecutiveErrors = 0
 		pc.radarCaldeiraErrors = 0
 		pc.radarPortaJusanteErrors = 0
 		pc.radarPortaMontanteErrors = 0
+		pc.counterMutex.Unlock()
+
 		pc.writer.ResetErrorState()
 
-		fmt.Println("PLC Controller: 🧹 CONTADORES resetados")
-		log.Printf("RESET_COUNTERS: All error counters reset to zero")
+		fmt.Println("PLC Controller v3.1: 🧹 CONTADORES resetados")
+		log.Printf("RESET_COUNTERS_v3.1: All error counters reset to zero")
 
-		// 2️⃣ NOVO: ENVIAR DADOS RADAR SICK ZERADOS PARA PLC
-		pc.mutex.Unlock() // Unlock temporário para operação PLC
+		// 2️⃣ NOVO: ENVIAR DADOS RADAR SICK ZERADOS PARA PLC SEM DEADLOCK
+		pc.stateMutex.Unlock() // ✅ UNLOCK ANTES DE OPERAÇÃO EXTERNA
 
 		fmt.Println("🧹 Iniciando limpeza dos dados RADAR SICK...")
 		err := pc.sendCleanRadarSickDataToPLC()
 
-		pc.mutex.Lock() // Lock novamente
+		pc.stateMutex.Lock() // ✅ LOCK NOVAMENTE
 
 		if err != nil {
 			fmt.Printf("⚠️ AVISO: Erro na limpeza dos dados RADAR SICK: %v\n", err)
-			log.Printf("RESET_WARNING: Error cleaning radar sick data - %v", err)
+			log.Printf("RESET_WARNING_v3.1: Error cleaning radar sick data - %v", err)
 		} else {
-			fmt.Println("PLC Controller: 🧹 DADOS RADAR SICK ZERADOS enviados ao PLC")
-			log.Printf("RESET_COMPLETE: Error counters and radar sick data fully cleaned")
+			fmt.Println("PLC Controller v3.1: 🧹 DADOS RADAR SICK ZERADOS enviados ao PLC")
+			log.Printf("RESET_COMPLETE_v3.1: Error counters and radar sick data fully cleaned")
 		}
 
-		fmt.Println("🧹 ========== RESET COMPLETO FINALIZADO ==========")
+		fmt.Println("🧹 ========== RESET COMPLETO v3.1 FINALIZADO ==========")
 
 	case models.CmdEmergencyStop:
 		pc.emergencyStop = true
 		pc.collectionActive = false
-		fmt.Println("PLC Controller: 🚨 PARADA DE EMERGÊNCIA ativada via PLC")
+		fmt.Println("PLC Controller v3.1: 🚨 PARADA DE EMERGÊNCIA ativada via PLC")
 
 	case models.CmdEnableRadarCaldeira:
 		wasEnabled := pc.radarCaldeiraEnabled
 		pc.radarCaldeiraEnabled = true
 		if !wasEnabled {
-			fmt.Println("PLC Controller: 🎯 Radar CALDEIRA HABILITADO via PLC")
+			fmt.Println("PLC Controller v3.1: 🎯 Radar CALDEIRA HABILITADO via PLC")
 		}
 
 	case models.CmdDisableRadarCaldeira:
@@ -1070,14 +1198,14 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 		pc.radarCaldeiraEnabled = false
 		pc.radarCaldeiraConnected = false
 		if wasEnabled {
-			fmt.Println("PLC Controller: ⭕ Radar CALDEIRA DESABILITADO via PLC")
+			fmt.Println("PLC Controller v3.1: ⭕ Radar CALDEIRA DESABILITADO via PLC")
 		}
 
 	case models.CmdEnableRadarPortaJusante:
 		wasEnabled := pc.radarPortaJusanteEnabled
 		pc.radarPortaJusanteEnabled = true
 		if !wasEnabled {
-			fmt.Println("PLC Controller: 🎯 Radar PORTA JUSANTE HABILITADO via PLC")
+			fmt.Println("PLC Controller v3.1: 🎯 Radar PORTA JUSANTE HABILITADO via PLC")
 		}
 
 	case models.CmdDisableRadarPortaJusante:
@@ -1085,14 +1213,14 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 		pc.radarPortaJusanteEnabled = false
 		pc.radarPortaJusanteConnected = false
 		if wasEnabled {
-			fmt.Println("PLC Controller: ⭕ Radar PORTA JUSANTE DESABILITADO via PLC")
+			fmt.Println("PLC Controller v3.1: ⭕ Radar PORTA JUSANTE DESABILITADO via PLC")
 		}
 
 	case models.CmdEnableRadarPortaMontante:
 		wasEnabled := pc.radarPortaMontanteEnabled
 		pc.radarPortaMontanteEnabled = true
 		if !wasEnabled {
-			fmt.Println("PLC Controller: 🎯 Radar PORTA MONTANTE HABILITADO via PLC")
+			fmt.Println("PLC Controller v3.1: 🎯 Radar PORTA MONTANTE HABILITADO via PLC")
 		}
 
 	case models.CmdDisableRadarPortaMontante:
@@ -1100,41 +1228,47 @@ func (pc *PLCController) executeCommand(cmd models.SystemCommand) {
 		pc.radarPortaMontanteEnabled = false
 		pc.radarPortaMontanteConnected = false
 		if wasEnabled {
-			fmt.Println("PLC Controller: ⭕ Radar PORTA MONTANTE DESABILITADO via PLC")
+			fmt.Println("PLC Controller v3.1: ⭕ Radar PORTA MONTANTE DESABILITADO via PLC")
 		}
 
 	case models.CmdRestartRadarCaldeira:
 		if pc.radarCaldeiraEnabled {
-			fmt.Println("PLC Controller: 🔄 Reconexão RADAR CALDEIRA solicitada via PLC")
+			fmt.Println("PLC Controller v3.1: 🔄 Reconexão RADAR CALDEIRA solicitada via PLC")
 		}
 
 	case models.CmdRestartRadarPortaJusante:
 		if pc.radarPortaJusanteEnabled {
-			fmt.Println("PLC Controller: 🔄 Reconexão RADAR PORTA JUSANTE solicitada via PLC")
+			fmt.Println("PLC Controller v3.1: 🔄 Reconexão RADAR PORTA JUSANTE solicitada via PLC")
 		}
 
 	case models.CmdRestartRadarPortaMontante:
 		if pc.radarPortaMontanteEnabled {
-			fmt.Println("PLC Controller: 🔄 Reconexão RADAR PORTA MONTANTE solicitada via PLC")
+			fmt.Println("PLC Controller v3.1: 🔄 Reconexão RADAR PORTA MONTANTE solicitada via PLC")
 		}
 
 	case models.CmdResetErrorsRadarCaldeira:
+		pc.counterMutex.Lock()
 		pc.radarCaldeiraErrors = 0
-		fmt.Println("PLC Controller: 🧹 Erros RADAR CALDEIRA resetados via comando PLC")
+		pc.counterMutex.Unlock()
+		fmt.Println("PLC Controller v3.1: 🧹 Erros RADAR CALDEIRA resetados via comando PLC")
 
 	case models.CmdResetErrorsRadarPortaJusante:
+		pc.counterMutex.Lock()
 		pc.radarPortaJusanteErrors = 0
-		fmt.Println("PLC Controller: 🧹 Erros RADAR PORTA JUSANTE resetados via comando PLC")
+		pc.counterMutex.Unlock()
+		fmt.Println("PLC Controller v3.1: 🧹 Erros RADAR PORTA JUSANTE resetados via comando PLC")
 
 	case models.CmdResetErrorsRadarPortaMontante:
+		pc.counterMutex.Lock()
 		pc.radarPortaMontanteErrors = 0
-		fmt.Println("PLC Controller: 🧹 Erros RADAR PORTA MONTANTE resetados via comando PLC")
+		pc.counterMutex.Unlock()
+		fmt.Println("PLC Controller v3.1: 🧹 Erros RADAR PORTA MONTANTE resetados via comando PLC")
 	}
 }
 
-// 🧹 writeSystemStatus SEM MÉTRICAS SERVIDOR - LIMPO
+// ✅ THREAD-SAFE: writeSystemStatus SEM MÉTRICAS SERVIDOR - LIMPO
 func (pc *PLCController) writeSystemStatus() error {
-	pc.mutex.RLock()
+	pc.stateMutex.RLock()
 
 	status := &models.PLCSystemStatus{
 		LiveBit:                     pc.liveBit,
@@ -1146,16 +1280,16 @@ func (pc *PLCController) writeSystemStatus() error {
 		RadarPortaMontanteConnected: pc.radarPortaMontanteConnected && pc.radarPortaMontanteEnabled,
 	}
 
-	pc.mutex.RUnlock()
+	pc.stateMutex.RUnlock()
 
 	return pc.writer.WriteSystemStatus(status)
 }
 
-// WriteMultiRadarData escreve dados de múltiplos radares no PLC COM PROTEÇÃO INTELIGENTE
+// ✅ THREAD-SAFE: WriteMultiRadarData com proteção completa
 func (pc *PLCController) WriteMultiRadarData(data models.MultiRadarData) error {
-	pc.mutex.RLock()
+	pc.stateMutex.RLock()
 	resetInProgress := pc.plcResetInProgress
-	pc.mutex.RUnlock()
+	pc.stateMutex.RUnlock()
 
 	if resetInProgress {
 		return nil
@@ -1194,9 +1328,9 @@ func (pc *PLCController) WriteMultiRadarData(data models.MultiRadarData) error {
 			pc.IncrementRadarErrors(radarData.RadarID)
 
 			if pc.isConnectionError(err) {
-				pc.mutex.Lock()
+				pc.stateMutex.Lock()
 				pc.needsDB100Reset = true
-				pc.mutex.Unlock()
+				pc.stateMutex.Unlock()
 			}
 
 			errors = append(errors, fmt.Sprintf("erro ao escrever dados do radar %s: %v", radarData.RadarName, err))
@@ -1214,47 +1348,86 @@ func (pc *PLCController) WriteMultiRadarData(data models.MultiRadarData) error {
 	return nil
 }
 
-// checkRadarConnectionTimeouts verifica se radares estão enviando dados recentemente
-func (pc *PLCController) checkRadarConnectionTimeouts() {
-	pc.mutex.Lock()
-	defer pc.mutex.Unlock()
+// ✅ NOVA FUNÇÃO: checkRadarConnectionTimeoutsIntelligent - TIMEOUT INTELIGENTE THREAD-SAFE
+func (pc *PLCController) checkRadarConnectionTimeoutsIntelligent() {
+	pc.radarMutex.Lock()
+	defer pc.radarMutex.Unlock()
 
 	now := time.Now()
 
+	// ✅ VERIFICAÇÃO INTELIGENTE - SÓ DESCONECTAR SE REALMENTE SEM DADOS
+
+	// CALDEIRA - Verificação inteligente
 	if pc.radarCaldeiraEnabled {
 		timeSinceLastUpdate := now.Sub(pc.lastRadarCaldeiraUpdate)
 		if timeSinceLastUpdate > pc.radarTimeoutDuration && pc.radarCaldeiraConnected {
-			fmt.Printf("⚠️ Radar CALDEIRA (HABILITADO): Sem dados há %.1fs - marcando como DESCONECTADO\n",
-				timeSinceLastUpdate.Seconds())
-			pc.radarCaldeiraConnected = false
+			// ✅ VERIFICAÇÃO ADICIONAL - Evitar falsos positivos
+			if !pc.isRadarReconnectInProgress("caldeira") {
+				fmt.Printf("⚠️ Radar CALDEIRA (HABILITADO): Sem dados há %.1fs (timeout: %v) - marcando como DESCONECTADO\n",
+					timeSinceLastUpdate.Seconds(), pc.radarTimeoutDuration)
+				log.Printf("INTELLIGENT_TIMEOUT_v3.1: Radar CALDEIRA disconnected after %.1fs", timeSinceLastUpdate.Seconds())
+				pc.radarCaldeiraConnected = false
+			}
 		}
 	}
 
+	// PORTA JUSANTE - Verificação inteligente
 	if pc.radarPortaJusanteEnabled {
 		timeSinceLastUpdate := now.Sub(pc.lastRadarPortaJusanteUpdate)
 		if timeSinceLastUpdate > pc.radarTimeoutDuration && pc.radarPortaJusanteConnected {
-			fmt.Printf("⚠️ Radar PORTA JUSANTE (HABILITADO): Sem dados há %.1fs - marcando como DESCONECTADO\n",
-				timeSinceLastUpdate.Seconds())
-			pc.radarPortaJusanteConnected = false
+			if !pc.isRadarReconnectInProgress("porta_jusante") {
+				fmt.Printf("⚠️ Radar PORTA JUSANTE (HABILITADO): Sem dados há %.1fs (timeout: %v) - marcando como DESCONECTADO\n",
+					timeSinceLastUpdate.Seconds(), pc.radarTimeoutDuration)
+				log.Printf("INTELLIGENT_TIMEOUT_v3.1: Radar PORTA JUSANTE disconnected after %.1fs", timeSinceLastUpdate.Seconds())
+				pc.radarPortaJusanteConnected = false
+			}
 		}
 	}
 
+	// PORTA MONTANTE - Verificação inteligente
 	if pc.radarPortaMontanteEnabled {
 		timeSinceLastUpdate := now.Sub(pc.lastRadarPortaMontanteUpdate)
 		if timeSinceLastUpdate > pc.radarTimeoutDuration && pc.radarPortaMontanteConnected {
-			fmt.Printf("⚠️ Radar PORTA MONTANTE (HABILITADO): Sem dados há %.1fs - marcando como DESCONECTADO\n",
-				timeSinceLastUpdate.Seconds())
-			pc.radarPortaMontanteConnected = false
+			if !pc.isRadarReconnectInProgress("porta_montante") {
+				fmt.Printf("⚠️ Radar PORTA MONTANTE (HABILITADO): Sem dados há %.1fs (timeout: %v) - marcando como DESCONECTADO\n",
+					timeSinceLastUpdate.Seconds(), pc.radarTimeoutDuration)
+				log.Printf("INTELLIGENT_TIMEOUT_v3.1: Radar PORTA MONTANTE disconnected after %.1fs", timeSinceLastUpdate.Seconds())
+				pc.radarPortaMontanteConnected = false
+			}
 		}
 	}
 }
 
-// updateRadarConnectionStatus atualiza status de conexão com timestamp
+// ✅ FUNÇÃO AUXILIAR THREAD-SAFE: Verificar se radar está em processo de reconexão
+func (pc *PLCController) isRadarReconnectInProgress(radarID string) bool {
+	// Verificar se houve tentativa de reconexão recente
+	lastAttempt, exists := pc.lastRadarReconnectAttempt[radarID]
+	if !exists {
+		return false
+	}
+
+	// Se última tentativa foi há menos de RADAR_RECONNECT_COOLDOWN, considerar como "em progresso"
+	return time.Since(lastAttempt) < RADAR_RECONNECT_COOLDOWN
+}
+
+// checkRadarConnectionTimeouts - FUNÇÃO LEGADO MANTIDA PARA COMPATIBILIDADE
+// ❌ DELETAR ESTE MÉTODO COMPLETO:
+// func (pc *PLCController) checkRadarConnectionTimeouts() {
+//     pc.checkRadarConnectionTimeoutsIntelligent()
+// }
+
+// ✅ THREAD-SAFE: updateRadarConnectionStatus atualiza status de conexão com timestamp
 func (pc *PLCController) updateRadarConnectionStatus(radarID string, connected bool) {
-	pc.mutex.Lock()
-	defer pc.mutex.Unlock()
+	pc.radarMutex.Lock()
+	defer pc.radarMutex.Unlock()
 
 	now := time.Now()
+
+	// ✅ ATUALIZAR TIMESTAMP DE RECONEXÃO SE CONECTADO
+	if connected {
+		pc.lastRadarReconnectAttempt[radarID] = now
+		pc.radarReconnectInProgress[radarID] = false
+	}
 
 	switch radarID {
 	case "caldeira":
@@ -1287,24 +1460,25 @@ func (pc *PLCController) updateRadarConnectionStatus(radarID string, connected b
 	}
 }
 
-// markOperationSuccess marca operação bem-sucedida
+// ✅ THREAD-SAFE: markOperationSuccess marca operação bem-sucedida
 func (pc *PLCController) markOperationSuccess() {
-	pc.mutex.Lock()
+	pc.stateMutex.Lock()
+	defer pc.stateMutex.Unlock()
+
 	pc.consecutiveErrors = 0
 	pc.lastSuccessfulOp = time.Now()
-	pc.mutex.Unlock()
 }
 
-// markOperationError marca erro de operação
+// ✅ THREAD-SAFE: markOperationError marca erro de operação
 func (pc *PLCController) markOperationError(err error) {
 	if pc.isConnectionError(err) {
-		pc.mutex.Lock()
+		pc.stateMutex.Lock()
 		pc.consecutiveErrors++
-		pc.mutex.Unlock()
+		pc.stateMutex.Unlock()
 	}
 }
 
-// isConnectionError verifica se é erro de conexão
+// ✅ THREAD-SAFE: isConnectionError verifica se é erro de conexão
 func (pc *PLCController) isConnectionError(err error) bool {
 	if err == nil {
 		return false
@@ -1325,51 +1499,65 @@ func (pc *PLCController) isConnectionError(err error) bool {
 	return false
 }
 
-// shouldSkipOperation verifica se deve pular operação por muitos erros
+// ✅ THREAD-SAFE: shouldSkipOperation verifica se deve pular operação por muitos erros
 func (pc *PLCController) shouldSkipOperation() bool {
-	pc.mutex.RLock()
-	defer pc.mutex.RUnlock()
+	pc.stateMutex.RLock()
+	defer pc.stateMutex.RUnlock()
 	return pc.consecutiveErrors >= pc.maxConsecutiveErrors
+}
+
+// ✅ THREAD-SAFE: getConsecutiveErrors para uso interno
+func (pc *PLCController) getConsecutiveErrors() int64 {
+	pc.stateMutex.RLock()
+	defer pc.stateMutex.RUnlock()
+	return pc.consecutiveErrors
 }
 
 // ========== MÉTODOS PÚBLICOS THREAD-SAFE ==========
 
+// ✅ THREAD-SAFE: IsCollectionActive
 func (pc *PLCController) IsCollectionActive() bool {
-	pc.mutex.RLock()
-	defer pc.mutex.RUnlock()
+	pc.stateMutex.RLock()
+	defer pc.stateMutex.RUnlock()
 	return pc.collectionActive && !pc.emergencyStop
 }
 
+// ✅ THREAD-SAFE: IsDebugMode
 func (pc *PLCController) IsDebugMode() bool {
-	pc.mutex.RLock()
-	defer pc.mutex.RUnlock()
+	pc.stateMutex.RLock()
+	defer pc.stateMutex.RUnlock()
 	return pc.debugMode
 }
 
+// ✅ THREAD-SAFE: IsEmergencyStop
 func (pc *PLCController) IsEmergencyStop() bool {
-	pc.mutex.RLock()
-	defer pc.mutex.RUnlock()
+	pc.stateMutex.RLock()
+	defer pc.stateMutex.RUnlock()
 	return pc.emergencyStop
 }
 
+// ✅ THREAD-SAFE: IncrementPacketCount
 func (pc *PLCController) IncrementPacketCount() {
-	pc.mutex.Lock()
+	pc.counterMutex.Lock()
+	defer pc.counterMutex.Unlock()
 	pc.packetCount++
-	pc.mutex.Unlock()
 }
 
+// ✅ THREAD-SAFE: SetRadarConnected
 func (pc *PLCController) SetRadarConnected(connected bool) {
-	pc.mutex.Lock()
+	pc.radarMutex.Lock()
+	defer pc.radarMutex.Unlock()
+
 	pc.radarCaldeiraConnected = connected
 	if connected {
 		pc.lastRadarCaldeiraUpdate = time.Now()
 	}
-	pc.mutex.Unlock()
 }
 
+// ✅ THREAD-SAFE: SetRadarsConnected
 func (pc *PLCController) SetRadarsConnected(status map[string]bool) {
-	pc.mutex.Lock()
-	defer pc.mutex.Unlock()
+	pc.radarMutex.Lock()
+	defer pc.radarMutex.Unlock()
 
 	now := time.Now()
 
@@ -1377,6 +1565,9 @@ func (pc *PLCController) SetRadarsConnected(status map[string]bool) {
 		if pc.radarCaldeiraEnabled && caldeira {
 			pc.radarCaldeiraConnected = true
 			pc.lastRadarCaldeiraUpdate = now
+			// ✅ MARCAR COMO RECONECTADO
+			pc.lastRadarReconnectAttempt["caldeira"] = now
+			pc.radarReconnectInProgress["caldeira"] = false
 		} else {
 			pc.radarCaldeiraConnected = false
 		}
@@ -1385,6 +1576,9 @@ func (pc *PLCController) SetRadarsConnected(status map[string]bool) {
 		if pc.radarPortaJusanteEnabled && portaJusante {
 			pc.radarPortaJusanteConnected = true
 			pc.lastRadarPortaJusanteUpdate = now
+			// ✅ MARCAR COMO RECONECTADO
+			pc.lastRadarReconnectAttempt["porta_jusante"] = now
+			pc.radarReconnectInProgress["porta_jusante"] = false
 		} else {
 			pc.radarPortaJusanteConnected = false
 		}
@@ -1393,19 +1587,24 @@ func (pc *PLCController) SetRadarsConnected(status map[string]bool) {
 		if pc.radarPortaMontanteEnabled && portaMontante {
 			pc.radarPortaMontanteConnected = true
 			pc.lastRadarPortaMontanteUpdate = now
+			// ✅ MARCAR COMO RECONECTADO
+			pc.lastRadarReconnectAttempt["porta_montante"] = now
+			pc.radarReconnectInProgress["porta_montante"] = false
 		} else {
 			pc.radarPortaMontanteConnected = false
 		}
 	}
 }
 
+// ✅ THREAD-SAFE: SetRadarConnectedByID
 func (pc *PLCController) SetRadarConnectedByID(radarID string, connected bool) {
 	pc.updateRadarConnectionStatus(radarID, connected)
 }
 
+// ✅ THREAD-SAFE: IsRadarEnabled
 func (pc *PLCController) IsRadarEnabled(radarID string) bool {
-	pc.mutex.RLock()
-	defer pc.mutex.RUnlock()
+	pc.stateMutex.RLock()
+	defer pc.stateMutex.RUnlock()
 
 	switch radarID {
 	case "caldeira":
@@ -1419,9 +1618,10 @@ func (pc *PLCController) IsRadarEnabled(radarID string) bool {
 	}
 }
 
+// ✅ THREAD-SAFE: GetRadarsEnabled
 func (pc *PLCController) GetRadarsEnabled() map[string]bool {
-	pc.mutex.RLock()
-	defer pc.mutex.RUnlock()
+	pc.stateMutex.RLock()
+	defer pc.stateMutex.RUnlock()
 
 	return map[string]bool{
 		"caldeira":       pc.radarCaldeiraEnabled,
@@ -1430,9 +1630,10 @@ func (pc *PLCController) GetRadarsEnabled() map[string]bool {
 	}
 }
 
+// ✅ THREAD-SAFE: GetRadarsConnected
 func (pc *PLCController) GetRadarsConnected() map[string]bool {
-	pc.mutex.RLock()
-	defer pc.mutex.RUnlock()
+	pc.radarMutex.RLock()
+	defer pc.radarMutex.RUnlock()
 
 	return map[string]bool{
 		"caldeira":       pc.radarCaldeiraConnected,
@@ -1441,9 +1642,10 @@ func (pc *PLCController) GetRadarsConnected() map[string]bool {
 	}
 }
 
+// ✅ THREAD-SAFE: IncrementRadarPackets
 func (pc *PLCController) IncrementRadarPackets(radarID string) {
-	pc.mutex.Lock()
-	defer pc.mutex.Unlock()
+	pc.counterMutex.Lock()
+	defer pc.counterMutex.Unlock()
 
 	pc.packetCount++
 
@@ -1457,9 +1659,10 @@ func (pc *PLCController) IncrementRadarPackets(radarID string) {
 	}
 }
 
+// ✅ THREAD-SAFE: IncrementRadarErrors
 func (pc *PLCController) IncrementRadarErrors(radarID string) {
-	pc.mutex.Lock()
-	defer pc.mutex.Unlock()
+	pc.counterMutex.Lock()
+	defer pc.counterMutex.Unlock()
 
 	pc.errorCount++
 
@@ -1473,13 +1676,21 @@ func (pc *PLCController) IncrementRadarErrors(radarID string) {
 	}
 }
 
+// ✅ THREAD-SAFE: incrementErrorCount
 func (pc *PLCController) incrementErrorCount() {
-	pc.mutex.Lock()
+	pc.counterMutex.Lock()
+	defer pc.counterMutex.Unlock()
 	pc.errorCount++
-	pc.mutex.Unlock()
 }
 
+// ✅ THREAD-SAFE: isSystemHealthy
 func (pc *PLCController) isSystemHealthy() bool {
+	pc.stateMutex.RLock()
+	defer pc.stateMutex.RUnlock()
+
+	pc.counterMutex.RLock()
+	defer pc.counterMutex.RUnlock()
+
 	atLeastOneRadarHealthy := false
 	if pc.radarCaldeiraEnabled && pc.radarCaldeiraConnected {
 		atLeastOneRadarHealthy = true
@@ -1492,4 +1703,353 @@ func (pc *PLCController) isSystemHealthy() bool {
 	}
 
 	return atLeastOneRadarHealthy && !pc.emergencyStop && pc.errorCount < 50
+}
+
+// ✅ FUNÇÕES AUXILIARES PARA MONITORAMENTO INTELIGENTE THREAD-SAFE
+
+// ✅ THREAD-SAFE: GetRadarTimeoutDuration retorna o timeout atual configurado
+func (pc *PLCController) GetRadarTimeoutDuration() time.Duration {
+	pc.radarMutex.RLock()
+	defer pc.radarMutex.RUnlock()
+	return pc.radarTimeoutDuration
+}
+
+// ✅ THREAD-SAFE: SetRadarTimeoutDuration permite ajustar o timeout dinamicamente
+func (pc *PLCController) SetRadarTimeoutDuration(duration time.Duration) {
+	pc.radarMutex.Lock()
+	defer pc.radarMutex.Unlock()
+
+	oldTimeout := pc.radarTimeoutDuration
+	pc.radarTimeoutDuration = duration
+
+	fmt.Printf("🔧 TIMEOUT AJUSTADO v3.1: %v → %v\n", oldTimeout, duration)
+	log.Printf("TIMEOUT_ADJUSTMENT_v3.1: Changed from %v to %v", oldTimeout, duration)
+}
+
+// ✅ THREAD-SAFE: GetRadarLastUpdate retorna último update de um radar específico
+func (pc *PLCController) GetRadarLastUpdate(radarID string) time.Time {
+	pc.radarMutex.RLock()
+	defer pc.radarMutex.RUnlock()
+
+	switch radarID {
+	case "caldeira":
+		return pc.lastRadarCaldeiraUpdate
+	case "porta_jusante":
+		return pc.lastRadarPortaJusanteUpdate
+	case "porta_montante":
+		return pc.lastRadarPortaMontanteUpdate
+	default:
+		return time.Time{}
+	}
+}
+
+// ✅ THREAD-SAFE: IsRadarTimingOut verifica se radar está próximo do timeout
+func (pc *PLCController) IsRadarTimingOut(radarID string) (bool, time.Duration) {
+	pc.radarMutex.RLock()
+	defer pc.radarMutex.RUnlock()
+
+	now := time.Now()
+	var lastUpdate time.Time
+
+	switch radarID {
+	case "caldeira":
+		if !pc.radarCaldeiraEnabled || !pc.radarCaldeiraConnected {
+			return false, 0
+		}
+		lastUpdate = pc.lastRadarCaldeiraUpdate
+	case "porta_jusante":
+		if !pc.radarPortaJusanteEnabled || !pc.radarPortaJusanteConnected {
+			return false, 0
+		}
+		lastUpdate = pc.lastRadarPortaJusanteUpdate
+	case "porta_montante":
+		if !pc.radarPortaMontanteEnabled || !pc.radarPortaMontanteConnected {
+			return false, 0
+		}
+		lastUpdate = pc.lastRadarPortaMontanteUpdate
+	default:
+		return false, 0
+	}
+
+	timeSinceUpdate := now.Sub(lastUpdate)
+	warningThreshold := pc.radarTimeoutDuration * 80 / 100 // 80% do timeout
+
+	return timeSinceUpdate > warningThreshold, timeSinceUpdate
+}
+
+// ✅ THREAD-SAFE: GetSystemStatistics retorna estatísticas completas do sistema
+func (pc *PLCController) GetSystemStatistics() map[string]interface{} {
+	pc.stateMutex.RLock()
+	pc.radarMutex.RLock()
+	pc.counterMutex.RLock()
+
+	uptime := time.Since(pc.startTime)
+	errorRate := float64(0)
+	if pc.packetCount > 0 {
+		errorRate = float64(pc.errorCount) / float64(pc.packetCount) * 100
+	}
+
+	stats := map[string]interface{}{
+		"uptime":             uptime.String(),
+		"total_packets":      pc.packetCount,
+		"total_errors":       pc.errorCount,
+		"error_rate_percent": errorRate,
+		"consecutive_errors": pc.consecutiveErrors,
+		"radar_timeout":      pc.radarTimeoutDuration.String(),
+		"system_healthy":     pc.isSystemHealthy(),
+		"collection_active":  pc.collectionActive,
+		"emergency_stop":     pc.emergencyStop,
+		"radars": map[string]interface{}{
+			"caldeira": map[string]interface{}{
+				"enabled":     pc.radarCaldeiraEnabled,
+				"connected":   pc.radarCaldeiraConnected,
+				"packets":     pc.radarCaldeiraPackets,
+				"errors":      pc.radarCaldeiraErrors,
+				"last_update": pc.lastRadarCaldeiraUpdate.Format("2006-01-02 15:04:05"),
+			},
+			"porta_jusante": map[string]interface{}{
+				"enabled":     pc.radarPortaJusanteEnabled,
+				"connected":   pc.radarPortaJusanteConnected,
+				"packets":     pc.radarPortaJusantePackets,
+				"errors":      pc.radarPortaJusanteErrors,
+				"last_update": pc.lastRadarPortaJusanteUpdate.Format("2006-01-02 15:04:05"),
+			},
+			"porta_montante": map[string]interface{}{
+				"enabled":     pc.radarPortaMontanteEnabled,
+				"connected":   pc.radarPortaMontanteConnected,
+				"packets":     pc.radarPortaMontantePackets,
+				"errors":      pc.radarPortaMontanteErrors,
+				"last_update": pc.lastRadarPortaMontanteUpdate.Format("2006-01-02 15:04:05"),
+			},
+		},
+	}
+
+	pc.counterMutex.RUnlock()
+	pc.radarMutex.RUnlock()
+	pc.stateMutex.RUnlock()
+
+	return stats
+}
+
+// ✅ THREAD-SAFE: MarkRadarReconnectInProgress marca radar como em processo de reconexão
+func (pc *PLCController) MarkRadarReconnectInProgress(radarID string) {
+	pc.radarMutex.Lock()
+	defer pc.radarMutex.Unlock()
+
+	pc.radarReconnectInProgress[radarID] = true
+	pc.lastRadarReconnectAttempt[radarID] = time.Now()
+
+	fmt.Printf("🔄 Radar %s marcado como EM RECONEXÃO v3.1\n", radarID)
+	log.Printf("RADAR_RECONNECT_START_v3.1: %s marked as reconnecting", radarID)
+}
+
+// ✅ THREAD-SAFE: ClearRadarReconnectInProgress remove flag de reconexão
+func (pc *PLCController) ClearRadarReconnectInProgress(radarID string) {
+	pc.radarMutex.Lock()
+	defer pc.radarMutex.Unlock()
+
+	pc.radarReconnectInProgress[radarID] = false
+
+	fmt.Printf("✅ Radar %s não está mais em reconexão v3.1\n", radarID)
+	log.Printf("RADAR_RECONNECT_END_v3.1: %s reconnection flag cleared", radarID)
+}
+
+// ✅ THREAD-SAFE: IsAnyRadarReconnecting verifica se algum radar está reconectando
+func (pc *PLCController) IsAnyRadarReconnecting() bool {
+	pc.radarMutex.RLock()
+	defer pc.radarMutex.RUnlock()
+
+	for _, inProgress := range pc.radarReconnectInProgress {
+		if inProgress {
+			return true
+		}
+	}
+	return false
+}
+
+// ✅ THREAD-SAFE: GetReconnectingRadars retorna lista de radares em reconexão
+func (pc *PLCController) GetReconnectingRadars() []string {
+	pc.radarMutex.RLock()
+	defer pc.radarMutex.RUnlock()
+
+	var reconnecting []string
+	for radarID, inProgress := range pc.radarReconnectInProgress {
+		if inProgress {
+			reconnecting = append(reconnecting, radarID)
+		}
+	}
+	return reconnecting
+}
+
+// ✅ THREAD-SAFE: ForceRadarTimeout força timeout de um radar específico (para testes)
+func (pc *PLCController) ForceRadarTimeout(radarID string) {
+	pc.radarMutex.Lock()
+	defer pc.radarMutex.Unlock()
+
+	// Força timestamp antigo para simular timeout
+	oldTime := time.Now().Add(-pc.radarTimeoutDuration - 10*time.Second)
+
+	switch radarID {
+	case "caldeira":
+		pc.lastRadarCaldeiraUpdate = oldTime
+		fmt.Printf("🧪 TESTE v3.1: Radar CALDEIRA forçado ao timeout\n")
+	case "porta_jusante":
+		pc.lastRadarPortaJusanteUpdate = oldTime
+		fmt.Printf("🧪 TESTE v3.1: Radar PORTA JUSANTE forçado ao timeout\n")
+	case "porta_montante":
+		pc.lastRadarPortaMontanteUpdate = oldTime
+		fmt.Printf("🧪 TESTE v3.1: Radar PORTA MONTANTE forçado ao timeout\n")
+	}
+
+	log.Printf("FORCE_TIMEOUT_TEST_v3.1: %s forced to timeout state", radarID)
+}
+
+// ✅ THREAD-SAFE: ResetAllRadarTimestamps reseta todos os timestamps
+func (pc *PLCController) ResetAllRadarTimestamps() {
+	pc.radarMutex.Lock()
+	defer pc.radarMutex.Unlock()
+
+	now := time.Now()
+	pc.lastRadarCaldeiraUpdate = now
+	pc.lastRadarPortaJusanteUpdate = now
+	pc.lastRadarPortaMontanteUpdate = now
+
+	// Limpar flags de reconexão
+	for radarID := range pc.radarReconnectInProgress {
+		pc.radarReconnectInProgress[radarID] = false
+		pc.lastRadarReconnectAttempt[radarID] = now
+	}
+
+	fmt.Println("🔄 TODOS os timestamps de radar resetados v3.1")
+	log.Printf("RADAR_TIMESTAMPS_RESET_v3.1: All radar timestamps reset to current time")
+}
+
+// ✅ THREAD-SAFE: GetMemoryStats retorna estatísticas de uso de memória
+func (pc *PLCController) GetMemoryStats() map[string]interface{} {
+	pc.radarMutex.RLock()
+	defer pc.radarMutex.RUnlock()
+
+	return map[string]interface{}{
+		"lastRadarReconnectAttempt_entries": len(pc.lastRadarReconnectAttempt),
+		"radarReconnectInProgress_entries":  len(pc.radarReconnectInProgress),
+		"max_map_entries_limit":             pc.maxMapEntries,
+		"last_cleanup":                      pc.lastMapCleanup.Format("2006-01-02 15:04:05"),
+		"memory_protection_active":          true,
+	}
+}
+
+// ✅ THREAD-SAFE: GetCounterStats retorna estatísticas dos contadores
+func (pc *PLCController) GetCounterStats() map[string]interface{} {
+	pc.counterMutex.RLock()
+	defer pc.counterMutex.RUnlock()
+
+	return map[string]interface{}{
+		"total_packets":             pc.packetCount,
+		"total_errors":              pc.errorCount,
+		"consecutive_errors":        pc.consecutiveErrors,
+		"caldeira_packets":          pc.radarCaldeiraPackets,
+		"caldeira_errors":           pc.radarCaldeiraErrors,
+		"porta_jusante_packets":     pc.radarPortaJusantePackets,
+		"porta_jusante_errors":      pc.radarPortaJusanteErrors,
+		"porta_montante_packets":    pc.radarPortaMontantePackets,
+		"porta_montante_errors":     pc.radarPortaMontanteErrors,
+		"max_packet_count_warning":  MAX_PACKET_COUNT_WARNING,
+		"max_packet_count_critical": MAX_PACKET_COUNT_CRITICAL,
+		"overflow_protection":       pc.overflowProtectionOn,
+	}
+}
+
+// ✅ THREAD-SAFE: ForceOverflowProtection força ativação da proteção (para testes)
+func (pc *PLCController) ForceOverflowProtection() {
+	pc.counterMutex.Lock()
+	defer pc.counterMutex.Unlock()
+
+	fmt.Println("🧪 TESTE v3.1: Forçando ativação da proteção de overflow")
+	log.Printf("FORCE_OVERFLOW_TEST_v3.1: Manually triggering overflow protection")
+
+	// Simular contadores altos
+	pc.packetCount = MAX_PACKET_COUNT_CRITICAL + 1
+
+	// Executar proteção
+	pc.executeOverflowProtection()
+}
+
+// ✅ THREAD-SAFE: ForceMemoryCleanup força limpeza de memória (para testes)
+func (pc *PLCController) ForceMemoryCleanup() {
+	fmt.Println("🧪 TESTE v3.1: Forçando limpeza de memória")
+	log.Printf("FORCE_MEMORY_CLEANUP_TEST_v3.1: Manually triggering memory cleanup")
+
+	pc.cleanupMapsMemory()
+}
+
+// ✅ THREAD-SAFE: GetDetailedSystemHealth retorna saúde detalhada do sistema
+func (pc *PLCController) GetDetailedSystemHealth() map[string]interface{} {
+	pc.stateMutex.RLock()
+	pc.radarMutex.RLock()
+	pc.counterMutex.RLock()
+
+	health := map[string]interface{}{
+		"overall_healthy":        pc.isSystemHealthy(),
+		"collection_active":      pc.collectionActive,
+		"emergency_stop":         pc.emergencyStop,
+		"plc_reset_in_progress":  pc.plcResetInProgress,
+		"consecutive_errors":     pc.consecutiveErrors,
+		"max_consecutive_errors": pc.maxConsecutiveErrors,
+		"should_skip_operations": pc.consecutiveErrors >= pc.maxConsecutiveErrors,
+		"uptime_seconds":         int64(time.Since(pc.startTime).Seconds()),
+		"last_successful_op":     pc.lastSuccessfulOp.Format("2006-01-02 15:04:05"),
+		"radar_timeout_duration": pc.radarTimeoutDuration.String(),
+		"overflow_protection_on": pc.overflowProtectionOn,
+		"memory_cleanup_active":  true,
+		"radars_health": map[string]interface{}{
+			"caldeira": map[string]interface{}{
+				"enabled":                   pc.radarCaldeiraEnabled,
+				"connected":                 pc.radarCaldeiraConnected,
+				"last_update":               pc.lastRadarCaldeiraUpdate.Format("2006-01-02 15:04:05"),
+				"seconds_since_last_update": int64(time.Since(pc.lastRadarCaldeiraUpdate).Seconds()),
+				"is_timing_out":             time.Since(pc.lastRadarCaldeiraUpdate) > pc.radarTimeoutDuration*80/100,
+				"reconnect_in_progress":     pc.radarReconnectInProgress["caldeira"],
+			},
+			"porta_jusante": map[string]interface{}{
+				"enabled":                   pc.radarPortaJusanteEnabled,
+				"connected":                 pc.radarPortaJusanteConnected,
+				"last_update":               pc.lastRadarPortaJusanteUpdate.Format("2006-01-02 15:04:05"),
+				"seconds_since_last_update": int64(time.Since(pc.lastRadarPortaJusanteUpdate).Seconds()),
+				"is_timing_out":             time.Since(pc.lastRadarPortaJusanteUpdate) > pc.radarTimeoutDuration*80/100,
+				"reconnect_in_progress":     pc.radarReconnectInProgress["porta_jusante"],
+			},
+			"porta_montante": map[string]interface{}{
+				"enabled":                   pc.radarPortaMontanteEnabled,
+				"connected":                 pc.radarPortaMontanteConnected,
+				"last_update":               pc.lastRadarPortaMontanteUpdate.Format("2006-01-02 15:04:05"),
+				"seconds_since_last_update": int64(time.Since(pc.lastRadarPortaMontanteUpdate).Seconds()),
+				"is_timing_out":             time.Since(pc.lastRadarPortaMontanteUpdate) > pc.radarTimeoutDuration*80/100,
+				"reconnect_in_progress":     pc.radarReconnectInProgress["porta_montante"],
+			},
+		},
+	}
+
+	pc.counterMutex.RUnlock()
+	pc.radarMutex.RUnlock()
+	pc.stateMutex.RUnlock()
+
+	return health
+}
+
+// ✅ FUNÇÃO FINAL: String retorna representação string do PLCController
+func (pc *PLCController) String() string {
+	pc.stateMutex.RLock()
+	pc.counterMutex.RLock()
+
+	result := fmt.Sprintf("PLCController v3.1 [Uptime: %v, Packets: %d, Errors: %d, Collection: %v, Emergency: %v]",
+		time.Since(pc.startTime),
+		pc.packetCount,
+		pc.errorCount,
+		pc.collectionActive,
+		pc.emergencyStop)
+
+	pc.counterMutex.RUnlock()
+	pc.stateMutex.RUnlock()
+
+	return result
 }

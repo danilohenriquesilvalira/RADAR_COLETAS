@@ -19,3 +19,23 @@
 [ERROR] 2025/09/02 14:40:57.435998 ========== FALHAS DO SISTEMA ==========
 [ERROR] 2025/09/02 14:41:14.413532 ========== FALHAS DO SISTEMA ==========
 [ERROR] 2025/09/02 15:35:28.451072 RADAR_CONNECTION_LOST: Radar Caldeira - verificar rede
+[ERROR] 2025/09/02 15:39:21.581633 RADAR_CONNECTION_LOST: Radar Caldeira - verificar rede
+[ERROR] 2025/09/02 15:41:17.744090 RADAR_CONNECTION_LOST: Radar Caldeira - verificar rede
+[ERROR] 2025/09/02 15:54:32.381688 ========== FALHAS DO SISTEMA v3.0 ==========
+[ERROR] 2025/09/02 15:54:44.450137 RADAR_INITIAL_CONNECTION_FAILED: Radar Porta Montante - falha ao conectar após 2 tentativas
+[ERROR] 2025/09/02 15:54:53.090244 RADAR_INITIAL_CONNECTION_FAILED: Radar Porta Jusante - falha ao conectar após 2 tentativas
+[ERROR] 2025/09/02 15:54:58.987853 RADAR_CONNECTION_LOST: Radar Porta Jusante - verificar rede
+[ERROR] 2025/09/02 15:54:58.987915 RADAR_CONNECTION_LOST: Radar Porta Montante - verificar rede
+[ERROR] 2025/09/02 16:13:19.675114 ========== FALHAS DO SISTEMA v3.0 ==========
+[ERROR] 2025/09/02 16:13:28.455557 RADAR_CONNECTION_LOST: Radar Porta Jusante - verificar rede
+[ERROR] 2025/09/02 16:13:28.455644 RADAR_CONNECTION_LOST: Radar Porta Montante - verificar rede
+[ERROR] 2025/09/02 16:13:28.455695 RADAR_CONNECTION_LOST: Radar Caldeira - verificar rede
+[ERROR] 2025/09/02 16:28:09.200846 ========== FALHAS DO SISTEMA v3.1 ==========
+[ERROR] 2025/09/02 16:28:21.602091 RADAR_INITIAL_CONNECTION_FAILED: Radar Porta Jusante - falha ao conectar após 2 tentativas
+[ERROR] 2025/09/02 16:28:29.986271 RADAR_INITIAL_CONNECTION_FAILED: Radar Porta Montante - falha ao conectar após 2 tentativas
+[ERROR] 2025/09/02 16:28:35.875739 RADAR_CONNECTION_LOST: Radar Porta Jusante - verificar rede
+[ERROR] 2025/09/02 16:28:35.875804 RADAR_CONNECTION_LOST: Radar Porta Montante - verificar rede
+[ERROR] 2025/09/02 16:54:11.611820 ========== FALHAS DO SISTEMA v3.1 ==========
+[ERROR] 2025/09/02 16:54:20.417307 RADAR_CONNECTION_LOST: Radar Caldeira - verificar rede
+[ERROR] 2025/09/02 16:54:20.417401 RADAR_CONNECTION_LOST: Radar Porta Jusante - verificar rede
+[ERROR] 2025/09/02 16:54:20.417436 RADAR_CONNECTION_LOST: Radar Porta Montante - verificar rede
