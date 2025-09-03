@@ -1,0 +1,6 @@
+[DEBUG] 2025/09/03 15:17:31 logger.go:476: DEBUG: component=RADAR_MANAGER message=Radar configured: Radar Caldeira
+[DEBUG] 2025/09/03 15:17:31 logger.go:476: DEBUG: component=RADAR_MANAGER message=Radar configured: Radar Porta Jusante
+[DEBUG] 2025/09/03 15:17:31 logger.go:476: DEBUG: component=RADAR_MANAGER message=Radar configured: Radar Porta Montante
+[DEBUG] 2025/09/03 15:17:31 logger.go:476: DEBUG: component=PLC message=Initial connection successful
+[DEBUG] 2025/09/03 15:17:31 logger.go:476: DEBUG: component=PLC_CONTROLLER message=Starting PLC controller goroutine
+[DEBUG] 2025/09/03 15:27:58 logger.go:476: DEBUG: component=LOG_MONITOR message=stats: map[config:{BasePath:backend/logs MaxFileSize:52428800 RetentionDays:7 RotationInterval:24h0m0s EnableCompression:true EnableDebug:true CleanupInterval:30m0s} debug_file_count:1 error_file_size:337 errors_file_count:1 info_file_size:480389 last_rotation:2025-09-03 15:17:31.07167793 +0000 UTC m=+0.000113644 warnings_file_count:1]

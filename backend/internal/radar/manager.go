@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"backend/internal/logger"
 	"backend/pkg/models"
 )
 
@@ -22,6 +23,9 @@ type RadarManager struct {
 	radars  map[string]*SICKRadar
 	configs map[string]RadarConfig
 	mutex   sync.RWMutex
+
+	// ADICIONAR LOGGER SIMPLES
+	systemLogger *logger.SystemLogger
 
 	// ✅ CONTROLE INDIVIDUAL POR RADAR - THREAD-SAFE
 	lastReconnectAttempt map[string]time.Time
@@ -46,6 +50,11 @@ func NewRadarManager() *RadarManager {
 	go rm.cleanupWorker()
 
 	return rm
+}
+
+// MÉTODO SIMPLES PARA DEFINIR LOGGER
+func (rm *RadarManager) SetSystemLogger(logger *logger.SystemLogger) {
+	rm.systemLogger = logger
 }
 
 // ✅ CORREÇÃO MEMORY LEAK: Worker de limpeza automática
@@ -95,7 +104,11 @@ func (rm *RadarManager) AddRadar(config RadarConfig) error {
 	defer rm.mutex.Unlock()
 
 	if _, exists := rm.radars[config.ID]; exists {
-		return fmt.Errorf("radar com ID %s já existe", config.ID)
+		err := fmt.Errorf("radar com ID %s já existe", config.ID)
+		if rm.systemLogger != nil {
+			rm.systemLogger.LogCriticalError("RADAR_MANAGER", "ADD_RADAR_DUPLICATE", err)
+		}
+		return err
 	}
 
 	radar := NewSICKRadar(config.IP, config.Port)
@@ -105,37 +118,38 @@ func (rm *RadarManager) AddRadar(config RadarConfig) error {
 	rm.radarMutexes[config.ID] = &sync.Mutex{}
 
 	fmt.Printf("✅ Radar %s (%s) adicionado - IP: %s:%d\n", config.Name, config.ID, config.IP, config.Port)
+
 	return nil
 }
 
 // ✅ GET RADAR SEGURO - THREAD-SAFE
-func (rm *RadarManager) getRadarSafe(id string) *SICKRadar {
+func (rm *RadarManager) getRadarSafe(radarID string) *SICKRadar {
 	rm.mutex.RLock()
 	defer rm.mutex.RUnlock()
-	return rm.radars[id]
+	return rm.radars[radarID]
 }
 
 // ✅ GET CONFIG SEGURO - THREAD-SAFE
-func (rm *RadarManager) getConfigSafe(id string) (RadarConfig, bool) {
+func (rm *RadarManager) getConfigSafe(radarID string) (RadarConfig, bool) {
 	rm.mutex.RLock()
 	defer rm.mutex.RUnlock()
-	config, exists := rm.configs[id]
+	config, exists := rm.configs[radarID]
 	return config, exists
 }
 
 // ✅ GET RADAR MUTEX SEGURO
-func (rm *RadarManager) getRadarMutex(id string) *sync.Mutex {
+func (rm *RadarManager) getRadarMutex(radarID string) *sync.Mutex {
 	rm.mutex.RLock()
 	defer rm.mutex.RUnlock()
-	return rm.radarMutexes[id]
+	return rm.radarMutexes[radarID]
 }
 
 // GetRadar retorna um radar específico - THREAD-SAFE
-func (rm *RadarManager) GetRadar(id string) (*SICKRadar, bool) {
+func (rm *RadarManager) GetRadar(radarID string) (*SICKRadar, bool) {
 	rm.mutex.RLock()
 	defer rm.mutex.RUnlock()
 
-	radar, exists := rm.radars[id]
+	radar, exists := rm.radars[radarID]
 	return radar, exists
 }
 
@@ -145,15 +159,15 @@ func (rm *RadarManager) GetAllRadars() map[string]*SICKRadar {
 	defer rm.mutex.RUnlock()
 
 	result := make(map[string]*SICKRadar)
-	for id, radar := range rm.radars {
-		result[id] = radar
+	for radarID, radar := range rm.radars {
+		result[radarID] = radar
 	}
 	return result
 }
 
 // GetRadarConfig retorna a configuração de um radar - THREAD-SAFE
-func (rm *RadarManager) GetRadarConfig(id string) (RadarConfig, bool) {
-	return rm.getConfigSafe(id)
+func (rm *RadarManager) GetRadarConfig(radarID string) (RadarConfig, bool) {
+	return rm.getConfigSafe(radarID)
 }
 
 // ✅ VERIFICAR SE PODE TENTAR RECONEXÃO - THREAD-SAFE
@@ -172,29 +186,34 @@ func (rm *RadarManager) updateLastAttempt(radarID string) {
 	rm.mutex.Unlock()
 }
 
-// ConnectAll tenta conectar todos os radares - THREAD-SAFE
+// ✅ CONNECT ALL - LOG APENAS FALHAS
 func (rm *RadarManager) ConnectAll() map[string]error {
 	rm.mutex.RLock()
 	configs := make(map[string]RadarConfig)
-	for id, config := range rm.configs {
-		configs[id] = config
+	for radarID, config := range rm.configs {
+		configs[radarID] = config
 	}
 	radars := make(map[string]*SICKRadar)
-	for id, radar := range rm.radars {
-		radars[id] = radar
+	for radarID, radar := range rm.radars {
+		radars[radarID] = radar
 	}
 	rm.mutex.RUnlock()
 
 	errors := make(map[string]error)
 
-	for id, radar := range radars {
-		config := configs[id]
+	for radarID, radar := range radars {
+		config := configs[radarID]
 		fmt.Printf("🔄 Conectando ao radar %s (%s)...\n", config.Name, config.ID)
 
 		err := rm.connectRadarWithRetry(radar, 3)
 		if err != nil {
-			errors[id] = err
+			errors[radarID] = err
 			fmt.Printf("❌ Falha ao conectar radar %s: %v\n", config.Name, err)
+
+			if rm.systemLogger != nil {
+				rm.systemLogger.LogCriticalError("RADAR_MANAGER", "RADAR_CONNECTION_FAILED",
+					fmt.Errorf("radar %s (%s): %v", config.Name, config.ID, err))
+			}
 		} else {
 			fmt.Printf("✅ Radar %s conectado com sucesso\n", config.Name)
 		}
@@ -234,16 +253,21 @@ func (rm *RadarManager) DisconnectAll() {
 	rm.mutex.RLock()
 	radars := make(map[string]*SICKRadar)
 	configs := make(map[string]RadarConfig)
-	for id, radar := range rm.radars {
-		radars[id] = radar
-		configs[id] = rm.configs[id]
+	for radarID, radar := range rm.radars {
+		radars[radarID] = radar
+		configs[radarID] = rm.configs[radarID]
 	}
 	rm.mutex.RUnlock()
 
-	for id, radar := range radars {
+	for radarID, radar := range radars {
+		config := configs[radarID]
 		if radar.IsConnected() {
 			radar.Disconnect()
-			fmt.Printf("✅ Radar %s desconectado\n", configs[id].Name)
+			fmt.Printf("✅ Radar %s desconectado\n", config.Name)
+
+			if rm.systemLogger != nil {
+				rm.systemLogger.LogRadarDisconnected(config.ID, config.Name)
+			}
 		}
 	}
 }
@@ -254,8 +278,8 @@ func (rm *RadarManager) GetConnectionStatus() map[string]bool {
 	defer rm.mutex.RUnlock()
 
 	status := make(map[string]bool)
-	for id, radar := range rm.radars {
-		status[id] = radar.IsConnected()
+	for radarID, radar := range rm.radars {
+		status[radarID] = radar.IsConnected()
 	}
 	return status
 }
@@ -342,6 +366,10 @@ func (rm *RadarManager) CollectEnabledRadarsDataAsyncWithContext(ctx context.Con
 				defer func() {
 					if r := recover(); r != nil {
 						fmt.Printf("🔥 PANIC no radar %s: %v\n", id, r)
+						if rm.systemLogger != nil {
+							rm.systemLogger.LogCriticalError("RADAR_MANAGER", "RADAR_PANIC",
+								fmt.Errorf("panic in radar %s: %v", id, r))
+						}
 					}
 				}()
 
@@ -362,6 +390,10 @@ func (rm *RadarManager) CollectEnabledRadarsDataAsyncWithContext(ctx context.Con
 					data, err := radar.ReadData()
 					if err != nil {
 						fmt.Printf("⚠️ Erro ao ler dados do radar %s: %v\n", config.Name, err)
+						if rm.systemLogger != nil {
+							rm.systemLogger.LogCriticalError("RADAR_MANAGER", "RADAR_READ_ERROR",
+								fmt.Errorf("radar %s read failed: %v", config.Name, err))
+						}
 						radarData.Connected = false
 						radarData.Positions = []float64{}
 						radarData.Velocities = []float64{}
@@ -403,6 +435,10 @@ func (rm *RadarManager) CollectEnabledRadarsDataAsyncWithContext(ctx context.Con
 				}
 			case <-radarCtx.Done():
 				fmt.Printf("⚠️ Timeout na coleta do radar %s\n", config.Name)
+				if rm.systemLogger != nil {
+					rm.systemLogger.LogCriticalError("RADAR_MANAGER", "RADAR_COLLECTION_TIMEOUT",
+						fmt.Errorf("radar %s collection timeout", config.Name))
+				}
 			}
 		}(radarID)
 	}
@@ -559,11 +595,19 @@ func (rm *RadarManager) CheckAndReconnectEnabledAsyncWithContext(ctx context.Con
 			case err := <-done:
 				if err != nil {
 					fmt.Printf("❌ Falha na reconexão assíncrona do radar %s: %v\n", config.Name, err)
+					if rm.systemLogger != nil {
+						rm.systemLogger.LogCriticalError("RADAR_MANAGER", "ASYNC_RECONNECTION_FAILED",
+							fmt.Errorf("radar %s async reconnection failed: %v", config.Name, err))
+					}
 				} else {
 					fmt.Printf("🎉 Radar %s reconectado com sucesso via async!\n", config.Name)
 				}
 			case <-reconCtx.Done():
 				fmt.Printf("⚠️ Timeout na reconexão do radar %s\n", config.Name)
+				if rm.systemLogger != nil {
+					rm.systemLogger.LogCriticalError("RADAR_MANAGER", "ASYNC_RECONNECTION_TIMEOUT",
+						fmt.Errorf("radar %s async reconnection timeout", config.Name))
+				}
 			}
 		}(radarID)
 	}
@@ -611,19 +655,19 @@ func (rm *RadarManager) CollectAllData() models.MultiRadarData {
 	rm.mutex.RLock()
 	radars := make(map[string]*SICKRadar)
 	configs := make(map[string]RadarConfig)
-	for id, radar := range rm.radars {
-		radars[id] = radar
-		configs[id] = rm.configs[id]
+	for radarID, radar := range rm.radars {
+		radars[radarID] = radar
+		configs[radarID] = rm.configs[radarID]
 	}
 	rm.mutex.RUnlock()
 
 	var radarDataList []models.RadarData
 	timestamp := time.Now().UnixNano() / int64(time.Millisecond)
 
-	for id, radar := range radars {
-		config := configs[id]
+	for radarID, radar := range radars {
+		config := configs[radarID]
 		radarData := models.RadarData{
-			RadarID:   id,
+			RadarID:   radarID,
 			RadarName: config.Name,
 			Connected: radar.IsConnected(),
 			Timestamp: timestamp,
