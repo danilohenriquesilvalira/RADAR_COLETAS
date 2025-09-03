@@ -39,3 +39,40 @@
 [ERROR] 2025/09/02 16:54:20.417307 RADAR_CONNECTION_LOST: Radar Caldeira - verificar rede
 [ERROR] 2025/09/02 16:54:20.417401 RADAR_CONNECTION_LOST: Radar Porta Jusante - verificar rede
 [ERROR] 2025/09/02 16:54:20.417436 RADAR_CONNECTION_LOST: Radar Porta Montante - verificar rede
+[ERROR] 2025/09/02 18:47:52.353631 ========== FALHAS DO SISTEMA v3.1 ==========
+[ERROR] 2025/09/02 18:47:55.618393 PLC_INITIAL_CONNECTION_FAILED: erro ao conectar ao PLC: dial tcp 192.168.1.7:102: connect: no route to host
+[ERROR] 2025/09/02 18:47:55.618984 RADAR_CONNECTION_LOST: Radar Caldeira - verificar rede
+[ERROR] 2025/09/02 18:47:55.619044 RADAR_CONNECTION_LOST: Radar Porta Jusante - verificar rede
+[ERROR] 2025/09/02 18:47:55.619089 RADAR_CONNECTION_LOST: Radar Porta Montante - verificar rede
+[ERROR] 2025/09/02 18:47:59.074310 PLC_CONNECTION_FAILED: Tentativa 1 - erro ao conectar ao PLC: dial tcp 192.168.1.7:102: connect: no route to host
+[ERROR] 2025/09/02 18:48:23.010299 RADAR_INITIAL_FAIL: porta_jusante - falha ao conectar após 3 tentativas
+[ERROR] 2025/09/02 18:48:23.010366 RADAR_INITIAL_FAIL: porta_montante - falha ao conectar após 3 tentativas
+[ERROR] 2025/09/02 18:48:47.978001 ========== FALHAS DO SISTEMA v3.1 ==========
+[ERROR] 2025/09/02 18:48:51.362840 RADAR_CONNECTION_LOST: Radar Porta Jusante - verificar rede
+[ERROR] 2025/09/02 18:48:51.362931 RADAR_CONNECTION_LOST: Radar Porta Montante - verificar rede
+[ERROR] 2025/09/02 18:48:51.362970 RADAR_CONNECTION_LOST: Radar Caldeira - verificar rede
+[ERROR] 2025/09/02 18:49:15.554298 RADAR_INITIAL_FAIL: porta_jusante - falha ao conectar após 3 tentativas
+[ERROR] 2025/09/02 18:49:15.554383 RADAR_INITIAL_FAIL: porta_montante - falha ao conectar após 3 tentativas
+[ERROR] 2025/09/02 18:50:34.063581 PLC_WRITE_ERROR: erro ao escrever dados dos radares: erro ao escrever dados Porta Jusante: erro ao escrever Velocity[1]: Connection to address 192.168.1.33:102 is null
+[ERROR] 2025/09/02 18:50:35.232731 ========== FALHAS DO SISTEMA v3.1 ==========
+[ERROR] 2025/09/02 18:50:47.586315 RADAR_INITIAL_CONNECTION_FAILED: Radar Porta Jusante - falha ao conectar após 2 tentativas
+[ERROR] 2025/09/02 18:50:55.970259 RADAR_INITIAL_CONNECTION_FAILED: Radar Porta Montante - falha ao conectar após 2 tentativas
+[ERROR] 2025/09/02 18:51:01.108715 RADAR_CONNECTION_LOST: Radar Porta Jusante - verificar rede
+[ERROR] 2025/09/02 18:51:01.108763 RADAR_CONNECTION_LOST: Radar Porta Montante - verificar rede
+[ERROR] 2025/09/02 19:22:14.153728 ========== FALHAS DO SISTEMA v3.1 ==========
+[ERROR] 2025/09/02 19:22:26.530229 RADAR_INITIAL_CONNECTION_FAILED: Radar Porta Jusante - falha ao conectar após 2 tentativas
+[ERROR] 2025/09/02 19:22:34.914299 RADAR_INITIAL_CONNECTION_FAILED: Radar Porta Montante - falha ao conectar após 2 tentativas
+[ERROR] 2025/09/02 19:22:40.028188 RADAR_CONNECTION_LOST: Radar Porta Montante - verificar rede
+[ERROR] 2025/09/02 19:22:40.028256 RADAR_CONNECTION_LOST: Radar Porta Jusante - verificar rede
+[ERROR] 2025/09/02 20:24:48.224558 ========== FALHAS DO SISTEMA v3.1 ==========
+[ERROR] 2025/09/02 20:24:57.035781 RADAR_CONNECTION_LOST: Radar Porta Jusante - verificar rede
+[ERROR] 2025/09/02 20:24:57.035840 RADAR_CONNECTION_LOST: Radar Porta Montante - verificar rede
+[ERROR] 2025/09/02 20:24:57.035907 RADAR_CONNECTION_LOST: Radar Caldeira - verificar rede
+[ERROR] 2025/09/02 20:31:52.661432 ========== FALHAS DO SISTEMA v3.1 ==========
+[ERROR] 2025/09/02 20:32:05.026324 RADAR_INITIAL_CONNECTION_FAILED: Radar Porta Jusante - falha ao conectar após 2 tentativas
+[ERROR] 2025/09/02 20:32:13.410253 RADAR_INITIAL_CONNECTION_FAILED: Radar Porta Montante - falha ao conectar após 2 tentativas
+[ERROR] 2025/09/02 20:32:18.514110 RADAR_CONNECTION_LOST: Radar Porta Jusante - verificar rede
+[ERROR] 2025/09/02 20:32:18.514156 RADAR_CONNECTION_LOST: Radar Porta Montante - verificar rede
+[ERROR] 2025/09/02 21:05:24.022901 ========== FALHAS DO SISTEMA v3.1 ==========
+[ERROR] 2025/09/02 21:11:52.908847 ========== FALHAS DO SISTEMA v3.1 ==========
+[ERROR] 2025/09/02 21:18:37.248146 ========== FALHAS DO SISTEMA v3.2 ==========

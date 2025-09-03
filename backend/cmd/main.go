@@ -36,17 +36,17 @@ var (
 	networkLogFile  *os.File
 	criticalLogFile *os.File
 
-	// ✅ CORREÇÃO 1: Estados anteriores COM PROTEÇÃO THREAD-SAFE
+	// Estados anteriores COM PROTEÇÃO THREAD-SAFE
 	lastRadarStates map[string]bool
 	lastPLCState    bool
-	stateMutex      sync.RWMutex // NOVO: Proteção contra race conditions
+	stateMutex      sync.RWMutex
 
-	// ✅ CORREÇÃO 2: Context global para controle de goroutines
+	// Context global para controle de goroutines
 	globalCtx    context.Context
 	globalCancel context.CancelFunc
 	mainWg       sync.WaitGroup
 
-	// ✅ CORREÇÃO 3: Canal para shutdown gracioso
+	// Canal para shutdown gracioso
 	shutdownChan chan struct{}
 )
 
@@ -56,54 +56,11 @@ const (
 	MAX_LOG_SIZE  = 10 // 10MB por arquivo (rotacionar se passar)
 )
 
-// ✅ Estrutura para métricas do sistema - COM PROTEÇÃO THREAD-SAFE
+// ✅ MÉTRICAS ESSENCIAIS - SÓ UPTIME E STATUS
 type SystemMetrics struct {
-	mutex              sync.RWMutex // NOVO: Proteção thread-safe
-	StartTime          time.Time
-	PLCConnections     int64
-	PLCDisconnections  int64
-	RadarReconnections map[string]int64
-	TotalPackets       int64
-	TotalErrors        int64
-	NetworkErrors      int64
-	LastUpdate         time.Time
-}
-
-// ✅ MÉTODOS THREAD-SAFE PARA METRICS
-func (m *SystemMetrics) IncrementPLCConnections() {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.PLCConnections++
-}
-
-func (m *SystemMetrics) IncrementPLCDisconnections() {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.PLCDisconnections++
-}
-
-func (m *SystemMetrics) IncrementTotalPackets() {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.TotalPackets++
-}
-
-func (m *SystemMetrics) IncrementNetworkErrors() {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.NetworkErrors++
-}
-
-func (m *SystemMetrics) IncrementTotalErrors() {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.TotalErrors++
-}
-
-func (m *SystemMetrics) GetStats() (int64, int64, int64, int64, int64) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return m.PLCConnections, m.PLCDisconnections, m.TotalPackets, m.NetworkErrors, m.TotalErrors
+	mutex      sync.RWMutex
+	StartTime  time.Time
+	LastUpdate time.Time
 }
 
 func (m *SystemMetrics) UpdateLastUpdate() {
@@ -112,10 +69,16 @@ func (m *SystemMetrics) UpdateLastUpdate() {
 	m.LastUpdate = time.Now()
 }
 
+func (m *SystemMetrics) GetStartTime() time.Time {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.StartTime
+}
+
 var metrics *SystemMetrics
 
 func main() {
-	// ✅ CORREÇÃO 4: Context para controle global
+	// Context para controle global
 	globalCtx, globalCancel = context.WithCancel(context.Background())
 	shutdownChan = make(chan struct{})
 
@@ -140,11 +103,11 @@ func main() {
 	// APLICAR LOG ROTATION ANTES DE INICIALIZAR
 	cleanupOldLogs()
 
-	// Inicializar logs usando SUA estrutura de pastas
+	// Inicializar logs
 	initLogsInYourStructure()
 	defer closeAllLogs()
 
-	// ✅ Iniciar worker de log rotation com context
+	// Iniciar worker de log rotation com context
 	mainWg.Add(1)
 	go logRotationWorker()
 
@@ -153,10 +116,10 @@ func main() {
 	printSystemHeader()
 
 	// LOG INICIAL APENAS
-	systemLogger.Println("========== SISTEMA RADAR SICK v3.1 THREAD-SAFE INICIADO ==========")
-	systemLogger.Printf("Usuário: %s | Data: %s | Versão: v3.1.0",
+	systemLogger.Println("========== SISTEMA RADAR SICK v3.2 THREAD-SAFE INICIADO ==========")
+	systemLogger.Printf("Usuário: %s | Data: %s | Versão: v3.2.0",
 		getCurrentUser(), time.Now().Format("2006-01-02 15:04:05"))
-	systemLogger.Printf("CORREÇÕES: Race conditions ✅ Memory leaks ✅ Deadlocks ✅")
+	systemLogger.Printf("OTIMIZAÇÕES: Métricas lixo removidas ✅ Thread-safe ✅ Memory leak prevention ✅")
 
 	// Criar gerenciador de radares
 	radarManager := radar.NewRadarManager()
@@ -169,7 +132,7 @@ func main() {
 	lastPLCAttempt := time.Time{}
 	consecutivePLCErrors := 0
 
-	// ✅ FUNÇÃO DE RECONEXÃO PLC OTIMIZADA COM CONTEXT
+	// FUNÇÃO DE RECONEXÃO PLC OTIMIZADA COM CONTEXT
 	tryReconnectPLC := func() bool {
 		select {
 		case <-globalCtx.Done():
@@ -197,7 +160,6 @@ func main() {
 		}
 		if plcSiemens != nil && plcSiemens.IsConnected() {
 			plcSiemens.Disconnect()
-			metrics.IncrementPLCDisconnections()
 		}
 
 		// Nova conexão
@@ -219,10 +181,9 @@ func main() {
 				}
 			}
 
-			metrics.IncrementNetworkErrors()
 			plcConnected = false
 
-			// ✅ THREAD-SAFE UPDATE
+			// THREAD-SAFE UPDATE
 			stateMutex.Lock()
 			lastPLCState = false
 			stateMutex.Unlock()
@@ -236,10 +197,10 @@ func main() {
 			return false
 		}
 
-		// ✅ PLC CONTROLLER v3.1 COM CONTEXT
+		// PLC CONTROLLER v3.2 COM CONTEXT
 		plcController = plc.NewPLCController(plcSiemens.Client)
 
-		// ✅ GOROUTINE COM WAITGROUP E CONTEXT
+		// GOROUTINE COM WAITGROUP E CONTEXT
 		mainWg.Add(1)
 		go func() {
 			defer mainWg.Done()
@@ -252,7 +213,7 @@ func main() {
 				}
 			}()
 
-			// ✅ PASSAR CONTEXT PARA PLC CONTROLLER
+			// PASSAR CONTEXT PARA PLC CONTROLLER
 			plcController.StartWithContext(globalCtx)
 		}()
 
@@ -260,9 +221,8 @@ func main() {
 
 		consecutivePLCErrors = 0
 		plcConnected = true
-		metrics.IncrementPLCConnections()
 
-		// ✅ THREAD-SAFE UPDATE
+		// THREAD-SAFE UPDATE
 		stateMutex.Lock()
 		wasLastPLCState := lastPLCState
 		lastPLCState = true
@@ -271,7 +231,7 @@ func main() {
 		// LOG SÓ QUANDO RECONECTA APÓS FALHA
 		if !wasLastPLCState {
 			plcLogger.Printf("PLC_RECONNECTED: Conectado após %d tentativas", consecutivePLCErrors)
-			systemLogger.Printf("PLC_RECOVERY: Sistema PLC v3.1 restaurado")
+			systemLogger.Printf("PLC_RECOVERY: Sistema PLC v3.2 restaurado")
 		}
 
 		return true
@@ -284,14 +244,14 @@ func main() {
 	enabledRadars := getInitialRadarStates(plcConnected, plcController)
 	connectEnabledRadars(radarManager, enabledRadars)
 
-	systemLogger.Println("SYSTEM_READY: Loop principal v3.1 iniciado - THREAD-SAFE")
+	systemLogger.Println("SYSTEM_READY: Loop principal v3.2 iniciado - THREAD-SAFE")
 
-	// ✅ LOOP PRINCIPAL v3.1 - COMPLETAMENTE THREAD-SAFE
+	// LOOP PRINCIPAL v3.2 - COMPLETAMENTE THREAD-SAFE
 	lastReconnectCheck := time.Now()
-	lastMetricsUpdate := time.Now()
 	lastRadarMonitor := time.Now()
+	lastStatusUpdate := time.Now()
 
-	// ✅ Ticker com context
+	// Ticker com context
 	mainTicker := time.NewTicker(200 * time.Millisecond)
 	defer mainTicker.Stop()
 
@@ -327,13 +287,13 @@ func main() {
 					continue
 				}
 
-				// ✅ RECONEXÃO ASSÍNCRONA v3.1 - COM CONTEXT E WAITGROUP
+				// RECONEXÃO ASSÍNCRONA v3.2 - COM CONTEXT E WAITGROUP
 				if time.Since(lastReconnectCheck) >= 15*time.Second {
 					mainWg.Add(1)
 					go func(radars map[string]bool) {
 						defer mainWg.Done()
 
-						// ✅ Context com timeout para evitar goroutine leak
+						// Context com timeout para evitar goroutine leak
 						ctx, cancel := context.WithTimeout(globalCtx, 30*time.Second)
 						defer cancel()
 
@@ -342,7 +302,7 @@ func main() {
 					lastReconnectCheck = time.Now()
 				}
 
-				// ✅ MONITORAMENTO INTELIGENTE DE TIMEOUT COM CONTEXT
+				// MONITORAMENTO INTELIGENTE DE TIMEOUT COM CONTEXT
 				if time.Since(lastRadarMonitor) >= 10*time.Second {
 					mainWg.Add(1)
 					go func(controller *plc.PLCController) {
@@ -382,12 +342,10 @@ func main() {
 				continue
 			}
 
-			// ✅ COLETA ASSÍNCRONA v3.1 - COM CONTEXT
+			// COLETA ASSÍNCRONA v3.2 - COM CONTEXT
 			ctx, cancel := context.WithTimeout(globalCtx, 500*time.Millisecond)
 			multiRadarData := radarManager.CollectEnabledRadarsDataAsyncWithContext(ctx, currentEnabledRadars)
 			cancel()
-
-			metrics.IncrementTotalPackets()
 
 			// PLC Update
 			if plcConnected && plcController != nil {
@@ -400,32 +358,29 @@ func main() {
 						errorLogger.Printf("PLC_COMMUNICATION_ERROR: %v", err)
 						networkLogger.Printf("CONNECTION_INTERRUPTED: Durante operação PLC")
 						plcConnected = false
-						metrics.IncrementPLCDisconnections()
-						metrics.IncrementNetworkErrors()
 					} else {
 						// LOG ERROS DE ESCRITA
 						errorLogger.Printf("PLC_DB_WRITE_ERROR: Falha ao escrever DB100 - %v", err)
-						metrics.IncrementTotalErrors()
 					}
 				}
 				plcController.SetRadarsConnected(connectionStatus)
 			}
 
 			// LOG INTELIGENTE DE RADARES - SÓ MUDANÇAS DE ESTADO
-			if time.Since(lastMetricsUpdate) >= 5*time.Second {
+			if time.Since(lastStatusUpdate) >= 5*time.Second {
 				displaySystemStatusV3(plcConnected, currentEnabledRadars, radarManager, plcController)
 
-				// ✅ THREAD-SAFE LOG
+				// THREAD-SAFE LOG
 				logRadarStateChangesThreadSafe(radarManager, currentEnabledRadars)
 
 				flushAllLogs()
-				lastMetricsUpdate = time.Now()
+				lastStatusUpdate = time.Now()
 			}
 		}
 	}
 }
 
-// ✅ NOVA FUNÇÃO: gracefulShutdown - SHUTDOWN LIMPO
+// NOVA FUNÇÃO: gracefulShutdown - SHUTDOWN LIMPO
 func gracefulShutdown() {
 	fmt.Println("\n🛑 Iniciando shutdown gracioso...")
 
@@ -457,11 +412,11 @@ func gracefulShutdown() {
 	closeAllLogs()
 }
 
-// ✅ FUNÇÃO THREAD-SAFE: logRadarStateChangesThreadSafe
+// FUNÇÃO THREAD-SAFE: logRadarStateChangesThreadSafe
 func logRadarStateChangesThreadSafe(radarManager *radar.RadarManager, currentEnabledRadars map[string]bool) {
 	connectionStatus := radarManager.GetConnectionStatus()
 
-	// ✅ PROTEÇÃO THREAD-SAFE
+	// PROTEÇÃO THREAD-SAFE
 	stateMutex.Lock()
 	defer stateMutex.Unlock()
 
@@ -487,7 +442,7 @@ func logRadarStateChangesThreadSafe(radarManager *radar.RadarManager, currentEna
 						errorLogger.Printf("RADAR_CONNECTION_LOST: %s - verificar rede", config.Name)
 						networkLogger.Printf("RADAR_UNREACHABLE: %s %s:2111", config.Name, config.IP)
 
-						// ✅ VERSÃO OTIMIZADA COM SWITCH:
+						// VERSÃO OTIMIZADA COM SWITCH:
 						switch config.IP {
 						case "192.168.1.84":
 							// lógica para caldeira
@@ -508,7 +463,7 @@ func logRadarStateChangesThreadSafe(radarManager *radar.RadarManager, currentEna
 	}
 }
 
-// 🔄 LOG ROTATION WORKER - COM CONTEXT
+// LOG ROTATION WORKER - COM CONTEXT
 func logRotationWorker() {
 	defer mainWg.Done()
 
@@ -536,7 +491,7 @@ func logRotationWorker() {
 	}
 }
 
-// ✅ NOVA FUNÇÃO: displaySystemStatusV3 - COM TIMEOUT INTELIGENTE
+// NOVA FUNÇÃO: displaySystemStatusV3 - COM TIMEOUT INTELIGENTE
 func displaySystemStatusV3(plcConnected bool, enabledRadars map[string]bool, radarManager *radar.RadarManager, plcController *plc.PLCController) {
 	fmt.Print("\033[13H\033[J")
 
@@ -549,7 +504,7 @@ func displaySystemStatusV3(plcConnected bool, enabledRadars map[string]bool, rad
 	connectedCount := 0
 	enabledCount := 0
 
-	fmt.Printf("🎛️  PLC Siemens v3.1 THREAD-SAFE: %s\n", plcStatus)
+	fmt.Printf("🎛️  PLC Siemens v3.2 THREAD-SAFE: %s\n", plcStatus)
 	fmt.Println("┌─────────────────────────────────────────────────────────────┐")
 
 	radarConfigs := []struct{ id, name string }{
@@ -576,7 +531,7 @@ func displaySystemStatusV3(plcConnected bool, enabledRadars map[string]bool, rad
 			status = "⚫ DESABILITADO"
 		} else if isConnected {
 			status = "🟢 CONECTADO   "
-			// ✅ MOSTRAR TEMPO SEM DADOS
+			// MOSTRAR TEMPO SEM DADOS
 			if plcController != nil {
 				lastUpdate := plcController.GetRadarLastUpdate(config.id)
 				if !lastUpdate.IsZero() {
@@ -591,7 +546,7 @@ func displaySystemStatusV3(plcConnected bool, enabledRadars map[string]bool, rad
 				}
 			}
 		} else {
-			// ✅ VERIFICAR SE ESTÁ EM RECONEXÃO
+			// VERIFICAR SE ESTÁ EM RECONEXÃO
 			if plcController != nil && plcController.IsAnyRadarReconnecting() {
 				reconnecting := plcController.GetReconnectingRadars()
 				for _, reconId := range reconnecting {
@@ -609,7 +564,7 @@ func displaySystemStatusV3(plcConnected bool, enabledRadars map[string]bool, rad
 	fmt.Println("└─────────────────────────────────────────────────────────────┘")
 	fmt.Printf("📊 Resumo: %d/%d habilitados | %d conectados", enabledCount, 3, connectedCount)
 
-	// ✅ MOSTRAR TIMEOUT ATUAL
+	// MOSTRAR TIMEOUT ATUAL
 	if plcController != nil {
 		timeout := plcController.GetRadarTimeoutDuration()
 		fmt.Printf(" | Timeout: %v\n", timeout)
@@ -617,50 +572,49 @@ func displaySystemStatusV3(plcConnected bool, enabledRadars map[string]bool, rad
 		fmt.Printf("\n")
 	}
 
-	uptime := time.Since(metrics.StartTime)
+	// ✅ SÓ UPTIME E MEMÓRIA - SEM MÉTRICAS LIXO
+	uptime := time.Since(metrics.GetStartTime())
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	memMB := float64(m.Alloc) / (1024 * 1024)
 
-	// ✅ THREAD-SAFE METRICS ACCESS
-	plcConn, plcDisconn, totalPackets, networkErr, totalErrors := metrics.GetStats()
-
 	fmt.Println()
-	fmt.Println("📈 MÉTRICAS v3.1 THREAD-SAFE:")
+	fmt.Println("📈 STATUS v3.2 - SEM MÉTRICAS LIXO:")
 	fmt.Printf("   ⏱️  Uptime: %s\n", formatDuration(uptime))
-	fmt.Printf("   🔌 PLC: %d conexões (%d desconexões)\n", plcConn, plcDisconn)
-	fmt.Printf("   📦 Pacotes: %d\n", totalPackets)
-	fmt.Printf("   ❌ Erros: %d (Rede: %d)\n", totalErrors, networkErr)
 	fmt.Printf("   💾 Memória: %.1fMB\n", memMB)
 
-	// ✅ ESTATÍSTICAS DETALHADAS DO PLC
+	// ESTATÍSTICAS ESSENCIAIS DO PLC
 	if plcController != nil {
 		stats := plcController.GetSystemStatistics()
+		fmt.Printf("   🎛️  Sistema: %v | Coleta: %v | Emergência: %v\n",
+			stats["system_healthy"],
+			stats["collection_active"],
+			stats["emergency_stop"])
+
 		if radarsStats, ok := stats["radars"].(map[string]interface{}); ok {
 			fmt.Println()
-			fmt.Println("📡 DETALHES DOS RADARES:")
+			fmt.Println("📡 STATUS DOS RADARES:")
 			for radarID, radarInfo := range radarsStats {
 				if info, ok := radarInfo.(map[string]interface{}); ok {
-					fmt.Printf("   %s: P=%v E=%v Update=%s\n",
+					fmt.Printf("   %s: Habilitado=%v | Conectado=%v\n",
 						radarID,
-						info["packets"],
-						info["errors"],
-						info["last_update"])
+						info["enabled"],
+						info["connected"])
 				}
 			}
 		}
 	}
 
 	fmt.Println()
-	fmt.Printf("🚀 SISTEMA v3.1: THREAD-SAFE + Timeout Inteligente (45s)\n")
+	fmt.Printf("🚀 SISTEMA v3.2: OTIMIZADO + Timeout Inteligente (45s)\n")
+	fmt.Printf("✅ SEM MÉTRICAS LIXO: Removidas contagens desnecessárias\n")
 	fmt.Printf("✅ SEM RACE CONDITIONS: Acesso protegido com mutex\n")
 	fmt.Printf("✅ SEM MEMORY LEAKS: Limpeza automática de maps\n")
-	fmt.Printf("✅ SEM DEADLOCKS: Locks hierárquicos\n")
 	fmt.Printf("⚡ RESPONSIVO: Coleta em 200ms + Timeout em 500ms\n")
 	fmt.Println("🚨 Sistema focado em FALHAS e ALARMES... Ctrl+C para parar.")
 }
 
-// 🧹 LIMPEZA DE LOGS ANTIGOS
+// LIMPEZA DE LOGS ANTIGOS
 func cleanupOldLogs() {
 	logFolders := []string{
 		"backend/logs/system",
@@ -697,7 +651,7 @@ func cleanupOldLogs() {
 	moveOldLogsToArchive()
 }
 
-// 📦 MOVER LOGS ANTIGOS PARA ARCHIVE
+// MOVER LOGS ANTIGOS PARA ARCHIVE
 func moveOldLogsToArchive() {
 	archiveDir := "backend/logs/archive"
 	if _, err := os.Stat(archiveDir); os.IsNotExist(err) {
@@ -741,7 +695,7 @@ func moveOldLogsToArchive() {
 	}
 }
 
-// 📏 VERIFICAR TAMANHO DOS ARQUIVOS ATUAIS
+// VERIFICAR TAMANHO DOS ARQUIVOS ATUAIS
 func checkLogFileSizes() {
 	logFiles := []*os.File{
 		systemLogFile,
@@ -770,7 +724,7 @@ func checkLogFileSizes() {
 	}
 }
 
-// 🔄 ROTACIONAR ARQUIVO ESPECÍFICO
+// ROTACIONAR ARQUIVO ESPECÍFICO
 func rotateLogFile(file *os.File) {
 	if file == nil {
 		return
@@ -800,7 +754,7 @@ func rotateLogFile(file *os.File) {
 	fmt.Printf("🔄 Log rotacionado: %s -> %s\n", fileName, rotatedName)
 }
 
-// 🔄 ATUALIZAR LOGGER APÓS ROTAÇÃO
+// ATUALIZAR LOGGER APÓS ROTAÇÃO
 func updateLoggerFile(fileName string, newFile *os.File) {
 	if strings.Contains(fileName, "system") {
 		systemLogFile = newFile
@@ -835,19 +789,9 @@ func initStates() {
 // Inicializar métricas - THREAD-SAFE
 func initMetrics() {
 	metrics = &SystemMetrics{
-		StartTime:          time.Now(),
-		PLCConnections:     0,
-		PLCDisconnections:  0,
-		RadarReconnections: make(map[string]int64),
-		TotalPackets:       0,
-		TotalErrors:        0,
-		NetworkErrors:      0,
-		LastUpdate:         time.Now(),
+		StartTime:  time.Now(),
+		LastUpdate: time.Now(),
 	}
-
-	metrics.RadarReconnections["caldeira"] = 0
-	metrics.RadarReconnections["porta_jusante"] = 0
-	metrics.RadarReconnections["porta_montante"] = 0
 }
 
 // Inicializar logs usando SUA estrutura de pastas
@@ -921,7 +865,7 @@ func initLogsInYourStructure() {
 	}
 	networkLogger = log.New(networkLogFile, "[NETWORK] ", log.LstdFlags|log.Lmicroseconds)
 
-	fmt.Printf("📝 Logs v3.1 THREAD-SAFE com ROTATION criados:\n")
+	fmt.Printf("📝 Logs v3.2 OTIMIZADOS com ROTATION criados:\n")
 	fmt.Printf("   📊 Sistema:   backend/logs/system/system_%s.log\n", dateStr)
 	fmt.Printf("   📡 Radar:    backend/logs/radar/radar_%s.log\n", dateStr)
 	fmt.Printf("   🎛️  PLC:      backend/logs/plc/plc_%s.log\n", dateStr)
@@ -931,12 +875,12 @@ func initLogsInYourStructure() {
 	fmt.Printf("   🔄 Rotation: %d dias, %dMB max por arquivo\n", MAX_LOG_FILES, MAX_LOG_SIZE)
 
 	// Log inicial MÍNIMO
-	systemLogger.Println("========== LOGS v3.1 THREAD-SAFE COM TIMEOUT INTELIGENTE ==========")
-	radarLogger.Println("========== MUDANÇAS DE ESTADO DOS RADARES v3.1 ==========")
-	plcLogger.Println("========== EVENTOS DO PLC v3.1 ==========")
-	criticalLogger.Println("========== ALARMES CRÍTICOS v3.1 ==========")
-	errorLogger.Println("========== FALHAS DO SISTEMA v3.1 ==========")
-	networkLogger.Println("========== PROBLEMAS DE REDE v3.1 ==========")
+	systemLogger.Println("========== LOGS v3.2 OTIMIZADOS ==========")
+	radarLogger.Println("========== MUDANÇAS DE ESTADO DOS RADARES v3.2 ==========")
+	plcLogger.Println("========== EVENTOS DO PLC v3.2 ==========")
+	criticalLogger.Println("========== ALARMES CRÍTICOS v3.2 ==========")
+	errorLogger.Println("========== FALHAS DO SISTEMA v3.2 ==========")
+	networkLogger.Println("========== PROBLEMAS DE REDE v3.2 ==========")
 }
 
 // Flush de todos os logs
@@ -963,15 +907,12 @@ func flushAllLogs() {
 
 // Fechar todos os logs
 func closeAllLogs() {
-	uptime := time.Since(metrics.StartTime)
-
-	// ✅ THREAD-SAFE ACCESS PARA STATS FINAIS
-	_, _, totalPackets, _, totalErrors := metrics.GetStats()
+	uptime := time.Since(metrics.GetStartTime())
 
 	// Log final MÍNIMO
 	if systemLogger != nil {
-		systemLogger.Printf("SYSTEM_SHUTDOWN: Uptime=%v, Packets=%d, Errors=%d", uptime, totalPackets, totalErrors)
-		systemLogger.Println("========== SISTEMA v3.1 THREAD-SAFE ENCERRADO ==========")
+		systemLogger.Printf("SYSTEM_SHUTDOWN: Uptime=%v", uptime)
+		systemLogger.Println("========== SISTEMA v3.2 OTIMIZADO ENCERRADO ==========")
 	}
 
 	// Fechar arquivos
@@ -998,14 +939,14 @@ func closeAllLogs() {
 func printSystemHeader() {
 	fmt.Print("\033[2J\033[H")
 	fmt.Println("╔══════════════════════════════════════════════════════════════╗")
-	fmt.Println("║                    SISTEMA RADAR SICK v3.1                  ║")
-	fmt.Println("║               🛡️ THREAD-SAFE + TIMEOUT 45s 🛡️               ║")
+	fmt.Println("║                    SISTEMA RADAR SICK v3.2                  ║")
+	fmt.Println("║               🚀 OTIMIZADO - SEM MÉTRICAS LIXO 🚀             ║")
 	fmt.Println("╠══════════════════════════════════════════════════════════════╣")
 	fmt.Printf("║ Usuário: %-15s                    Data: %s ║\n",
 		getCurrentUser(), time.Now().Format("2006-01-02"))
-	fmt.Printf("║ Hora: %-18s                 Versão: v3.1.0 ║\n",
+	fmt.Printf("║ Hora: %-18s                 Versão: v3.2.0 ║\n",
 		time.Now().Format("15:04:05"))
-	fmt.Printf("║ Correções: Race Conditions ✅ Memory Leaks ✅ Deadlocks ✅  ║\n")
+	fmt.Printf("║ Otimizações: Métricas removidas ✅ Memory lean ✅ Clean ✅   ║\n")
 	fmt.Println("╚══════════════════════════════════════════════════════════════╝")
 	fmt.Println()
 }
@@ -1059,7 +1000,7 @@ func connectEnabledRadars(radarManager *radar.RadarManager, enabledRadars map[st
 	}
 }
 
-// ✅ setupGracefulShutdown COM CONTEXT
+// setupGracefulShutdown COM CONTEXT
 func setupGracefulShutdown() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
