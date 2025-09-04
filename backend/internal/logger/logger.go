@@ -26,6 +26,13 @@ type LogConfig struct {
 	RotationInterval time.Duration // Intervalo de rotação
 	EnableDebug      bool          // Habilitar logs de debug
 	CleanupInterval  time.Duration // Intervalo entre limpezas
+
+	// Controle de saída no console (stdout). Default: false (silencioso).
+	ConsoleOutput bool
+
+	// Throttling interno (defesa em profundidade)
+	ThrottleInterval   time.Duration // intervalo para agrupar logs repetidos
+	ThrottleMaxRepeats int           // limite de contagem antes de resetar
 }
 
 type SystemLogger struct {
@@ -49,17 +56,25 @@ type SystemLogger struct {
 	cleanupCancel  context.CancelFunc
 	isShuttingDown bool
 	shutdownChan   chan struct{}
+
+	// Throttling interno para evitar spam de mensagens idênticas
+	throttleMu  sync.Mutex
+	lastLog     map[string]time.Time // key -> last log time
+	repeatCount map[string]int       // key -> number of repeats since last logged
 }
 
 // NewSystemLogger cria um novo logger com configuração padrão
 func NewSystemLogger() *SystemLogger {
 	config := LogConfig{
-		BasePath:         "backend/logs",
-		MaxFileSize:      50 * 1024 * 1024, // 50MB
-		RetentionDays:    7,                // 7 dias
-		RotationInterval: 24 * time.Hour,   // Rotação diária
-		EnableDebug:      false,            // Debug desabilitado
-		CleanupInterval:  1 * time.Hour,    // Limpeza a cada hora
+		BasePath:           "backend/logs",
+		MaxFileSize:        50 * 1024 * 1024, // 50MB
+		RetentionDays:      7,                // 7 dias
+		RotationInterval:   24 * time.Hour,   // Rotação diária
+		EnableDebug:        false,            // Debug desabilitado
+		CleanupInterval:    1 * time.Hour,    // Limpeza a cada hora
+		ConsoleOutput:      false,            // por padrão não imprimir no stdout
+		ThrottleInterval:   30 * time.Second, // agrupar mensagens idênticas por 30s
+		ThrottleMaxRepeats: 1000000,          // proteção contra overflow
 	}
 	return NewSystemLoggerWithConfig(config)
 }
@@ -70,6 +85,8 @@ func NewSystemLoggerWithConfig(config LogConfig) *SystemLogger {
 		config:       config,
 		lastRotation: time.Now(),
 		shutdownChan: make(chan struct{}),
+		lastLog:      make(map[string]time.Time),
+		repeatCount:  make(map[string]int),
 	}
 
 	// Criar estrutura de diretórios SIMPLES
@@ -90,7 +107,6 @@ func NewSystemLoggerWithConfig(config LogConfig) *SystemLogger {
 
 // createLogDirectories cria a estrutura de diretórios SIMPLES
 func (sl *SystemLogger) createLogDirectories() error {
-	// ✅ SEM PASTA ARCHIVE - APENAS O ESSENCIAL
 	directories := []string{
 		filepath.Join(sl.config.BasePath, "errors"),
 		filepath.Join(sl.config.BasePath, "system"),
@@ -187,16 +203,20 @@ func (sl *SystemLogger) performMaintenance() {
 	// Verificar se precisa rotacionar
 	if time.Since(sl.lastRotation) >= sl.config.RotationInterval {
 		if err := sl.rotateLogsUnsafe(); err != nil {
-			fmt.Printf("Erro na rotação de logs: %v\n", err)
+			if sl.config.ConsoleOutput {
+				fmt.Printf("Erro na rotação de logs: %v\n", err)
+			}
 		}
 	}
 
 	// Verificar tamanho dos arquivos
 	sl.checkFileSizes()
 
-	// ✅ LIMPAR LOGS ANTIGOS - SEM BACKUP
+	// LIMPAR LOGS ANTIGOS - SEM BACKUP
 	if err := sl.cleanupOldLogsDirectly(); err != nil {
-		fmt.Printf("Erro na limpeza de logs: %v\n", err)
+		if sl.config.ConsoleOutput {
+			fmt.Printf("Erro na limpeza de logs: %v\n", err)
+		}
 	}
 }
 
@@ -214,7 +234,9 @@ func (sl *SystemLogger) checkFileSizes() {
 
 		if stat, err := file.Stat(); err == nil {
 			if stat.Size() >= sl.config.MaxFileSize {
-				fmt.Printf("📋 Arquivo de log excedeu %dMB - forçando rotação\n", sl.config.MaxFileSize/1024/1024)
+				if sl.config.ConsoleOutput {
+					fmt.Printf("📋 Arquivo de log excedeu %dMB - forçando rotação\n", sl.config.MaxFileSize/1024/1024)
+				}
 				sl.rotateLogsUnsafe()
 				break
 			}
@@ -236,15 +258,17 @@ func (sl *SystemLogger) rotateLogsUnsafe() error {
 	if sl.infoLogger != nil {
 		sl.infoLogger.Printf("LOG_ROTATION_COMPLETED: timestamp=%s", sl.lastRotation.Format(time.RFC3339))
 	}
+	if sl.config.ConsoleOutput {
+		fmt.Printf("LOG_ROTATION_COMPLETED: timestamp=%s\n", sl.lastRotation.Format(time.RFC3339))
+	}
 
 	return nil
 }
 
-// ✅ cleanupOldLogsDirectly remove logs antigos DIRETAMENTE - SEM BACKUP
+// cleanupOldLogsDirectly remove logs antigos DIRETAMENTE - SEM BACKUP
 func (sl *SystemLogger) cleanupOldLogsDirectly() error {
 	cutoffDate := time.Now().AddDate(0, 0, -sl.config.RetentionDays)
 
-	// ✅ SEM CATEGORIA ARCHIVE
 	categories := []string{"errors", "system", "warnings", "debug"}
 
 	totalCleaned := 0
@@ -271,12 +295,12 @@ func (sl *SystemLogger) cleanupOldLogsDirectly() error {
 			}
 
 			if info.ModTime().Before(cutoffDate) {
-				// ✅ VERIFICAR SE ARQUIVO NÃO ESTÁ EM USO
+				// Verificar se arquivo não está em uso
 				if sl.isFileInUse(filePath) {
 					continue
 				}
 
-				// ✅ REMOVER ARQUIVO DIRETAMENTE - SEM BACKUP
+				// Remover arquivo diretamente - sem backup
 				if err := os.Remove(filePath); err != nil {
 					if sl.errorLogger != nil {
 						sl.errorLogger.Printf("CLEANUP_ERROR: file=%s error=%v", filePath, err)
@@ -292,8 +316,8 @@ func (sl *SystemLogger) cleanupOldLogsDirectly() error {
 		}
 	}
 
-	// ✅ LOG APENAS SE LIMPOU ALGO
-	if totalCleaned > 0 {
+	// Log apenas se limpou algo
+	if totalCleaned > 0 && sl.config.ConsoleOutput {
 		fmt.Printf("🧹 Limpeza automática: %d arquivos antigos removidos\n", totalCleaned)
 	}
 
@@ -350,67 +374,144 @@ func (sl *SystemLogger) closeFilesUnsafe() {
 	}
 }
 
-// ✅ MÉTODOS DE LOGGING - MANTÉM COMPATIBILIDADE
+// ====================== MÉTODOS DE LOGGING - SINK APENAS ======================
+
+// LogPLCDisconnected grava o evento; não decide política.
+// Console output só se ConsoleOutput == true.
 func (sl *SystemLogger) LogPLCDisconnected(attempts int, lastError error) {
 	sl.mu.RLock()
-	defer sl.mu.RUnlock()
 	if sl.errorLogger != nil {
 		sl.errorLogger.Printf("PLC_DISCONNECTED: attempts=%d, error=%v", attempts, lastError)
 	}
+	sl.mu.RUnlock()
+
+	if sl.config.ConsoleOutput {
+		fmt.Printf("PLC_DISCONNECTED: attempts=%d, error=%v\n", attempts, lastError)
+	}
 }
 
+// LogPLCReconnected grava o evento; console opcional.
 func (sl *SystemLogger) LogPLCReconnected(downtime time.Duration) {
 	sl.mu.RLock()
-	defer sl.mu.RUnlock()
 	if sl.infoLogger != nil {
 		sl.infoLogger.Printf("PLC_RECONNECTED: downtime=%v", downtime)
 	}
-	fmt.Printf("🔌 PLC reconectado após %v\n", downtime)
+	sl.mu.RUnlock()
+
+	if sl.config.ConsoleOutput {
+		fmt.Printf("🔌 PLC reconectado após %v\n", downtime)
+	}
 }
 
 func (sl *SystemLogger) LogRadarDisconnected(radarID, radarName string) {
 	sl.mu.RLock()
-	defer sl.mu.RUnlock()
 	if sl.warnLogger != nil {
 		sl.warnLogger.Printf("RADAR_DISCONNECTED: %s (%s)", radarName, radarID)
 	}
-	fmt.Printf("📡 Radar %s desconectado\n", radarName)
+	sl.mu.RUnlock()
+
+	if sl.config.ConsoleOutput {
+		fmt.Printf("📡 Radar %s desconectado\n", radarName)
+	}
 }
 
 func (sl *SystemLogger) LogRadarReconnected(radarID, radarName string, downtime time.Duration) {
 	sl.mu.RLock()
-	defer sl.mu.RUnlock()
 	if sl.infoLogger != nil {
 		sl.infoLogger.Printf("RADAR_RECONNECTED: %s (%s) downtime=%v", radarName, radarID, downtime)
 	}
-	fmt.Printf("📡 Radar %s reconectado após %v\n", radarName, downtime)
+	sl.mu.RUnlock()
+
+	if sl.config.ConsoleOutput {
+		fmt.Printf("📡 Radar %s reconectado após %v\n", radarName, downtime)
+	}
 }
 
 func (sl *SystemLogger) LogSystemStarted() {
 	sl.mu.RLock()
-	defer sl.mu.RUnlock()
 	if sl.infoLogger != nil {
 		sl.infoLogger.Printf("SYSTEM_STARTED: version=4.0 user=%s", getCurrentUser())
 	}
-	fmt.Println("🚀 Sistema iniciado")
+	sl.mu.RUnlock()
+
+	if sl.config.ConsoleOutput {
+		fmt.Println("🚀 Sistema iniciado")
+	}
 }
 
 func (sl *SystemLogger) LogSystemShutdown(uptime time.Duration) {
 	sl.mu.RLock()
-	defer sl.mu.RUnlock()
 	if sl.infoLogger != nil {
 		sl.infoLogger.Printf("SYSTEM_SHUTDOWN: uptime=%v", uptime)
 	}
-	fmt.Printf("🛑 Sistema encerrado - uptime: %v\n", uptime)
+	sl.mu.RUnlock()
+
+	if sl.config.ConsoleOutput {
+		fmt.Printf("🛑 Sistema encerrado - uptime: %v\n", uptime)
+	}
 }
 
+// LogCriticalError agora com throttling por mensagem (defesa em profundidade)
+// Política de "quando logar" permanece no PLCManager; logger apenas grava quando chamado.
 func (sl *SystemLogger) LogCriticalError(component, operation string, err error) {
+	if err == nil {
+		return
+	}
+
+	key := fmt.Sprintf("%s|%s|%s", component, operation, err.Error())
+	now := time.Now()
+
+	// Checar throttle
+	sl.throttleMu.Lock()
+	last, exists := sl.lastLog[key]
+	if exists && now.Sub(last) < sl.config.ThrottleInterval {
+		// contar repetição e silenciar
+		count := sl.repeatCount[key]
+		if count >= sl.config.ThrottleMaxRepeats {
+			// overflow protection - reset
+			sl.repeatCount[key] = 0
+			sl.lastLog[key] = now
+			sl.throttleMu.Unlock()
+			return
+		}
+		sl.repeatCount[key] = count + 1
+		sl.throttleMu.Unlock()
+		return
+	}
+
+	// Se chegou aqui, vamos logar agora. Mas primeiro ver se havia repetições acumuladas
+	repeats := sl.repeatCount[key]
+	if repeats > 0 {
+		aggregated := fmt.Errorf("%v (repeated %d times since %s)", err, repeats, last.Format(time.RFC3339))
+		// reset counters
+		sl.repeatCount[key] = 0
+		sl.lastLog[key] = now
+		sl.throttleMu.Unlock()
+
+		// registrar agregada
+		sl.mu.RLock()
+		if sl.errorLogger != nil {
+			sl.errorLogger.Printf("CRITICAL_ERROR: component=%s operation=%s error=%v", component, operation, aggregated)
+		}
+		sl.mu.RUnlock()
+		if sl.config.ConsoleOutput {
+			fmt.Printf("🔥 ERRO CRÍTICO em %s.%s: %v\n", component, operation, aggregated)
+		}
+		return
+	}
+
+	// Sem repetições pendentes — logar normalmente e atualizar lastLog
+	sl.lastLog[key] = now
+	sl.throttleMu.Unlock()
+
 	sl.mu.RLock()
-	defer sl.mu.RUnlock()
 	if sl.errorLogger != nil {
 		sl.errorLogger.Printf("CRITICAL_ERROR: component=%s operation=%s error=%v", component, operation, err)
 	}
-	fmt.Printf("🔥 ERRO CRÍTICO em %s.%s: %v\n", component, operation, err)
+	sl.mu.RUnlock()
+	if sl.config.ConsoleOutput {
+		fmt.Printf("🔥 ERRO CRÍTICO em %s.%s: %v\n", component, operation, err)
+	}
 }
 
 func (sl *SystemLogger) LogConfigurationChange(component, change string) {
@@ -418,6 +519,9 @@ func (sl *SystemLogger) LogConfigurationChange(component, change string) {
 	defer sl.mu.RUnlock()
 	if sl.infoLogger != nil {
 		sl.infoLogger.Printf("CONFIG_CHANGE: component=%s change=%s", component, change)
+	}
+	if sl.config.ConsoleOutput {
+		fmt.Printf("CONFIG_CHANGE: component=%s change=%s\n", component, change)
 	}
 }
 
@@ -431,9 +535,12 @@ func (sl *SystemLogger) LogDebug(component, message string) {
 	if sl.debugLogger != nil {
 		sl.debugLogger.Printf("DEBUG: component=%s message=%s", component, message)
 	}
+	if sl.config.ConsoleOutput {
+		fmt.Printf("DEBUG: component=%s message=%s\n", component, message)
+	}
 }
 
-// ✅ GetLogStats SIMPLIFICADO - SEM ARCHIVE
+// GetLogStats SIMPLIFICADO - SEM ARCHIVE
 func (sl *SystemLogger) GetLogStats() map[string]interface{} {
 	sl.mu.RLock()
 	defer sl.mu.RUnlock()
@@ -453,7 +560,7 @@ func (sl *SystemLogger) GetLogStats() map[string]interface{} {
 		}
 	}
 
-	// ✅ CONTAGEM SEM ARCHIVE
+	// CONTAGEM SIMPLES
 	categories := []string{"errors", "system", "warnings", "debug"}
 	for _, category := range categories {
 		categoryPath := filepath.Join(sl.config.BasePath, category)
@@ -491,11 +598,20 @@ func (sl *SystemLogger) Close() {
 		sl.cleanupCancel()
 	}
 
-	close(sl.shutdownChan)
+	// fechar canal (não bloquear se já fechado)
+	select {
+	case <-sl.shutdownChan:
+		// já fechado
+	default:
+		close(sl.shutdownChan)
+	}
 
 	// Log de shutdown
 	if sl.infoLogger != nil {
 		sl.infoLogger.Printf("LOGGER_SHUTDOWN: timestamp=%s", time.Now().Format(time.RFC3339))
+	}
+	if sl.config.ConsoleOutput {
+		fmt.Printf("LOGGER_SHUTDOWN: timestamp=%s\n", time.Now().Format(time.RFC3339))
 	}
 
 	// Fechar arquivos

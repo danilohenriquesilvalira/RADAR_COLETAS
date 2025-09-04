@@ -67,22 +67,9 @@ func main() {
 
 	addRadarsToManager(radarManager)
 
-	// Criar cliente PLC primeiro
-	plcSiemens := plc.NewSiemensPLC("192.168.1.33")
-	err := plcSiemens.Connect()
-	if err != nil {
-		systemLogger.LogCriticalError("PLC", "INITIAL_CONNECTION", err)
-		fmt.Printf("Erro inicial PLC: %v\n", err)
-	} else {
-		fmt.Println("🔌 PLC conectado inicialmente")
-	}
-
-	// PLCController precisa do PLCClient, não string
-	plcController := plc.NewPLCController(plcSiemens.Client)
-	plcController.SetSiemensPLC(plcSiemens) // PASSAR REFERÊNCIA PARA RECONEXÃO
-
-	// ✅ CONECTAR LOGGER AO PLC CONTROLLER
-	plcController.SetSystemLogger(systemLogger)
+	// ✅ USAR PLCManager COM LOGGING INTELIGENTE
+	plcManager := plc.NewPLCManager("192.168.1.33")
+	plcManager.SetSystemLogger(systemLogger)
 
 	// INICIALIZAR COMPONENTES
 	mainWg.Add(1)
@@ -90,10 +77,10 @@ func main() {
 		defer mainWg.Done()
 		defer func() {
 			if r := recover(); r != nil {
-				systemLogger.LogCriticalError("PLC_CONTROLLER", "RUNTIME_PANIC", fmt.Errorf("%v", r))
+				systemLogger.LogCriticalError("PLC_MANAGER", "RUNTIME_PANIC", fmt.Errorf("%v", r))
 			}
 		}()
-		plcController.StartWithContext(globalCtx)
+		plcManager.StartWithContext(globalCtx)
 	}()
 
 	// CONECTAR RADARES INICIALMENTE
@@ -105,7 +92,7 @@ func main() {
 	}
 
 	// Inicializar status de controle
-	lastPLCStatus = plcController.IsPLCConnected()
+	lastPLCStatus = plcManager.IsPLCConnected()
 	if !lastPLCStatus {
 		plcDisconnectTime = time.Now()
 	}
@@ -137,9 +124,9 @@ func main() {
 			}
 
 			// 1. Verificar se PLC está ativo
-			plcConnected := plcController.IsPLCConnected()
-			collectionActive := plcController.IsCollectionActive()
-			emergencyStop := plcController.IsEmergencyStop()
+			plcConnected := plcManager.IsPLCConnected()
+			collectionActive := plcManager.IsCollectionActive()
+			emergencyStop := plcManager.IsEmergencyStop()
 
 			// DETECTAR MUDANÇAS DE STATUS PLC
 			// PLC desconectou
@@ -169,7 +156,7 @@ func main() {
 			// 2. Coordenar com RadarManager baseado no status do PLC
 			if plcConnected && collectionActive && !emergencyStop {
 				// PLC conectado e ativo - coletar dados
-				enabledRadars := plcController.GetRadarsEnabled()
+				enabledRadars := plcManager.GetRadarsEnabled()
 
 				// RECONEXÃO PERIÓDICA DE RADARES (a cada 15 segundos)
 				go func(radars map[string]bool) {
@@ -182,14 +169,14 @@ func main() {
 				radarData := radarManager.CollectEnabledRadarsDataAsyncWithContext(globalCtx, enabledRadars)
 
 				// Enviar dados para o PLC usando método que existe
-				err := plcController.WriteMultiRadarData(radarData)
+				err := plcManager.WriteMultiRadarData(radarData)
 				if err != nil {
 					systemLogger.LogCriticalError("PLC", "DATA_WRITE", err)
 				}
 
 				// Informar status de conexão dos radares para o PLC
 				connectionStatus := radarManager.GetConnectionStatus()
-				plcController.SetRadarsConnected(connectionStatus)
+				plcManager.SetRadarsConnected(connectionStatus)
 			} else if !plcConnected {
 				// PLC desconectado - resetar flag de reconexão
 				radarsReconnectedAfterPLC = false
@@ -197,7 +184,7 @@ func main() {
 
 		case <-statusTicker.C:
 			// EXIBIR STATUS CONSOLIDADO
-			displayConsolidatedStatus(plcController, radarManager)
+			displayConsolidatedStatus(plcManager, radarManager)
 
 		case <-logStatsTicker.C:
 			// MONITORAR ESTATÍSTICAS DE LOG
@@ -330,13 +317,14 @@ func forceRadarReconnectionAfterPLC(radarManager *radar.RadarManager) {
 	radarsReconnectedAfterPLC = true
 }
 
-func displayConsolidatedStatus(plcController *plc.PLCController, radarManager *radar.RadarManager) {
+// ✅ ATUALIZADA PARA ACEITAR PLCManager
+func displayConsolidatedStatus(plcManager *plc.PLCManager, radarManager *radar.RadarManager) {
 	fmt.Print("\033[12H\033[J") // Limpar a partir da linha 12
 
 	// Status PLC usando métodos que existem
-	plcConnected := plcController.IsPLCConnected()
-	collectionActive := plcController.IsCollectionActive()
-	emergencyStop := plcController.IsEmergencyStop()
+	plcConnected := plcManager.IsPLCConnected()
+	collectionActive := plcManager.IsCollectionActive()
+	emergencyStop := plcManager.IsEmergencyStop()
 
 	fmt.Println("========================================")
 	if plcConnected {
@@ -371,7 +359,7 @@ func displayConsolidatedStatus(plcController *plc.PLCController, radarManager *r
 
 	// Status Radares usando métodos que existem
 	connectionStatus := radarManager.GetConnectionStatus()
-	enabledRadars := plcController.GetRadarsEnabled()
+	enabledRadars := plcManager.GetRadarsEnabled()
 
 	radars := []struct{ id, name string }{
 		{"caldeira", "Radar Caldeira"},
