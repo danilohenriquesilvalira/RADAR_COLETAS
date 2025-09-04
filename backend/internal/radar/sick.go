@@ -2,14 +2,18 @@ package radar
 
 import (
 	"fmt"
+	"math"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"backend/pkg/models"
+	"backend/pkg/utils"
 )
 
-// SICKRadar representa a conexão e funcionalidade do radar
+// SICKRadar representa um radar individual com processamento integrado
 type SICKRadar struct {
 	IP        string
 	Port      int
@@ -17,28 +21,26 @@ type SICKRadar struct {
 	Connected bool
 	DebugMode bool
 
-	// Campos para estabilização do objeto principal
+	// Estabilização do objeto principal
 	objetoPrincipalInfo       *models.ObjetoPrincipalInfo
 	thresholdMudanca          float64
 	ciclosMinimosEstabilidade int
 	mutex                     sync.Mutex
 
-	// 🔧 CORREÇÃO: Detecção de desconexão melhorada
+	// Detecção de desconexão
 	lastSuccessfulRead   time.Time
 	consecutiveErrors    int
 	maxConsecutiveErrors int
 
-	// 🆕 TCP LEAK PREVENTION
-	connectionID   string    // ID único para debug
-	createdAt      time.Time // Timestamp de criação
-	lastCleanup    time.Time // Último cleanup realizado
-	forceReconnect bool      // Flag para forçar reconexão
+	// TCP management
+	connectionID   string
+	createdAt      time.Time
+	forceReconnect bool
 }
 
-// NewSICKRadar cria uma nova instância do radar
 func NewSICKRadar(ip string, port int) *SICKRadar {
 	if port == 0 {
-		port = 2111 // Porta padrão
+		port = 2111
 	}
 
 	now := time.Now()
@@ -50,125 +52,77 @@ func NewSICKRadar(ip string, port int) *SICKRadar {
 		Connected:                 false,
 		DebugMode:                 false,
 		objetoPrincipalInfo:       nil,
-		thresholdMudanca:          15.0, // 15% de diferença mínima para trocar
-		ciclosMinimosEstabilidade: 3,    // Manter por pelo menos 3 ciclos
-
-		// 🔧 CORREÇÃO: Timeouts menos agressivos
-		lastSuccessfulRead:   now,
-		consecutiveErrors:    0,
-		maxConsecutiveErrors: 5, // ✅ AUMENTADO de 3 para 5
-
-		// 🆕 TCP LEAK PREVENTION
-		connectionID:   connectionID,
-		createdAt:      now,
-		lastCleanup:    now,
-		forceReconnect: false,
+		thresholdMudanca:          15.0,
+		ciclosMinimosEstabilidade: 3,
+		lastSuccessfulRead:        now,
+		consecutiveErrors:         0,
+		maxConsecutiveErrors:      5,
+		connectionID:              connectionID,
+		createdAt:                 now,
+		forceReconnect:            false,
 	}
 }
 
-// 🔧 CORREÇÃO CRÍTICA: Connect com TCP leak prevention
 func (r *SICKRadar) Connect() error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	// 🛡️ CLEANUP COMPLETO da conexão anterior
 	r.forceCloseConnection()
-
-	// 🆕 AGUARDAR CLEANUP COMPLETO
 	time.Sleep(100 * time.Millisecond)
 
-	// 🔧 CORREÇÃO: Timeout mais generoso
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", r.IP, r.Port), 10*time.Second)
 	if err != nil {
-		fmt.Printf("❌ Erro ao conectar radar %s:%d: %v\n", r.IP, r.Port, err)
 		r.Connected = false
 		return err
 	}
 
-	// 🆕 CONFIGURAR TCP KEEPALIVE para detectar conexões mortas
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		tcpConn.SetKeepAlive(true)
 		tcpConn.SetKeepAlivePeriod(30 * time.Second)
-		tcpConn.SetLinger(0) // ✅ FORÇA CLOSE IMEDIATO
+		tcpConn.SetLinger(0)
 	}
 
 	r.conn = conn
 	r.Connected = true
 	r.lastSuccessfulRead = time.Now()
 	r.consecutiveErrors = 0
-	r.lastCleanup = time.Now()
 	r.forceReconnect = false
 
-	fmt.Printf("✅ Conectado ao radar em %s:%d (ID: %s)\n", r.IP, r.Port, r.connectionID)
 	return nil
 }
 
-// 🔧 CORREÇÃO CRÍTICA: Disconnect com cleanup completo
 func (r *SICKRadar) Disconnect() {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-
 	r.forceCloseConnection()
-	fmt.Printf("🔌 Desconectado do radar %s:%d (ID: %s)\n", r.IP, r.Port, r.connectionID)
 }
 
-// 🆕 forceCloseConnection - cleanup completo para evitar TCP leaks
 func (r *SICKRadar) forceCloseConnection() {
 	if r.conn != nil {
-		// 🛡️ MÚLTIPLAS CAMADAS DE CLEANUP
-
-		// 1. Set linger para 0 (force close)
 		if tcpConn, ok := r.conn.(*net.TCPConn); ok {
 			tcpConn.SetLinger(0)
 		}
-
-		// 2. Set deadline para forçar close
 		r.conn.SetDeadline(time.Now())
-
-		// 3. Close real
 		r.conn.Close()
-
-		// 4. Limpar referência
 		r.conn = nil
-
-		r.lastCleanup = time.Now()
-
-		if r.DebugMode {
-			fmt.Printf("🧹 TCP cleanup realizado para %s:%d\n", r.IP, r.Port)
-		}
 	}
-
 	r.Connected = false
 }
 
-// 🔧 CORREÇÃO: IsConnected com validação TCP real
 func (r *SICKRadar) IsConnected() bool {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	if !r.Connected || r.conn == nil {
+	if !r.Connected || r.conn == nil || r.forceReconnect {
 		return false
 	}
 
-	// 🆕 FORÇAR RECONEXÃO se solicitado
-	if r.forceReconnect {
-		r.Connected = false
-		return false
-	}
-
-	// Se muitos erros consecutivos, considerar desconectado
 	if r.consecutiveErrors >= r.maxConsecutiveErrors {
-		fmt.Printf("❌ Radar %s:%d - muitos erros consecutivos (%d) - DESCONECTANDO\n",
-			r.IP, r.Port, r.consecutiveErrors)
 		r.Connected = false
 		return false
 	}
 
-	// 🔧 CORREÇÃO: Timeout menos agressivo
-	timeSinceLastRead := time.Since(r.lastSuccessfulRead)
-	if timeSinceLastRead > 30*time.Second { // ✅ AUMENTADO de 15s para 30s
-		fmt.Printf("⚠️ Radar %s:%d sem dados há %.1fs - considerando DESCONECTADO\n",
-			r.IP, r.Port, timeSinceLastRead.Seconds())
+	if time.Since(r.lastSuccessfulRead) > 30*time.Second {
 		r.Connected = false
 		return false
 	}
@@ -176,37 +130,24 @@ func (r *SICKRadar) IsConnected() bool {
 	return true
 }
 
-// SetConnected define status de conexão (para recovery)
-func (r *SICKRadar) SetConnected(connected bool) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	r.Connected = connected
-	if connected {
-		r.consecutiveErrors = 0
-		r.lastSuccessfulRead = time.Now()
-		r.forceReconnect = false
-	} else {
-		r.forceReconnect = true
+func (r *SICKRadar) StartMeasurement() error {
+	_, err := r.SendCommand("sEN LMDradardata 1")
+	if err != nil {
+		return fmt.Errorf("erro ao iniciar medição: %v", err)
 	}
+	time.Sleep(100 * time.Millisecond)
+	return nil
 }
 
-// 🔧 CORREÇÃO: SendCommand com timeout management adequado
 func (r *SICKRadar) SendCommand(command string) ([]byte, error) {
 	if !r.Connected || r.conn == nil {
 		return nil, fmt.Errorf("não conectado ao radar")
 	}
 
-	// Formato CoLa A: <STX>comando<ETX>
 	telegram := append([]byte{0x02}, []byte(command)...)
 	telegram = append(telegram, 0x03)
 
-	if r.DebugMode {
-		fmt.Printf("Enviando comando: %s\n", command)
-	}
-
-	// 🔧 CORREÇÃO: Timeout menos agressivo
-	err := r.conn.SetDeadline(time.Now().Add(10 * time.Second)) // ✅ AUMENTADO de 5s para 10s
+	err := r.conn.SetDeadline(time.Now().Add(10 * time.Second))
 	if err != nil {
 		r.markConnectionError(err)
 		return nil, fmt.Errorf("erro ao definir deadline: %v", err)
@@ -218,10 +159,8 @@ func (r *SICKRadar) SendCommand(command string) ([]byte, error) {
 		return nil, fmt.Errorf("erro ao enviar comando: %v", err)
 	}
 
-	// 🔧 CORREÇÃO: Sleep menor
-	time.Sleep(100 * time.Millisecond) // ✅ REDUZIDO de 500ms para 100ms
+	time.Sleep(100 * time.Millisecond)
 
-	// Ler resposta
 	buffer := make([]byte, 4096)
 	n, err := r.conn.Read(buffer)
 	if err != nil {
@@ -229,60 +168,57 @@ func (r *SICKRadar) SendCommand(command string) ([]byte, error) {
 		return nil, fmt.Errorf("erro ao receber resposta: %v", err)
 	}
 
-	// ✅ RESETAR DEADLINE após sucesso
 	r.conn.SetDeadline(time.Time{})
 	r.markSuccessfulOperation()
 	return buffer[:n], nil
 }
 
-// StartMeasurement inicia a medição do radar
-func (r *SICKRadar) StartMeasurement() error {
-	fmt.Printf("🎯 Iniciando medição do radar %s:%d...\n", r.IP, r.Port)
-	_, err := r.SendCommand("sEN LMDradardata 1")
+// ReadAndProcessData lê dados do radar e os processa em uma operação
+func (r *SICKRadar) ReadAndProcessData() (positions, velocities, azimuths, amplitudes []float64, objPrincipal *models.ObjPrincipal, err error) {
+	data, err := r.readRawData()
 	if err != nil {
-		return fmt.Errorf("erro ao iniciar medição: %v", err)
+		return nil, nil, nil, nil, nil, err
 	}
-	time.Sleep(100 * time.Millisecond) // ✅ REDUZIDO de 500ms
-	return nil
+
+	if len(data) == 0 {
+		return []float64{}, []float64{}, []float64{}, []float64{}, nil, nil
+	}
+
+	return r.processRadarData(data)
 }
 
-// 🔧 CORREÇÃO CRÍTICA: ReadData com timeout management
-func (r *SICKRadar) ReadData() ([]byte, error) {
+func (r *SICKRadar) readRawData() ([]byte, error) {
 	if !r.Connected || r.conn == nil {
 		return nil, fmt.Errorf("não conectado ao radar")
 	}
 
-	// 🔧 CORREÇÃO: Timeout menos agressivo
-	err := r.conn.SetReadDeadline(time.Now().Add(1 * time.Second)) // ✅ AUMENTADO de 200ms para 1s
+	buffer := make([]byte, 8192)
+	err := r.conn.SetReadDeadline(time.Now().Add(1 * time.Second))
 	if err != nil {
 		r.markConnectionError(err)
 		return nil, fmt.Errorf("erro ao definir deadline: %v", err)
 	}
 
-	buffer := make([]byte, 8192)
 	n, err := r.conn.Read(buffer)
-
-	// 🆕 SEMPRE RESETAR DEADLINE após read
 	r.conn.SetReadDeadline(time.Time{})
 
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-			// 🔧 CORREÇÃO: Timeout normal, contar apenas se muito frequente
 			r.consecutiveErrors++
 			if r.consecutiveErrors >= r.maxConsecutiveErrors {
-				fmt.Printf("❌ Radar %s:%d - muitos timeouts consecutivos (%d) - DESCONECTANDO\n",
-					r.IP, r.Port, r.consecutiveErrors)
 				r.Connected = false
 			}
-			return nil, nil // ✅ NÃO é erro fatal
+			return nil, nil
 		}
 
-		// Erro real de conexão
 		r.markConnectionError(err)
 		return nil, fmt.Errorf("erro de leitura: %v", err)
 	}
 
 	if n > 0 {
+		if n > 8192 {
+			n = 8192
+		}
 		r.markSuccessfulOperation()
 		return buffer[:n], nil
 	}
@@ -290,43 +226,276 @@ func (r *SICKRadar) ReadData() ([]byte, error) {
 	return nil, nil
 }
 
-// markConnectionError marca erro de conexão
+// processRadarData processa dados recebidos do radar
+func (r *SICKRadar) processRadarData(data []byte) (positions, velocities, azimuths, amplitudes []float64, objPrincipal *models.ObjPrincipal, err error) {
+	if len(data) == 0 {
+		return []float64{}, []float64{}, []float64{}, []float64{}, nil, nil
+	}
+
+	if len(data) > 1024*1024 {
+		data = data[:1024*1024]
+	}
+
+	dataStr := string(data)
+
+	var cleanData strings.Builder
+	for _, c := range dataStr {
+		if c < 32 || c > 126 {
+			cleanData.WriteRune(' ')
+		} else {
+			cleanData.WriteRune(c)
+		}
+	}
+
+	tokens := strings.Fields(cleanData.String())
+	if len(tokens) > 10000 {
+		tokens = tokens[:10000]
+	}
+
+	positions = []float64{}
+	velocities = []float64{}
+	azimuths = []float64{}
+	amplitudes = []float64{}
+
+	possibleBlocks := []string{"P3DX1", "V3DX1", "DIST1", "VRAD1", "AZMT1", "AMPL1", "ANG1", "DIR1", "ANGLE1"}
+
+	for _, blockName := range possibleBlocks {
+		blockIdx := -1
+		for i, token := range tokens {
+			if token == blockName {
+				blockIdx = i
+				break
+			}
+		}
+
+		if blockIdx == -1 || blockIdx+3 >= len(tokens) {
+			continue
+		}
+
+		scaleHex := tokens[blockIdx+1]
+		if len(scaleHex) > 20 {
+			continue
+		}
+
+		var scale float64 = 1.0
+		scaleFloat := utils.HexToFloat(scaleHex, r.DebugMode)
+		if !math.IsNaN(scaleFloat) && !math.IsInf(scaleFloat, 0) && scaleFloat != 0.0 {
+			scale = scaleFloat
+		}
+
+		numValues := 0
+		if blockIdx+3 < len(tokens) {
+			if v, err := strconv.Atoi(tokens[blockIdx+3]); err == nil && v >= 0 && v <= 1000 {
+				numValues = v
+			} else {
+				if v, err := strconv.ParseInt(tokens[blockIdx+3], 16, 32); err == nil && v >= 0 && v <= 1000 {
+					numValues = int(v)
+				}
+			}
+		}
+
+		if r.DebugMode && numValues > 0 {
+			fmt.Printf("Bloco %s: Escala=%.6f, Valores=%d\n", blockName, scale, numValues)
+		}
+
+		values := []float64{}
+		for i := 0; i < numValues; i++ {
+			if blockIdx+i+4 >= len(tokens) {
+				break
+			}
+
+			valHex := tokens[blockIdx+i+4]
+			if len(valHex) > 20 {
+				continue
+			}
+
+			var finalValue float64
+
+			if blockName == "AZMT1" || blockName == "ANG1" || blockName == "DIR1" || blockName == "ANGLE1" {
+				finalValue = utils.DecodeAngleData(valHex, scale, r.DebugMode)
+				if math.IsNaN(finalValue) || math.IsInf(finalValue, 0) {
+					continue
+				}
+				if math.Abs(finalValue) > 360 {
+					finalValue = math.Mod(finalValue, 360)
+				}
+			} else if blockName == "P3DX1" || blockName == "DIST1" {
+				decimalValue := utils.HexToInt(valHex, r.DebugMode)
+				finalValue = float64(decimalValue) * scale / 1000.0
+				if math.IsNaN(finalValue) || math.IsInf(finalValue, 0) || finalValue < 0 || finalValue > 1000 {
+					continue
+				}
+			} else {
+				decimalValue := utils.HexToInt(valHex, r.DebugMode)
+				finalValue = float64(decimalValue) * scale
+
+				if blockName == "V3DX1" || blockName == "VRAD1" {
+					if math.IsNaN(finalValue) || math.IsInf(finalValue, 0) || math.Abs(finalValue) > 100 {
+						continue
+					}
+				} else if blockName == "AMPL1" {
+					if math.IsNaN(finalValue) || math.IsInf(finalValue, 0) || finalValue < 0 || finalValue > 1000000 {
+						continue
+					}
+				}
+			}
+
+			values = append(values, finalValue)
+
+			if r.DebugMode && i < 3 {
+				fmt.Printf("  %s_%d: %s -> %.3f\n", blockName, i+1, valHex, finalValue)
+			}
+		}
+
+		if blockName == "P3DX1" || blockName == "DIST1" {
+			positions = values
+		} else if blockName == "V3DX1" || blockName == "VRAD1" {
+			velocities = values
+		} else if blockName == "AZMT1" || blockName == "ANG1" || blockName == "DIR1" || blockName == "ANGLE1" {
+			azimuths = values
+		} else if blockName == "AMPL1" {
+			amplitudes = values
+		}
+	}
+
+	objPrincipal = r.selectStabilizedMainObject(positions, velocities, azimuths, amplitudes)
+
+	return positions, velocities, azimuths, amplitudes, objPrincipal, nil
+}
+
+// selectStabilizedMainObject seleciona objeto principal com estabilização
+func (r *SICKRadar) selectStabilizedMainObject(positions, velocities, azimuths, amplitudes []float64) *models.ObjPrincipal {
+	if len(amplitudes) == 0 {
+		r.objetoPrincipalInfo = nil
+		return nil
+	}
+
+	if len(amplitudes) > 1000 {
+		amplitudes = amplitudes[:1000]
+	}
+
+	maxAmpIndex := 0
+	maxAmp := amplitudes[0]
+	for i, amp := range amplitudes {
+		if math.IsNaN(amp) || math.IsInf(amp, 0) || amp < 0 {
+			continue
+		}
+		if amp > maxAmp {
+			maxAmp = amp
+			maxAmpIndex = i
+		}
+	}
+
+	novoObjeto := &models.ObjPrincipal{
+		Amplitude: maxAmp,
+	}
+
+	if maxAmpIndex < len(positions) && maxAmpIndex >= 0 {
+		dist := positions[maxAmpIndex]
+		if !math.IsNaN(dist) && !math.IsInf(dist, 0) && dist >= 0 && dist <= 1000 {
+			novoObjeto.Distancia = &dist
+		}
+	}
+	if maxAmpIndex < len(velocities) && maxAmpIndex >= 0 {
+		vel := velocities[maxAmpIndex]
+		if !math.IsNaN(vel) && !math.IsInf(vel, 0) && math.Abs(vel) <= 100 {
+			novoObjeto.Velocidade = &vel
+		}
+	}
+	if maxAmpIndex < len(azimuths) && maxAmpIndex >= 0 {
+		ang := azimuths[maxAmpIndex]
+		if !math.IsNaN(ang) && !math.IsInf(ang, 0) && math.Abs(ang) <= 360 {
+			novoObjeto.Angulo = &ang
+		}
+	}
+
+	agora := time.Now()
+
+	if r.objetoPrincipalInfo == nil {
+		r.objetoPrincipalInfo = &models.ObjetoPrincipalInfo{
+			Objeto:               novoObjeto,
+			ContadorEstabilidade: 1,
+			UltimaAtualizacao:    agora,
+			Indice:               maxAmpIndex,
+		}
+		return novoObjeto
+	}
+
+	objetoAtual := r.objetoPrincipalInfo.Objeto
+
+	mesmoObjeto := (maxAmpIndex == r.objetoPrincipalInfo.Indice)
+
+	if objetoAtual.Amplitude > 0 {
+		diff := math.Abs(novoObjeto.Amplitude-objetoAtual.Amplitude) / objetoAtual.Amplitude
+		mesmoObjeto = mesmoObjeto || (diff < 0.05)
+	}
+
+	if mesmoObjeto {
+		r.objetoPrincipalInfo.Objeto = novoObjeto
+		if r.objetoPrincipalInfo.ContadorEstabilidade < 1000 {
+			r.objetoPrincipalInfo.ContadorEstabilidade++
+		}
+		r.objetoPrincipalInfo.UltimaAtualizacao = agora
+		r.objetoPrincipalInfo.Indice = maxAmpIndex
+		return novoObjeto
+	}
+
+	var diferencaPercentual float64
+	if objetoAtual.Amplitude > 0 {
+		diferencaPercentual = ((novoObjeto.Amplitude - objetoAtual.Amplitude) / objetoAtual.Amplitude) * 100
+	}
+
+	deveTrocar := (diferencaPercentual > r.thresholdMudanca) &&
+		(r.objetoPrincipalInfo.ContadorEstabilidade >= r.ciclosMinimosEstabilidade)
+
+	tempoSemAtualizacao := agora.Sub(r.objetoPrincipalInfo.UltimaAtualizacao)
+	if tempoSemAtualizacao > 2*time.Second {
+		deveTrocar = true
+	}
+
+	if deveTrocar {
+		r.objetoPrincipalInfo = &models.ObjetoPrincipalInfo{
+			Objeto:               novoObjeto,
+			ContadorEstabilidade: 1,
+			UltimaAtualizacao:    agora,
+			Indice:               maxAmpIndex,
+		}
+		return novoObjeto
+	} else {
+		if diferencaPercentual < -r.thresholdMudanca {
+			r.objetoPrincipalInfo.ContadorEstabilidade = 1
+		}
+		return objetoAtual
+	}
+}
+
 func (r *SICKRadar) markConnectionError(err error) {
 	r.consecutiveErrors++
 
 	if r.isConnectionError(err) {
-		fmt.Printf("🔌 Radar %s:%d - Erro de conexão detectado: %v (erro %d/%d)\n",
-			r.IP, r.Port, err, r.consecutiveErrors, r.maxConsecutiveErrors)
-
 		if r.consecutiveErrors >= r.maxConsecutiveErrors {
-			fmt.Printf("❌ Radar %s:%d - DESCONEXÃO DETECTADA após %d erros consecutivos\n",
-				r.IP, r.Port, r.consecutiveErrors)
 			r.Connected = false
-			r.forceReconnect = true // ✅ MARCAR PARA RECONEXÃO
+			r.forceReconnect = true
 		}
 	}
 }
 
-// markSuccessfulOperation marca operação bem-sucedida
 func (r *SICKRadar) markSuccessfulOperation() {
 	r.consecutiveErrors = 0
 	r.lastSuccessfulRead = time.Now()
 }
 
-// isConnectionError verifica se é erro de conexão
 func (r *SICKRadar) isConnectionError(err error) bool {
 	if err == nil {
 		return false
 	}
 
-	// Verificar se é erro de rede
 	if netErr, ok := err.(net.Error); ok {
 		if !netErr.Temporary() {
 			return true
 		}
 	}
 
-	// Verificar strings de erro comuns
 	errStr := err.Error()
 	connectionErrors := []string{
 		"connection reset",
@@ -340,7 +509,7 @@ func (r *SICKRadar) isConnectionError(err error) bool {
 	}
 
 	for _, connErr := range connectionErrors {
-		if contains(errStr, connErr) {
+		if strings.Contains(errStr, connErr) {
 			return true
 		}
 	}
@@ -348,72 +517,22 @@ func (r *SICKRadar) isConnectionError(err error) bool {
 	return false
 }
 
-// 🆕 ForceReconnect força reconexão na próxima verificação
 func (r *SICKRadar) ForceReconnect() {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
 	r.forceReconnect = true
 	r.Connected = false
-	fmt.Printf("🔄 Reconexão forçada para radar %s:%d\n", r.IP, r.Port)
 }
 
-// 🆕 GetTCPStats retorna estatísticas TCP
-func (r *SICKRadar) GetTCPStats() map[string]interface{} {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	return map[string]interface{}{
-		"connection_id":      r.connectionID,
-		"created_at":         r.createdAt.Format("2006-01-02 15:04:05"),
-		"last_cleanup":       r.lastCleanup.Format("2006-01-02 15:04:05"),
-		"consecutive_errors": r.consecutiveErrors,
-		"last_successful":    r.lastSuccessfulRead.Format("2006-01-02 15:04:05"),
-		"force_reconnect":    r.forceReconnect,
-		"connected":          r.Connected,
-	}
-}
-
-// contains verifica se string contém substring (helper function)
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-			indexOfSubstring(s, substr) >= 0))
-}
-
-// indexOfSubstring encontra substring (helper function)
-func indexOfSubstring(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
-}
-
-// SetupContinuousReading configura socket para leitura contínua
-func (r *SICKRadar) SetupContinuousReading() error {
-	if r.conn != nil {
-		// ✅ RESETAR DEADLINE adequadamente
-		err := r.conn.SetReadDeadline(time.Time{})
-		if err != nil {
-			return fmt.Errorf("erro ao remover deadline: %v", err)
-		}
-	}
-	return nil
-}
-
-// SetDebugMode ativa/desativa modo debug
 func (r *SICKRadar) SetDebugMode(enabled bool) {
 	r.DebugMode = enabled
 }
 
-// GetDebugMode retorna estado do modo debug
 func (r *SICKRadar) GetDebugMode() bool {
 	return r.DebugMode
 }
 
-// GetConnectionStats retorna estatísticas de conexão
 func (r *SICKRadar) GetConnectionStats() (int, time.Time) {
 	return r.consecutiveErrors, r.lastSuccessfulRead
 }

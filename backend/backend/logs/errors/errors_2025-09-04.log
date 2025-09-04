@@ -1,0 +1,8 @@
+[ERROR] 2025/09/04 08:49:48 logger.go:411: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Jusante (porta_jusante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/04 08:50:01 logger.go:411: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Montante (porta_montante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/04 08:50:01 logger.go:411: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Jusante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/04 08:50:01 logger.go:411: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Montante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/04 08:50:06 logger.go:411: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Montante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/04 08:50:06 logger.go:411: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Jusante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/04 08:53:30 logger.go:411: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Caldeira collection timeout
+[ERROR] 2025/09/04 08:53:31 logger.go:411: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Caldeira collection timeout

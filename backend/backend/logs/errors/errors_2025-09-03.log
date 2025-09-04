@@ -1,0 +1,8 @@
+[ERROR] 2025/09/03 20:03:55 logger.go:411: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Montante (porta_montante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/03 20:04:09 logger.go:411: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Jusante (porta_jusante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/03 20:04:09 logger.go:411: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Montante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/03 20:04:09 logger.go:411: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Jusante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/03 20:50:53 logger.go:411: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Montante (porta_montante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/03 20:51:07 logger.go:411: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Jusante (porta_jusante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/03 20:51:07 logger.go:411: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Montante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/03 20:51:07 logger.go:411: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Jusante: falha ao conectar após 3 tentativas

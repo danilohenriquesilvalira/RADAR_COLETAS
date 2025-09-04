@@ -1,0 +1,291 @@
+package radar
+
+import (
+	"fmt"
+	"math"
+	"strconv"
+	"strings"
+	"time"
+
+	"backend/pkg/models"
+	"backend/pkg/utils"
+)
+
+// SelecionarObjetoPrincipalEstabilizado seleciona o objeto principal com estabilização
+func (r *SICKRadar) SelecionarObjetoPrincipalEstabilizado(positions, velocities, azimuths, amplitudes []float64) *models.ObjPrincipal {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	if len(amplitudes) == 0 {
+		r.objetoPrincipalInfo = nil
+		return nil
+	}
+
+	// Limitar processamento se muito grande
+	if len(amplitudes) > 1000 {
+		amplitudes = amplitudes[:1000]
+	}
+
+	// Encontrar objeto com maior amplitude atual
+	maxAmpIndex := 0
+	maxAmp := amplitudes[0]
+	for i, amp := range amplitudes {
+		// Validar amplitude
+		if math.IsNaN(amp) || math.IsInf(amp, 0) || amp < 0 {
+			continue
+		}
+		if amp > maxAmp {
+			maxAmp = amp
+			maxAmpIndex = i
+		}
+	}
+
+	// Criar novo objeto candidato
+	novoObjeto := &models.ObjPrincipal{
+		Amplitude: maxAmp,
+	}
+
+	// Atribuir valores se disponíveis
+	if maxAmpIndex < len(positions) && maxAmpIndex >= 0 {
+		dist := positions[maxAmpIndex]
+		if !math.IsNaN(dist) && !math.IsInf(dist, 0) && dist >= 0 && dist <= 1000 {
+			novoObjeto.Distancia = &dist
+		}
+	}
+	if maxAmpIndex < len(velocities) && maxAmpIndex >= 0 {
+		vel := velocities[maxAmpIndex]
+		if !math.IsNaN(vel) && !math.IsInf(vel, 0) && math.Abs(vel) <= 100 {
+			novoObjeto.Velocidade = &vel
+		}
+	}
+	if maxAmpIndex < len(azimuths) && maxAmpIndex >= 0 {
+		ang := azimuths[maxAmpIndex]
+		if !math.IsNaN(ang) && !math.IsInf(ang, 0) && math.Abs(ang) <= 360 {
+			novoObjeto.Angulo = &ang
+		}
+	}
+
+	agora := time.Now()
+
+	// Se não há objeto principal anterior, aceitar o novo
+	if r.objetoPrincipalInfo == nil {
+		r.objetoPrincipalInfo = &models.ObjetoPrincipalInfo{
+			Objeto:               novoObjeto,
+			ContadorEstabilidade: 1,
+			UltimaAtualizacao:    agora,
+			Indice:               maxAmpIndex,
+		}
+		return novoObjeto
+	}
+
+	objetoAtual := r.objetoPrincipalInfo.Objeto
+
+	// Verificar se é o mesmo objeto (mesmo índice ou amplitudes muito próximas)
+	mesmoObjeto := (maxAmpIndex == r.objetoPrincipalInfo.Indice)
+
+	if objetoAtual.Amplitude > 0 {
+		diff := math.Abs(novoObjeto.Amplitude-objetoAtual.Amplitude) / objetoAtual.Amplitude
+		mesmoObjeto = mesmoObjeto || (diff < 0.05)
+	}
+
+	if mesmoObjeto {
+		// Mesmo objeto, atualizar dados e incrementar estabilidade
+		r.objetoPrincipalInfo.Objeto = novoObjeto
+		if r.objetoPrincipalInfo.ContadorEstabilidade < 1000 {
+			r.objetoPrincipalInfo.ContadorEstabilidade++
+		}
+		r.objetoPrincipalInfo.UltimaAtualizacao = agora
+		r.objetoPrincipalInfo.Indice = maxAmpIndex
+		return novoObjeto
+	}
+
+	// Objeto diferente detectado
+	// Calcular diferença percentual de amplitude
+	var diferencaPercentual float64
+	if objetoAtual.Amplitude > 0 {
+		diferencaPercentual = ((novoObjeto.Amplitude - objetoAtual.Amplitude) / objetoAtual.Amplitude) * 100
+	}
+
+	// Verificar se a diferença é significativa E se o objeto atual já está estável
+	deveTrocar := (diferencaPercentual > r.thresholdMudanca) &&
+		(r.objetoPrincipalInfo.ContadorEstabilidade >= r.ciclosMinimosEstabilidade)
+
+	// Ou se passou muito tempo sem atualização (objeto pode ter desaparecido)
+	tempoSemAtualizacao := agora.Sub(r.objetoPrincipalInfo.UltimaAtualizacao)
+	if tempoSemAtualizacao > 2*time.Second {
+		deveTrocar = true
+	}
+
+	if deveTrocar {
+		// Trocar para o novo objeto
+		r.objetoPrincipalInfo = &models.ObjetoPrincipalInfo{
+			Objeto:               novoObjeto,
+			ContadorEstabilidade: 1,
+			UltimaAtualizacao:    agora,
+			Indice:               maxAmpIndex,
+		}
+		return novoObjeto
+	} else {
+		// Manter objeto atual, mas resetar contador se diferença for negativa significativa
+		if diferencaPercentual < -r.thresholdMudanca {
+			r.objetoPrincipalInfo.ContadorEstabilidade = 1
+		}
+		return objetoAtual
+	}
+}
+
+// ProcessData processa dados recebidos do radar
+func (r *SICKRadar) ProcessData(data []byte) (positions, velocities, azimuths, amplitudes []float64, objPrincipal *models.ObjPrincipal) {
+	// Validação básica
+	if len(data) == 0 {
+		return []float64{}, []float64{}, []float64{}, []float64{}, nil
+	}
+
+	// Limitar tamanho dos dados se muito grande
+	if len(data) > 1024*1024 {
+		data = data[:1024*1024]
+	}
+
+	// Converter para string para análise
+	dataStr := string(data)
+
+	// Limpar caracteres de controle
+	var cleanData strings.Builder
+	for _, c := range dataStr {
+		if c < 32 || c > 126 {
+			cleanData.WriteRune(' ')
+		} else {
+			cleanData.WriteRune(c)
+		}
+	}
+
+	// Dividir em tokens
+	tokens := strings.Fields(cleanData.String())
+	if len(tokens) > 10000 {
+		tokens = tokens[:10000]
+	}
+
+	// Valores para armazenar os resultados
+	positions = []float64{}
+	velocities = []float64{}
+	azimuths = []float64{}
+	amplitudes = []float64{}
+
+	// Extrair todos os blocos disponíveis
+	possibleBlocks := []string{"P3DX1", "V3DX1", "DIST1", "VRAD1", "AZMT1", "AMPL1", "ANG1", "DIR1", "ANGLE1"}
+
+	for _, blockName := range possibleBlocks {
+		blockIdx := -1
+		for i, token := range tokens {
+			if token == blockName {
+				blockIdx = i
+				break
+			}
+		}
+
+		if blockIdx == -1 || blockIdx+3 >= len(tokens) {
+			continue
+		}
+
+		// Extrair escala
+		scaleHex := tokens[blockIdx+1]
+		if len(scaleHex) > 20 {
+			continue
+		}
+
+		var scale float64 = 1.0
+		scaleFloat := utils.HexToFloat(scaleHex, r.DebugMode)
+		if !math.IsNaN(scaleFloat) && !math.IsInf(scaleFloat, 0) && scaleFloat != 0.0 {
+			scale = scaleFloat
+		}
+
+		// Número de valores
+		numValues := 0
+		if blockIdx+3 < len(tokens) {
+			// Tentar converter como decimal
+			if v, err := strconv.Atoi(tokens[blockIdx+3]); err == nil && v >= 0 && v <= 1000 {
+				numValues = v
+			} else {
+				// Tentar ler como hexadecimal
+				if v, err := strconv.ParseInt(tokens[blockIdx+3], 16, 32); err == nil && v >= 0 && v <= 1000 {
+					numValues = int(v)
+				}
+			}
+		}
+
+		if r.DebugMode && numValues > 0 {
+			fmt.Printf("Bloco %s: Escala=%.6f, Valores=%d\n", blockName, scale, numValues)
+		}
+
+		// Processar valores
+		values := []float64{}
+		for i := 0; i < numValues; i++ {
+			if blockIdx+i+4 >= len(tokens) {
+				break
+			}
+
+			valHex := tokens[blockIdx+i+4]
+			if len(valHex) > 20 {
+				continue
+			}
+
+			var finalValue float64
+
+			// Converter conforme o tipo de bloco - EXATAMENTE COMO NO PYTHON
+			if blockName == "AZMT1" || blockName == "ANG1" || blockName == "DIR1" || blockName == "ANGLE1" {
+				// Ângulos
+				finalValue = utils.DecodeAngleData(valHex, scale, r.DebugMode)
+				if math.IsNaN(finalValue) || math.IsInf(finalValue, 0) {
+					continue
+				}
+				if math.Abs(finalValue) > 360 {
+					finalValue = math.Mod(finalValue, 360)
+				}
+			} else if blockName == "P3DX1" || blockName == "DIST1" {
+				// Posições (metros) - SEGUINDO EXATAMENTE O PYTHON
+				decimalValue := utils.HexToInt(valHex, r.DebugMode)
+				finalValue = float64(decimalValue) * scale / 1000.0
+				if math.IsNaN(finalValue) || math.IsInf(finalValue, 0) || finalValue < 0 || finalValue > 1000 {
+					continue
+				}
+			} else {
+				// Velocidades e outros
+				decimalValue := utils.HexToInt(valHex, r.DebugMode)
+				finalValue = float64(decimalValue) * scale
+
+				// Validação baseada no tipo
+				if blockName == "V3DX1" || blockName == "VRAD1" {
+					if math.IsNaN(finalValue) || math.IsInf(finalValue, 0) || math.Abs(finalValue) > 100 {
+						continue
+					}
+				} else if blockName == "AMPL1" {
+					if math.IsNaN(finalValue) || math.IsInf(finalValue, 0) || finalValue < 0 || finalValue > 1000000 {
+						continue
+					}
+				}
+			}
+
+			values = append(values, finalValue)
+
+			if r.DebugMode && i < 3 {
+				fmt.Printf("  %s_%d: %s -> %.3f\n", blockName, i+1, valHex, finalValue)
+			}
+		}
+
+		// Armazenar valores processados
+		if blockName == "P3DX1" || blockName == "DIST1" {
+			positions = values
+		} else if blockName == "V3DX1" || blockName == "VRAD1" {
+			velocities = values
+		} else if blockName == "AZMT1" || blockName == "ANG1" || blockName == "DIR1" || blockName == "ANGLE1" {
+			azimuths = values
+		} else if blockName == "AMPL1" {
+			amplitudes = values
+		}
+	}
+
+	// Usar algoritmo de estabilização para selecionar objeto principal
+	objPrincipal = r.SelecionarObjetoPrincipalEstabilizado(positions, velocities, azimuths, amplitudes)
+
+	return positions, velocities, azimuths, amplitudes, objPrincipal
+}
