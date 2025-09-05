@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"sync"
@@ -113,6 +116,12 @@ var (
 func main() {
 	startTime = time.Now()
 	globalCtx, globalCancel = context.WithCancel(context.Background())
+
+	// PROFILING HTTP SERVER - ADICIONADO PARA MEMORY LEAK DETECTION
+	go func() {
+		log.Println("Profiling server started at http://localhost:6060")
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	// CORREÇÃO: Inicializar estado do sistema thread-safe
 	systemState = &SystemState{

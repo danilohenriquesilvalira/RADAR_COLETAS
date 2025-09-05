@@ -186,3 +186,40 @@
 [ERROR] 2025/09/05 10:00:41 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Porta Jusante collection timeout
 [ERROR] 2025/09/05 10:00:44 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Montante async reconnection failed: falha ao conectar após 1 tentativas
 [ERROR] 2025/09/05 10:00:44 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Jusante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 10:33:01 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Jusante (porta_jusante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 10:33:15 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Montante (porta_montante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 10:33:15 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Montante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 10:33:15 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Jusante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 10:33:19 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Jusante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 10:33:19 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Montante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 10:45:26 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Montante (porta_montante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 10:45:40 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Jusante (porta_jusante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 10:45:40 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Montante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 10:45:40 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Jusante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 10:45:44 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Montante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 10:45:44 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Jusante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 15:04:49 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Jusante (porta_jusante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 15:05:02 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Montante (porta_montante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 15:05:02 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Jusante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 15:05:02 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Montante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 15:05:04 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Porta Montante collection timeout
+[ERROR] 2025/09/05 15:05:06 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Jusante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 15:05:06 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Montante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 16:28:51 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Jusante (porta_jusante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 16:29:05 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Montante (porta_montante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 16:29:05 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Jusante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 16:29:05 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Montante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 16:29:06 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Porta Montante collection timeout
+[ERROR] 2025/09/05 16:29:06 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Porta Jusante collection timeout
+[ERROR] 2025/09/05 16:29:09 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Montante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 16:29:09 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Jusante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 16:31:20 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Jusante (porta_jusante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 16:31:33 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Montante (porta_montante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 16:31:33 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Jusante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 16:31:33 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Montante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 16:31:34 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Porta Jusante collection timeout
+[ERROR] 2025/09/05 16:31:37 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Montante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 16:31:37 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Jusante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 16:51:09 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 16:51:09 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Caldeira collection timeout
+[ERROR] 2025/09/05 16:51:11 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Caldeira collection timeout
