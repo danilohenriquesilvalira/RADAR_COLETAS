@@ -1,0 +1,2618 @@
+[2J[H========================================
+      SISTEMA RADAR SICK v4.0
+========================================
+Usuario: rls
+Data: 2025-09-05 09:03:52
+Status: Inicializando componentes...
+========================================
+
+Radar Radar Caldeira (caldeira) configurado
+Radar Radar Porta Jusante (porta_jusante) configurado
+Radar Radar Porta Montante (porta_montante) configurado
+Conectando radares...
+PLC conectado inicialmente
+PLC Manager: Sistema BLINDADO iniciado (1 PLC + 3 Radares)
+Sistema operacional
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESCONECTADO (3s)
+Radar Porta Montante: DESCONECTADO (3s)
+========================================
+Radares: 3/3 habilitados | 1 conectados
+Uptime: 31s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 33s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 36s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 39s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 43s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 45s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 48s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 51s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 54s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 57s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 1m0s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 1m18s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 1m23s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 1m28s
+========================================
+⚠️  PLC desconectado (PLC read timeout (5s)) - tentando reconectar
+2025/09/05 09:05:25 *net.OpError read tcp 192.168.1.92:36738->192.168.1.33:102: i/o timeout
+[12H[J========================================
+PLC: DESCONECTADO
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 1m34s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 2s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 1m36s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 5s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 1m39s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 8s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 1m42s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 11s
+========================================
+Radar Caldeira      : DESCONECTADO (1s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 1m45s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 14s
+========================================
+Radar Caldeira      : DESCONECTADO (4s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 1m48s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 17s
+========================================
+Radar Caldeira      : DESCONECTADO (7s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 1m51s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 20s
+========================================
+Radar Caldeira      : DESCONECTADO (10s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 1m54s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 23s
+========================================
+Radar Caldeira      : DESCONECTADO (13s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 1m57s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 26s
+========================================
+Radar Caldeira      : DESCONECTADO (16s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m0s
+========================================
+2025/09/05 09:05:55 *net.OpError read tcp 192.168.1.92:36738->192.168.1.33:102: i/o timeout
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 29s
+========================================
+Radar Caldeira      : DESCONECTADO (19s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m3s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 32s
+========================================
+Radar Caldeira      : DESCONECTADO (22s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m6s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 35s
+========================================
+Radar Caldeira      : DESCONECTADO (25s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m9s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 38s
+========================================
+Radar Caldeira      : DESCONECTADO (28s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m12s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 41s
+========================================
+Radar Caldeira      : DESCONECTADO (31s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m15s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 44s
+========================================
+Radar Caldeira      : DESCONECTADO (34s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m18s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 47s
+========================================
+Radar Caldeira      : DESCONECTADO (37s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m21s
+========================================
+⚠️ Radar CALDEIRA timeout - desconectado
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 50s
+========================================
+Radar Caldeira      : DESCONECTADO (40s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m24s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 53s
+========================================
+Radar Caldeira      : DESCONECTADO (43s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m27s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 56s
+========================================
+Radar Caldeira      : DESCONECTADO (46s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m30s
+========================================
+2025/09/05 09:06:25 *net.OpError read tcp 192.168.1.92:36738->192.168.1.33:102: i/o timeout
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 59s
+========================================
+Radar Caldeira      : DESCONECTADO (49s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m33s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m2s
+========================================
+Radar Caldeira      : DESCONECTADO (52s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m36s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m5s
+========================================
+Radar Caldeira      : DESCONECTADO (55s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m39s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m8s
+========================================
+Radar Caldeira      : DESCONECTADO (58s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m42s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m11s
+========================================
+Radar Caldeira      : DESCONECTADO (1m1s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m45s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m14s
+========================================
+Radar Caldeira      : DESCONECTADO (1m4s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m48s
+========================================
+2025/09/05 09:06:42 *net.OpError read tcp 192.168.1.92:36738->192.168.1.33:102: read: connection reset by peer
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m17s
+========================================
+Radar Caldeira      : DESCONECTADO (1m7s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 2m51s
+========================================
+✅ PLC reconectado após 1.4m - 5 tentativas
+PLC RECONECTADO - Iniciando reconexão de radares...
+Forçando reconexão de todos os radares após PLC...
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+Reconexão: EM ANDAMENTO (há 4s)
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESCONECTADO (2m32s)
+Radar Porta Montante: DESCONECTADO (2m32s)
+========================================
+Radares: 3/3 habilitados | 1 conectados
+Uptime: 3m0s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+Reconexão: EM ANDAMENTO (há 7s)
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESCONECTADO (2m32s)
+Radar Porta Montante: DESCONECTADO (2m32s)
+========================================
+Radares: 3/3 habilitados | 1 conectados
+Uptime: 3m0s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+Reconexão: EM ANDAMENTO (há 18s)
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESCONECTADO (2m47s)
+Radar Porta Montante: DESCONECTADO (2m47s)
+========================================
+Radares: 3/3 habilitados | 1 conectados
+Uptime: 3m15s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+Reconexão: EM ANDAMENTO (há 22s)
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESCONECTADO (2m47s)
+Radar Porta Montante: DESCONECTADO (2m47s)
+========================================
+Radares: 3/3 habilitados | 1 conectados
+Uptime: 3m15s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+Reconexão: EM ANDAMENTO (há 29s)
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESCONECTADO (2m54s)
+Radar Porta Montante: DESCONECTADO (2m54s)
+========================================
+Radares: 3/3 habilitados | 1 conectados
+Uptime: 3m22s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 3m24s
+========================================
+Erro reconectar radar Radar Porta Jusante: falha ao conectar após 3 tentativas
+Erro reconectar radar Radar Porta Montante: falha ao conectar após 3 tentativas
+Reconexão pós-PLC: 0/3 radares conectados
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 3m28s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 3m30s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 3m33s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 3m39s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 3m49s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 3m54s
+========================================
+⚠️  PLC desconectado (PLC write timeout (5s)) - tentando reconectar
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 0s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 3m59s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 0s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 4m0s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 3s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 4m3s
+========================================
+2025/09/05 09:07:56 *net.OpError read tcp 192.168.1.92:51316->192.168.1.33:102: i/o timeout
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 6s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 4m6s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 9s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 4m9s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 12s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 4m12s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 15s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 4m15s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 18s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 4m18s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 21s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 4m21s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 24s
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 4m24s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 27s
+========================================
+Radar Caldeira      : DESCONECTADO (2s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 4m27s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 30s
+========================================
+Radar Caldeira      : DESCONECTADO (5s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 4m30s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 33s
+========================================
+Radar Caldeira      : DESCONECTADO (7s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 4m33s
+========================================
+2025/09/05 09:08:26 *net.OpError read tcp 192.168.1.92:51316->192.168.1.33:102: i/o timeout
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 36s
+========================================
+Radar Caldeira      : DESCONECTADO (10s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 4m36s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 39s
+========================================
+Radar Caldeira      : DESCONECTADO (14s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 4m39s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 42s
+========================================
+Radar Caldeira      : DESCONECTADO (17s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 4m42s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 45s
+========================================
+Radar Caldeira      : DESCONECTADO (20s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 4m45s
+========================================
+⚠️ Radar CALDEIRA timeout - desconectado
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 48s
+========================================
+Radar Caldeira      : DESCONECTADO (23s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 4m48s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 51s
+========================================
+Radar Caldeira      : DESCONECTADO (26s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 4m51s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 54s
+========================================
+Radar Caldeira      : DESCONECTADO (29s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 4m54s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 57s
+========================================
+Radar Caldeira      : DESCONECTADO (32s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 4m57s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m0s
+========================================
+Radar Caldeira      : DESCONECTADO (35s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 5m0s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m3s
+========================================
+Radar Caldeira      : DESCONECTADO (38s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 5m3s
+========================================
+2025/09/05 09:08:56 *net.OpError read tcp 192.168.1.92:51316->192.168.1.33:102: i/o timeout
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m6s
+========================================
+Radar Caldeira      : DESCONECTADO (41s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 5m6s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m9s
+========================================
+Radar Caldeira      : DESCONECTADO (44s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 5m9s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m12s
+========================================
+Radar Caldeira      : DESCONECTADO (47s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 5m12s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m15s
+========================================
+Radar Caldeira      : DESCONECTADO (49s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 5m15s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m18s
+========================================
+Radar Caldeira      : DESCONECTADO (53s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 5m18s
+========================================
+[12H[J========================================
+PLC: DESCONECTADO
+Downtime: 1m21s
+========================================
+Radar Caldeira      : DESCONECTADO (56s)
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 0 conectados
+Uptime: 5m21s
+========================================
+2025/09/05 09:09:14 *net.OpError read tcp 192.168.1.92:51316->192.168.1.33:102: read: connection reset by peer
+✅ PLC reconectado após 1.4m - 5 tentativas
+PLC RECONECTADO - Iniciando reconexão de radares...
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+Reconexão: EM ANDAMENTO (há 0s)
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 5m24s
+========================================
+Forçando reconexão de todos os radares após PLC...
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+Reconexão: EM ANDAMENTO (há 8s)
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESCONECTADO (5m4s)
+Radar Porta Montante: DESCONECTADO (5m4s)
+========================================
+Radares: 3/3 habilitados | 1 conectados
+Uptime: 5m32s
+========================================
+Logs: 3 erros, 4 sistema, 3 warnings
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+Reconexão: EM ANDAMENTO (há 9s)
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESCONECTADO (5m5s)
+Radar Porta Montante: DESCONECTADO (5m5s)
+========================================
+Radares: 3/3 habilitados | 1 conectados
+Uptime: 5m33s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+Reconexão: EM ANDAMENTO (há 23s)
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESCONECTADO (5m19s)
+Radar Porta Montante: DESCONECTADO (5m19s)
+========================================
+Radares: 3/3 habilitados | 1 conectados
+Uptime: 5m47s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESCONECTADO (5m26s)
+Radar Porta Montante: DESCONECTADO (5m26s)
+========================================
+Radares: 3/3 habilitados | 1 conectados
+Uptime: 5m54s
+========================================
+Erro reconectar radar Radar Porta Jusante: falha ao conectar após 3 tentativas
+Erro reconectar radar Radar Porta Montante: falha ao conectar após 3 tentativas
+Reconexão pós-PLC: 0/3 radares conectados
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m0s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m0s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m3s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m6s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m9s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m12s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m15s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m18s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m21s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m24s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m27s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m30s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m33s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m36s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m39s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m42s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m45s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m48s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m51s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m54s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 6m57s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m0s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m3s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m6s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m9s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m12s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m15s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m18s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m21s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m24s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m27s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m30s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m33s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m36s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m39s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m42s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m45s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m48s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m51s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m54s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 7m57s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m0s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m3s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m6s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m9s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m12s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m15s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m18s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m21s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m24s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m27s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m30s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m33s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m36s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m39s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m42s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m45s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m48s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m51s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m55s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 8m57s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m0s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m3s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m6s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m9s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m12s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m15s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m19s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m21s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m24s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m28s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m30s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m33s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m36s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m39s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m42s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m45s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m48s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m52s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m54s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 9m57s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m0s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m3s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m6s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m9s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m12s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m15s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m18s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m21s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m25s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m27s
+========================================
+Logs: 3 erros, 4 sistema, 3 warnings
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m30s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m33s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m36s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m39s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m42s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m45s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m48s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m51s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m54s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 10m57s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m0s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m3s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m6s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m9s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m12s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m15s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m18s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m21s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m24s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m27s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m30s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m33s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m36s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m39s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m42s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m45s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m48s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m51s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m54s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 11m57s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m0s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m3s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m6s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m9s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m12s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m15s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m18s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m21s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m24s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m27s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m30s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m33s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m36s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m39s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m42s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m45s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m48s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m51s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m54s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 12m57s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 13m0s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 13m3s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 13m6s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 13m9s
+========================================
+[12H[J========================================
+PLC: CONECTADO
+Coleta: ATIVA
+========================================
+Radar Caldeira      : CONECTADO
+Radar Porta Jusante : DESABILITADO
+Radar Porta Montante: DESABILITADO
+========================================
+Radares: 1/3 habilitados | 1 conectados
+Uptime: 13m12s
+========================================
+
+Sinal recebido: interrupt
+Iniciando shutdown...
+Shutdown concluído
+Sistema recebeu sinal de parada
+Logger fechado com segurança

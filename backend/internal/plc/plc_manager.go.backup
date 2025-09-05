@@ -1,12 +1,14 @@
 // ============================================================================
-// ARQUIVO: backend/internal/plc/plc_manager.go - COMPLETO E BLINDADO
+// ARQUIVO: backend/internal/plc/plc_manager.go - FINAL CORRIGIDO
 // PROTEÇÕES: Timeout, Overflow, Fallback, Validação, Panic Recovery
+// OTIMIZAÇÃO: Logging inteligente por estados de conexão - SEM ERRO FALSO
 // ============================================================================
 package plc
 
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -77,24 +79,33 @@ type PLCManager struct {
 	rebootTimerActive    bool
 	lastResetErrorsState bool
 
-	// 🛡️ ERROR HANDLING COM OVERFLOW PROTECTION
-	maxErrors     int32
-	lastErrorTime time.Time
-	logThrottle   struct {
-		mutex       sync.Mutex
-		lastLog     time.Time
-		lastMessage string
-		count       int32 // 🛡️ int32 para atomic operations
+	// 🛡️ SISTEMA DE LOGGING INTELIGENTE POR ESTADOS
+	connectionLogging struct {
+		mutex                  sync.RWMutex
+		lastConnectionState    bool      // estado anterior da conexão
+		disconnectionStartTime time.Time // início da desconexão atual
+		reconnectionAttempts   int32     // atomic - tentativas de reconexão
+		isInDisconnectedPeriod bool      // período de desconexão ativo
+		lastErrorTime          time.Time // último erro para fallback
+		fallbackThrottle       struct {
+			lastLog     time.Time
+			lastMessage string
+			count       int32 // atomic para thread safety
+		}
 	}
+
+	// 🛡️ ERROR HANDLING COM OVERFLOW PROTECTION (MANTIDO PARA COMPATIBILIDADE)
+	maxErrors int32
 }
 
 const (
-	REBOOT_TIMEOUT_SECONDS  = 10
-	RADAR_TIMEOUT_TOLERANCE = 45 * time.Second
-	PLC_OPERATION_TIMEOUT   = 3 * time.Second  // 🛡️ TIMEOUT OBRIGATÓRIO
-	PLC_RECONNECT_TIMEOUT   = 15 * time.Second // 🛡️ TIMEOUT RECONEXÃO
-	MAX_ERROR_COUNT         = 1000000          // 🛡️ OVERFLOW PROTECTION
-	MAX_LOG_THROTTLE_COUNT  = 1000000          // 🛡️ LOG OVERFLOW PROTECTION
+	REBOOT_TIMEOUT_SECONDS           = 10
+	RADAR_TIMEOUT_TOLERANCE          = 45 * time.Second
+	PLC_OPERATION_TIMEOUT            = 3 * time.Second  // 🛡️ TIMEOUT OBRIGATÓRIO
+	PLC_RECONNECT_TIMEOUT            = 15 * time.Second // 🛡️ TIMEOUT RECONEXÃO
+	MAX_ERROR_COUNT                  = 1000000          // 🛡️ OVERFLOW PROTECTION
+	CONNECTION_STATE_LOG_TIMEOUT     = 15 * time.Minute // Fallback para logs críticos
+	MAX_RECONNECTION_ATTEMPTS_REPORT = 10000            // Overflow protection para tentativas
 )
 
 // NewPLCManager cria gerenciador BLINDADO para 1 PLC + 3 Radares
@@ -126,8 +137,15 @@ func NewPLCManager(plcIP string) *PLCManager {
 	pm.radarPortaMontanteEnabled = true
 	pm.radarMutex.Unlock()
 
-	pm.logThrottle.lastLog = time.Time{}
-	atomic.StoreInt32(&pm.logThrottle.count, 0)
+	// 🛡️ INICIALIZAÇÃO DO SISTEMA DE LOGGING INTELIGENTE
+	pm.connectionLogging.mutex.Lock()
+	pm.connectionLogging.lastConnectionState = false // assume desconectado inicialmente
+	pm.connectionLogging.isInDisconnectedPeriod = false
+	pm.connectionLogging.lastErrorTime = time.Time{}
+	atomic.StoreInt32(&pm.connectionLogging.reconnectionAttempts, 0)
+	atomic.StoreInt32(&pm.connectionLogging.fallbackThrottle.count, 0)
+	pm.connectionLogging.mutex.Unlock()
+
 	return pm
 }
 
@@ -135,7 +153,7 @@ func (pm *PLCManager) SetSystemLogger(logger *logger.SystemLogger) {
 	pm.systemLogger = logger
 }
 
-// 🛡️ CONNECT COM TIMEOUT E ERROR HANDLING
+// 🛡️ CONNECT COM TIMEOUT E ERROR HANDLING - SEM LOG DE ERRO FALSO
 func (pm *PLCManager) Connect() error {
 	// Timeout na conexão
 	done := make(chan error, 1)
@@ -153,16 +171,20 @@ func (pm *PLCManager) Connect() error {
 	case err := <-done:
 		if err != nil {
 			atomic.StoreInt32(&pm.connected, 0)
+			pm.handleConnectionStateChangeSecure(false, err)
 			return err
 		}
 		pm.client = pm.plcSiemens.Client
 		atomic.StoreInt32(&pm.connected, 1)
 		atomic.StoreInt32(&pm.consecutiveErrors, 0)
+		pm.handleConnectionStateChangeSecure(true, nil)
 		return nil
 
 	case <-time.After(10 * time.Second): // 🛡️ TIMEOUT 10s
 		atomic.StoreInt32(&pm.connected, 0)
-		return fmt.Errorf("connection timeout (10s)")
+		err := fmt.Errorf("connection timeout (10s)")
+		pm.handleConnectionStateChangeSecure(false, err)
+		return err
 	}
 }
 
@@ -179,9 +201,13 @@ func (pm *PLCManager) StartWithContext(parentCtx context.Context) {
 
 	pm.ctx, pm.cancel = context.WithCancel(parentCtx)
 
-	// 🛡️ TENTAR CONECTAR COM TIMEOUT
+	// 🛡️ TENTAR CONECTAR COM TIMEOUT - SEM LOG DE ERRO FALSO
 	if err := pm.Connect(); err != nil {
+		// Apenas console - logging inteligente cuida dos logs
 		fmt.Printf("⚠️  PLC inicial não conectou: %v\n", err)
+	} else {
+		// ✅ SUCESSO NO CONSOLE - SEM LOG DE ERRO
+		fmt.Println("✅ PLC conectado inicialmente")
 	}
 
 	// 🛡️ INICIALIZAR TICKERS COM PROTEÇÃO
@@ -241,6 +267,226 @@ func (pm *PLCManager) Stop() {
 		atomic.StoreInt32(&pm.isShuttingDown, 0)
 		fmt.Println("✅ PLC Manager: Sistema BLINDADO parado")
 	})
+}
+
+// ============================================================================
+// 🛡️ SISTEMA DE LOGGING INTELIGENTE POR ESTADOS DE CONEXÃO - SEM ERRO FALSO
+// ============================================================================
+
+// handleConnectionStateChangeSecure - LÓGICA INTELIGENTE DE LOGGING CORRIGIDA
+func (pm *PLCManager) handleConnectionStateChangeSecure(connected bool, err error) {
+	pm.connectionLogging.mutex.Lock()
+	defer pm.connectionLogging.mutex.Unlock()
+
+	now := time.Now()
+	previousState := pm.connectionLogging.lastConnectionState
+
+	// 🛡️ PRIMEIRA CONEXÃO (STARTUP) - SEM LOG DE ERRO
+	if connected && !previousState && !pm.connectionLogging.isInDisconnectedPeriod {
+		// ✅ PRIMEIRA CONEXÃO BEM-SUCEDIDA - APENAS CONSOLE
+		// NÃO LOGAR COMO ERRO - é normal na inicialização
+		pm.connectionLogging.lastConnectionState = connected
+		return
+	}
+
+	// 🛡️ MUDANÇA DE ESTADO: DESCONECTADO → CONECTADO (RECONEXÃO)
+	if connected && !previousState && pm.connectionLogging.isInDisconnectedPeriod {
+		// Calculando duração da desconexão
+		disconnectionDuration := now.Sub(pm.connectionLogging.disconnectionStartTime)
+		attempts := atomic.LoadInt32(&pm.connectionLogging.reconnectionAttempts)
+
+		// 🛡️ OVERFLOW PROTECTION
+		if attempts > MAX_RECONNECTION_ATTEMPTS_REPORT {
+			attempts = MAX_RECONNECTION_ATTEMPTS_REPORT
+		}
+
+		// LOG INFORMATIVO DE RECONEXÃO
+		message := fmt.Sprintf("PLC reconectado após %v - %d tentativas",
+			pm.formatDurationSecure(disconnectionDuration), attempts)
+		fmt.Printf("✅ %s\n", message)
+
+		if pm.systemLogger != nil {
+			pm.systemLogger.LogConfigurationChange("PLC_MANAGER", message)
+		}
+
+		// Reset do período de desconexão
+		pm.connectionLogging.isInDisconnectedPeriod = false
+		atomic.StoreInt32(&pm.connectionLogging.reconnectionAttempts, 0)
+	}
+
+	// 🛡️ MUDANÇA DE ESTADO: CONECTADO → DESCONECTADO
+	if !connected && previousState {
+		// INÍCIO DO PERÍODO DE DESCONEXÃO - LOG ÚNICO
+		message := "PLC desconectado - tentando reconectar"
+		if err != nil {
+			message = fmt.Sprintf("PLC desconectado (%v) - tentando reconectar", err)
+		}
+
+		fmt.Printf("⚠️  %s\n", message)
+		if pm.systemLogger != nil {
+			pm.systemLogger.LogConfigurationChange("PLC_MANAGER", message)
+		}
+
+		pm.connectionLogging.isInDisconnectedPeriod = true
+		pm.connectionLogging.disconnectionStartTime = now
+		atomic.StoreInt32(&pm.connectionLogging.reconnectionAttempts, 0)
+	}
+
+	// 🛡️ PERÍODO DE DESCONEXÃO CONTÍNUA - SILÊNCIO
+	if !connected && !previousState && pm.connectionLogging.isInDisconnectedPeriod {
+		// SILÊNCIO TOTAL - apenas contabilizar tentativas se for erro de reconexão
+		if err != nil && pm.isConnectionError(err) {
+			atomic.AddInt32(&pm.connectionLogging.reconnectionAttempts, 1)
+		}
+
+		// 🛡️ FALLBACK DE SEGURANÇA: Log crítico após muito tempo
+		if now.Sub(pm.connectionLogging.disconnectionStartTime) > CONNECTION_STATE_LOG_TIMEOUT {
+			pm.logCriticalDisconnectionFallbackSecure(now)
+		}
+		return // SILÊNCIO - não loga durante período contínuo
+	}
+
+	// Atualizar estado
+	pm.connectionLogging.lastConnectionState = connected
+	pm.connectionLogging.lastErrorTime = now
+}
+
+// logCriticalDisconnectionFallbackSecure - FALLBACK para desconexões muito longas
+func (pm *PLCManager) logCriticalDisconnectionFallbackSecure(now time.Time) {
+	// Evitar spam do próprio fallback
+	if now.Sub(pm.connectionLogging.fallbackThrottle.lastLog) < 30*time.Minute {
+		return
+	}
+
+	disconnectionDuration := now.Sub(pm.connectionLogging.disconnectionStartTime)
+	attempts := atomic.LoadInt32(&pm.connectionLogging.reconnectionAttempts)
+
+	message := fmt.Sprintf("CRÍTICO: PLC desconectado há %v (%d tentativas) - verificar infraestrutura",
+		pm.formatDurationSecure(disconnectionDuration), attempts)
+
+	fmt.Printf("🚨 %s\n", message)
+	if pm.systemLogger != nil {
+		pm.systemLogger.LogCriticalError("PLC_MANAGER", "CRITICAL_DISCONNECTION_PROLONGED",
+			errors.New(message))
+	}
+
+	pm.connectionLogging.fallbackThrottle.lastLog = now
+}
+
+// formatDurationSecure - Formatação legível de duração com proteção
+func (pm *PLCManager) formatDurationSecure(d time.Duration) string {
+	if d < 0 {
+		return "0s"
+	}
+
+	if d < time.Minute {
+		return fmt.Sprintf("%.0fs", d.Seconds())
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%.1fm", d.Minutes())
+	}
+	if d < 24*time.Hour {
+		return fmt.Sprintf("%.1fh", d.Hours())
+	}
+	days := int(d.Hours() / 24)
+	hours := d.Hours() - float64(days*24)
+	return fmt.Sprintf("%dd %.1fh", days, hours)
+}
+
+// ============================================================================
+// 🛡️ ERROR HANDLING OTIMIZADO COM ESTADOS DE CONEXÃO
+// ============================================================================
+
+func (pm *PLCManager) markErrorSecure(err error) {
+	// 🛡️ OVERFLOW PROTECTION - resetar a cada 1 milhão
+	current := atomic.LoadInt32(&pm.consecutiveErrors)
+	if current >= MAX_ERROR_COUNT {
+		fmt.Printf("⚠️ Error count overflow protection: resetando de %d para 0\n", current)
+		atomic.StoreInt32(&pm.consecutiveErrors, 0)
+		current = 0
+	}
+
+	errors := atomic.AddInt32(&pm.consecutiveErrors, 1)
+
+	if pm.isConnectionError(err) && errors >= pm.maxErrors {
+		atomic.StoreInt32(&pm.connected, 0)
+		// 🛡️ USAR SISTEMA INTELIGENTE DE LOGGING
+		pm.handleConnectionStateChangeSecure(false, err)
+	} else if !pm.isConnectionError(err) {
+		// Erros não relacionados à conexão - log normal (throttled para compatibilidade)
+		pm.logErrorThrottledSecure("PLC_MANAGER", err)
+	}
+}
+
+func (pm *PLCManager) markSuccess() {
+	// Reset erros consecutivos em sucesso
+	atomic.StoreInt32(&pm.consecutiveErrors, 0)
+
+	// Se estava desconectado e agora teve sucesso, marca como conectado
+	wasConnected := atomic.LoadInt32(&pm.connected) == 1
+	if !wasConnected {
+		atomic.StoreInt32(&pm.connected, 1)
+		pm.handleConnectionStateChangeSecure(true, nil)
+	}
+}
+
+func (pm *PLCManager) isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := strings.ToLower(err.Error())
+	connectionErrors := []string{
+		"i/o timeout", "connection reset", "broken pipe",
+		"connection refused", "invalid pdu", "invalid buffer",
+		"network unreachable", "connection timed out",
+	}
+	for _, connErr := range connectionErrors {
+		if strings.Contains(errStr, connErr) {
+			return true
+		}
+	}
+	return false
+}
+
+// 🛡️ LOG THROTTLING MANTIDO PARA ERROS NÃO-CONEXÃO
+func (pm *PLCManager) logErrorThrottledSecure(component string, err error) {
+	pm.connectionLogging.mutex.Lock()
+	defer pm.connectionLogging.mutex.Unlock()
+
+	now := time.Now()
+	message := err.Error()
+
+	if pm.connectionLogging.fallbackThrottle.lastMessage == message &&
+		now.Sub(pm.connectionLogging.fallbackThrottle.lastLog) < 5*time.Minute {
+
+		current := atomic.LoadInt32(&pm.connectionLogging.fallbackThrottle.count)
+		if current >= MAX_ERROR_COUNT {
+			fmt.Printf("⚠️ Fallback log count overflow protection: resetando após %d repetições\n", current)
+			atomic.StoreInt32(&pm.connectionLogging.fallbackThrottle.count, 0)
+			pm.connectionLogging.fallbackThrottle.lastLog = time.Time{}
+			return
+		}
+		atomic.AddInt32(&pm.connectionLogging.fallbackThrottle.count, 1)
+		return
+	}
+
+	count := atomic.LoadInt32(&pm.connectionLogging.fallbackThrottle.count)
+	if count > 0 {
+		if pm.systemLogger != nil {
+			pm.systemLogger.LogCriticalError(component, "THROTTLED_ERROR",
+				fmt.Errorf("%v (repeated %d times)", err, count))
+		}
+		fmt.Printf("❌ %s: %s (repetido %d vezes)\n", component, err, count)
+		atomic.StoreInt32(&pm.connectionLogging.fallbackThrottle.count, 0)
+	} else {
+		if pm.systemLogger != nil {
+			pm.systemLogger.LogCriticalError(component, "ERROR", err)
+		}
+		fmt.Printf("❌ %s: %v\n", component, err)
+	}
+
+	pm.connectionLogging.fallbackThrottle.lastLog = now
+	pm.connectionLogging.fallbackThrottle.lastMessage = message
 }
 
 // ============================================================================
@@ -375,92 +621,6 @@ DrainLoop:
 }
 
 // ============================================================================
-// 🛡️ ERROR HANDLING COM OVERFLOW PROTECTION
-// ============================================================================
-
-func (pm *PLCManager) markErrorSecure(err error) {
-	// 🛡️ OVERFLOW PROTECTION - resetar a cada 1 milhão
-	current := atomic.LoadInt32(&pm.consecutiveErrors)
-	if current >= MAX_ERROR_COUNT {
-		fmt.Printf("⚠️ Error count overflow protection: resetando de %d para 0\n", current)
-		atomic.StoreInt32(&pm.consecutiveErrors, 0)
-		current = 0
-	}
-
-	errors := atomic.AddInt32(&pm.consecutiveErrors, 1)
-	pm.lastErrorTime = time.Now()
-
-	if pm.isConnectionError(err) && errors >= pm.maxErrors {
-		atomic.StoreInt32(&pm.connected, 0)
-	}
-
-	pm.logErrorThrottledSecure("PLC_MANAGER", err)
-}
-
-func (pm *PLCManager) markSuccess() {
-	atomic.StoreInt32(&pm.consecutiveErrors, 0)
-}
-
-func (pm *PLCManager) isConnectionError(err error) bool {
-	if err == nil {
-		return false
-	}
-	errStr := strings.ToLower(err.Error())
-	connectionErrors := []string{
-		"i/o timeout", "connection reset", "broken pipe",
-		"connection refused", "invalid pdu", "invalid buffer",
-		"network unreachable", "connection timed out",
-	}
-	for _, connErr := range connectionErrors {
-		if strings.Contains(errStr, connErr) {
-			return true
-		}
-	}
-	return false
-}
-
-// 🛡️ LOG THROTTLING COM OVERFLOW PROTECTION
-func (pm *PLCManager) logErrorThrottledSecure(component string, err error) {
-	pm.logThrottle.mutex.Lock()
-	defer pm.logThrottle.mutex.Unlock()
-
-	now := time.Now()
-	message := err.Error()
-
-	if pm.logThrottle.lastMessage == message &&
-		now.Sub(pm.logThrottle.lastLog) < 5*time.Minute {
-		// 🛡️ OVERFLOW PROTECTION - resetar a cada 1 milhão
-		current := atomic.LoadInt32(&pm.logThrottle.count)
-		if current >= MAX_LOG_THROTTLE_COUNT {
-			fmt.Printf("⚠️ Log count overflow protection: resetando após %d repetições\n", current)
-			atomic.StoreInt32(&pm.logThrottle.count, 0)
-			pm.logThrottle.lastLog = time.Time{} // Força log na próxima
-			return
-		}
-		atomic.AddInt32(&pm.logThrottle.count, 1)
-		return
-	}
-
-	count := atomic.LoadInt32(&pm.logThrottle.count)
-	if count > 0 {
-		if pm.systemLogger != nil {
-			pm.systemLogger.LogCriticalError(component, "THROTTLED_ERROR",
-				fmt.Errorf("%v (repeated %d times)", err, count))
-		}
-		fmt.Printf("❌ %s: %s (repetido %d vezes)\n", component, err, count)
-		atomic.StoreInt32(&pm.logThrottle.count, 0)
-	} else {
-		if pm.systemLogger != nil {
-			pm.systemLogger.LogCriticalError(component, "ERROR", err)
-		}
-		fmt.Printf("❌ %s: %v\n", component, err)
-	}
-
-	pm.logThrottle.lastLog = now
-	pm.logThrottle.lastMessage = message
-}
-
-// ============================================================================
 // 🛡️ PLC OPERATIONS COM TIMEOUT OBRIGATÓRIO E VALIDAÇÃO
 // ============================================================================
 
@@ -515,8 +675,9 @@ func (pm *PLCManager) readTagSecure(dbNumber, byteOffset int, dataType string, b
 		pm.markSuccess()
 
 	case <-time.After(PLC_OPERATION_TIMEOUT): // 🛡️ TIMEOUT 3s
-		pm.markErrorSecure(fmt.Errorf("PLC read timeout"))
-		return nil, fmt.Errorf("PLC read timeout (%v)", PLC_OPERATION_TIMEOUT)
+		err := fmt.Errorf("PLC read timeout (%v)", PLC_OPERATION_TIMEOUT)
+		pm.markErrorSecure(err)
+		return nil, err
 	}
 
 	// 🛡️ CONVERTER DADOS COM VALIDAÇÃO
@@ -736,8 +897,9 @@ func (pm *PLCManager) writeTagSecure(dbNumber, byteOffset int, dataType string, 
 		return nil
 
 	case <-time.After(PLC_OPERATION_TIMEOUT): // 🛡️ TIMEOUT 3s
-		pm.markErrorSecure(fmt.Errorf("PLC write timeout"))
-		return fmt.Errorf("PLC write timeout (%v)", PLC_OPERATION_TIMEOUT)
+		err := fmt.Errorf("PLC write timeout (%v)", PLC_OPERATION_TIMEOUT)
+		pm.markErrorSecure(err)
+		return err
 	}
 }
 
@@ -792,15 +954,13 @@ func (pm *PLCManager) validateWriteValue(value interface{}, dataType string) err
 }
 
 // ============================================================================
-// 🛡️ RECONNECTION COM TIMEOUT OBRIGATÓRIO
+// 🛡️ RECONNECTION COM TIMEOUT OBRIGATÓRIO E LOGGING INTELIGENTE
 // ============================================================================
 
 func (pm *PLCManager) tryReconnectSecure() bool {
 	if pm.plcSiemens == nil {
 		return false
 	}
-
-	fmt.Println("🔄 PLC: Tentando reconexão BLINDADA...")
 
 	// 🛡️ RECONEXÃO COM TIMEOUT OBRIGATÓRIO
 	done := make(chan bool, 1)
@@ -817,7 +977,8 @@ func (pm *PLCManager) tryReconnectSecure() bool {
 		time.Sleep(2 * time.Second)
 
 		if err := pm.plcSiemens.Connect(); err != nil {
-			pm.logErrorThrottledSecure("RECONNECTION", err)
+			// 🛡️ USAR SISTEMA INTELIGENTE - não loga aqui, só reporta erro
+			pm.handleConnectionStateChangeSecure(false, err)
 			done <- false
 			return
 		}
@@ -826,12 +987,8 @@ func (pm *PLCManager) tryReconnectSecure() bool {
 		atomic.StoreInt32(&pm.connected, 1)
 		atomic.StoreInt32(&pm.consecutiveErrors, 0)
 
-		// Reset throttling
-		pm.logThrottle.mutex.Lock()
-		atomic.StoreInt32(&pm.logThrottle.count, 0)
-		pm.logThrottle.mutex.Unlock()
-
-		fmt.Println("✅ PLC: Reconectado com sucesso")
+		// 🛡️ USAR SISTEMA INTELIGENTE - loga sucesso de reconexão
+		pm.handleConnectionStateChangeSecure(true, nil)
 		done <- true
 	}()
 
@@ -840,7 +997,8 @@ func (pm *PLCManager) tryReconnectSecure() bool {
 	case success := <-done:
 		return success
 	case <-time.After(PLC_RECONNECT_TIMEOUT):
-		fmt.Printf("⚠️ Timeout na reconexão PLC (%v)\n", PLC_RECONNECT_TIMEOUT)
+		err := fmt.Errorf("reconnection timeout (%v)", PLC_RECONNECT_TIMEOUT)
+		pm.handleConnectionStateChangeSecure(false, err)
 		return false
 	}
 }
@@ -924,7 +1082,6 @@ func (pm *PLCManager) statusWriteLoopSecure() {
 				lastReconnectTime = time.Now()
 
 				if reconnectAttempts > 20 { // Máximo 20 tentativas
-					fmt.Println("⚠️ Muitas tentativas de reconexão - aguardando 30s")
 					time.Sleep(30 * time.Second)
 					reconnectAttempts = 0
 					continue

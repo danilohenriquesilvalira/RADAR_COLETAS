@@ -135,10 +135,12 @@ func (rm *RadarManager) getConfigSafe(radarID string) (RadarConfig, bool) {
 	return config, exists
 }
 
-func (rm *RadarManager) getRadarMutex(radarID string) *sync.Mutex {
+// CORREÇÃO: getRadarMutex retorna (mutex, exists) para evitar nil pointer
+func (rm *RadarManager) getRadarMutex(radarID string) (*sync.Mutex, bool) {
 	rm.mutex.RLock()
 	defer rm.mutex.RUnlock()
-	return rm.radarMutexes[radarID]
+	mutex, exists := rm.radarMutexes[radarID]
+	return mutex, exists
 }
 
 func (rm *RadarManager) GetRadar(radarID string) (*SICKRadar, bool) {
@@ -362,8 +364,9 @@ func (rm *RadarManager) CollectEnabledRadarsDataAsyncWithContext(ctx context.Con
 				return
 			}
 
-			radarMutex := rm.getRadarMutex(id)
-			if radarMutex == nil {
+			// CORREÇÃO: Verificar se mutex existe antes de usar
+			radarMutex, mutexExists := rm.getRadarMutex(id)
+			if !mutexExists || radarMutex == nil {
 				return
 			}
 
@@ -522,8 +525,9 @@ func (rm *RadarManager) CheckAndReconnectEnabledAsyncWithContext(ctx context.Con
 
 				radar := rm.getRadarSafe(id)
 				if radar != nil && radar.IsConnected() {
-					radarMutex := rm.getRadarMutex(id)
-					if radarMutex != nil {
+					// CORREÇÃO: Verificar se mutex existe antes de usar
+					radarMutex, mutexExists := rm.getRadarMutex(id)
+					if mutexExists && radarMutex != nil {
 						radarMutex.Lock()
 						radar.Disconnect()
 						radarMutex.Unlock()
@@ -550,8 +554,9 @@ func (rm *RadarManager) CheckAndReconnectEnabledAsyncWithContext(ctx context.Con
 				return
 			}
 
-			radarMutex := rm.getRadarMutex(id)
-			if radarMutex == nil {
+			// CORREÇÃO: Verificar se mutex existe antes de usar
+			radarMutex, mutexExists := rm.getRadarMutex(id)
+			if !mutexExists || radarMutex == nil {
 				return
 			}
 

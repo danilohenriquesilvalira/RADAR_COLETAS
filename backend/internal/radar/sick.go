@@ -204,10 +204,13 @@ func (r *SICKRadar) readRawData() ([]byte, error) {
 
 	if err != nil {
 		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			// CORREÇÃO: Usar mutex para incrementar consecutiveErrors
+			r.mutex.Lock()
 			r.consecutiveErrors++
 			if r.consecutiveErrors >= r.maxConsecutiveErrors {
 				r.Connected = false
 			}
+			r.mutex.Unlock()
 			return nil, nil
 		}
 
@@ -347,13 +350,14 @@ func (r *SICKRadar) processRadarData(data []byte) (positions, velocities, azimut
 			}
 		}
 
-		if blockName == "P3DX1" || blockName == "DIST1" {
+		switch blockName {
+		case "P3DX1", "DIST1":
 			positions = values
-		} else if blockName == "V3DX1" || blockName == "VRAD1" {
+		case "V3DX1", "VRAD1":
 			velocities = values
-		} else if blockName == "AZMT1" || blockName == "ANG1" || blockName == "DIR1" || blockName == "ANGLE1" {
+		case "AZMT1", "ANG1", "DIR1", "ANGLE1":
 			azimuths = values
-		} else if blockName == "AMPL1" {
+		case "AMPL1":
 			amplitudes = values
 		}
 	}
@@ -469,7 +473,11 @@ func (r *SICKRadar) selectStabilizedMainObject(positions, velocities, azimuths, 
 	}
 }
 
+// CORREÇÃO: markConnectionError COM MUTEX
 func (r *SICKRadar) markConnectionError(err error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
 	r.consecutiveErrors++
 
 	if r.isConnectionError(err) {
@@ -480,7 +488,11 @@ func (r *SICKRadar) markConnectionError(err error) {
 	}
 }
 
+// CORREÇÃO: markSuccessfulOperation COM MUTEX
 func (r *SICKRadar) markSuccessfulOperation() {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
 	r.consecutiveErrors = 0
 	r.lastSuccessfulRead = time.Now()
 }
@@ -534,5 +546,7 @@ func (r *SICKRadar) GetDebugMode() bool {
 }
 
 func (r *SICKRadar) GetConnectionStats() (int, time.Time) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 	return r.consecutiveErrors, r.lastSuccessfulRead
 }

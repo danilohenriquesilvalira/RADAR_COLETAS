@@ -999,3 +999,110 @@
 [ERROR] 2025/09/04 15:22:39 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (3s)
 [ERROR] 2025/09/04 15:22:40 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (3s)
 [ERROR] 2025/09/04 15:22:40 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Caldeira collection timeout
+[ERROR] 2025/09/04 15:49:30 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC write timeout (3s) (repeated 1 times)
+[ERROR] 2025/09/04 15:49:30 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC read timeout (3s)
+[ERROR] 2025/09/04 15:49:30 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (3s)
+[ERROR] 2025/09/04 15:49:30 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (3s)
+[ERROR] 2025/09/04 15:49:31 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Caldeira collection timeout
+[ERROR] 2025/09/04 15:49:33 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC read timeout (3s)
+[ERROR] 2025/09/04 15:49:33 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (3s)
+[ERROR] 2025/09/04 15:49:34 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (3s)
+[ERROR] 2025/09/04 15:49:34 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Caldeira collection timeout
+[ERROR] 2025/09/04 15:49:35 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Caldeira collection timeout
+[ERROR] 2025/09/04 16:49:28 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (3s) (repeated 1 times)
+[ERROR] 2025/09/04 16:51:28 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC write timeout (3s) (repeated 1 times)
+[ERROR] 2025/09/04 16:51:30 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write Position[0]: PLC write timeout (3s)
+[ERROR] 2025/09/04 16:51:31 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (3s) (repeated 1 times)
+[ERROR] 2025/09/04 16:51:31 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (3s)
+[ERROR] 2025/09/04 20:37:29 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Montante (porta_montante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/04 20:37:43 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Jusante (porta_jusante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/04 20:37:43 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Montante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/04 20:37:43 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Jusante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/04 20:37:44 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Porta Montante collection timeout
+[ERROR] 2025/09/04 20:37:47 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Montante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/04 20:37:47 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Jusante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/04 20:44:57 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Jusante (porta_jusante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/04 20:45:11 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Montante (porta_montante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/04 20:45:11 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Jusante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/04 20:45:11 logger.go:509: CRITICAL_ERROR: component=RADAR operation=INITIAL_CONNECTION error=Radar Porta Montante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/04 20:45:15 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Montante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/04 20:45:15 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Jusante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 08:03:18 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:18 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write Position[8]: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:19 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC read timeout (5s)
+[ERROR] 2025/09/05 08:03:19 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:23 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:24 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:03:24 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:28 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:29 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:03:29 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:33 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:34 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:03:34 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:38 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:39 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:03:39 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:43 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:44 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:03:44 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:48 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:49 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 2 times)
+[ERROR] 2025/09/05 08:03:53 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:53 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:54 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC read timeout (5s)
+[ERROR] 2025/09/05 08:03:54 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:58 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:03:59 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 2 times)
+[ERROR] 2025/09/05 08:04:03 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:03 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:04 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:04:08 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:08 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:09 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:04:13 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:13 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:14 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC read timeout (5s)
+[ERROR] 2025/09/05 08:04:14 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:18 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:19 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:04:19 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:23 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:24 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:04:24 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:28 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:29 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:04:29 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:33 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:34 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 2 times)
+[ERROR] 2025/09/05 08:04:38 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:38 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:39 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:04:43 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:43 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:44 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:04:48 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:48 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:49 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 1 times)
+[ERROR] 2025/09/05 08:04:53 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:53 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:54 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC read timeout (5s)
+[ERROR] 2025/09/05 08:04:54 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=ERROR error=PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:58 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: PLC write timeout (5s)
+[ERROR] 2025/09/05 08:04:59 logger.go:509: CRITICAL_ERROR: component=PLC_MANAGER operation=THROTTLED_ERROR error=PLC read timeout (5s) (repeated 2 times)
+[ERROR] 2025/09/05 08:04:59 logger.go:509: CRITICAL_ERROR: component=PLC operation=DATA_WRITE error=failed to write ObjectDetected: write tcp 192.168.1.92:48712->192.168.1.33:102: write: broken pipe
+[ERROR] 2025/09/05 08:04:59 logger.go:384: PLC_DISCONNECTED: attempts=0, error=connection lost
+[ERROR] 2025/09/05 08:05:07 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Jusante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 08:05:07 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Montante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 08:05:07 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Porta Jusante collection timeout
+[ERROR] 2025/09/05 08:05:16 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Porta Montante collection timeout
+[ERROR] 2025/09/05 08:05:19 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Montante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 08:05:19 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Jusante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 08:05:19 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Porta Jusante collection timeout
+[ERROR] 2025/09/05 08:05:22 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Jusante (porta_jusante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 08:05:22 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_COLLECTION_TIMEOUT error=radar Radar Porta Montante collection timeout
+[ERROR] 2025/09/05 08:05:29 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Jusante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 08:05:29 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=ASYNC_RECONNECTION_FAILED error=radar Radar Porta Montante async reconnection failed: falha ao conectar após 1 tentativas
+[ERROR] 2025/09/05 08:05:37 logger.go:509: CRITICAL_ERROR: component=RADAR_MANAGER operation=RADAR_CONNECTION_FAILED error=radar Radar Porta Montante (porta_montante): falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 08:05:37 logger.go:509: CRITICAL_ERROR: component=RADAR operation=POST_PLC_RECONNECTION error=Radar Porta Jusante: falha ao conectar após 3 tentativas
+[ERROR] 2025/09/05 08:05:37 logger.go:509: CRITICAL_ERROR: component=RADAR operation=POST_PLC_RECONNECTION error=Radar Porta Montante: falha ao conectar após 3 tentativas

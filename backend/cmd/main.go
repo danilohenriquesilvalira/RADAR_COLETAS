@@ -15,6 +15,84 @@ import (
 	"backend/internal/radar"
 )
 
+// CORREÇÃO: SystemState encapsula variáveis globais com mutex
+type SystemState struct {
+	mutex                     sync.RWMutex
+	lastPLCReconnectTime      time.Time
+	radarsReconnectedAfterPLC bool
+	lastPLCStatus             bool
+	plcDisconnectTime         time.Time
+	radarDisconnectTimes      map[string]time.Time
+}
+
+// Métodos thread-safe para SystemState
+func (s *SystemState) setLastPLCReconnectTime(t time.Time) {
+	s.mutex.Lock()
+	s.lastPLCReconnectTime = t
+	s.mutex.Unlock()
+}
+
+func (s *SystemState) getLastPLCReconnectTime() time.Time {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.lastPLCReconnectTime
+}
+
+func (s *SystemState) setRadarsReconnectedAfterPLC(value bool) {
+	s.mutex.Lock()
+	s.radarsReconnectedAfterPLC = value
+	s.mutex.Unlock()
+}
+
+func (s *SystemState) getRadarsReconnectedAfterPLC() bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.radarsReconnectedAfterPLC
+}
+
+func (s *SystemState) setLastPLCStatus(status bool) {
+	s.mutex.Lock()
+	s.lastPLCStatus = status
+	s.mutex.Unlock()
+}
+
+func (s *SystemState) getLastPLCStatus() bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.lastPLCStatus
+}
+
+func (s *SystemState) setPLCDisconnectTime(t time.Time) {
+	s.mutex.Lock()
+	s.plcDisconnectTime = t
+	s.mutex.Unlock()
+}
+
+func (s *SystemState) getPLCDisconnectTime() time.Time {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.plcDisconnectTime
+}
+
+func (s *SystemState) setRadarDisconnectTime(radarID string, t time.Time) {
+	s.mutex.Lock()
+	s.radarDisconnectTimes[radarID] = t
+	s.mutex.Unlock()
+}
+
+func (s *SystemState) getRadarDisconnectTime(radarID string) (time.Time, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	t, exists := s.radarDisconnectTimes[radarID]
+	return t, exists
+}
+
+func (s *SystemState) deleteRadarDisconnectTime(radarID string) {
+	s.mutex.Lock()
+	delete(s.radarDisconnectTimes, radarID)
+	s.mutex.Unlock()
+}
+
 var (
 	// Logger profissional com configuração customizada
 	systemLogger *logger.SystemLogger
@@ -28,20 +106,18 @@ var (
 	startTime     time.Time
 	forceShutdown int64
 
-	// Controle de reconexão e status
-	lastPLCReconnectTime      time.Time
-	radarsReconnectedAfterPLC bool
-	lastPLCStatus             bool
-	plcDisconnectTime         time.Time
-	radarDisconnectTimes      map[string]time.Time
+	// CORREÇÃO: Estado do sistema thread-safe
+	systemState *SystemState
 )
 
 func main() {
 	startTime = time.Now()
 	globalCtx, globalCancel = context.WithCancel(context.Background())
 
-	// Inicializar controles
-	radarDisconnectTimes = make(map[string]time.Time)
+	// CORREÇÃO: Inicializar estado do sistema thread-safe
+	systemState = &SystemState{
+		radarDisconnectTimes: make(map[string]time.Time),
+	}
 
 	// Inicializar logger profissional com configuração customizada
 	systemLogger = initializeLogger()
@@ -62,12 +138,12 @@ func main() {
 	// CRIAR COMPONENTES USANDO OS MÉTODOS QUE EXISTEM
 	radarManager := radar.NewRadarManager()
 
-	// ✅ CONECTAR LOGGER AO RADAR MANAGER
+	// CONECTAR LOGGER AO RADAR MANAGER
 	radarManager.SetSystemLogger(systemLogger)
 
 	addRadarsToManager(radarManager)
 
-	// ✅ USAR PLCManager COM LOGGING INTELIGENTE
+	// USAR PLCManager COM LOGGING INTELIGENTE
 	plcManager := plc.NewPLCManager("192.168.1.33")
 	plcManager.SetSystemLogger(systemLogger)
 
@@ -84,17 +160,17 @@ func main() {
 	}()
 
 	// CONECTAR RADARES INICIALMENTE
-	fmt.Println("🔄 Conectando radares...")
+	fmt.Println("Conectando radares...")
 	connectErrors := radarManager.ConnectAll()
 	for id, err := range connectErrors {
 		config, _ := radarManager.GetRadarConfig(id)
 		systemLogger.LogCriticalError("RADAR", "INITIAL_CONNECTION", fmt.Errorf("%s: %v", config.Name, err))
 	}
 
-	// Inicializar status de controle
-	lastPLCStatus = plcManager.IsPLCConnected()
-	if !lastPLCStatus {
-		plcDisconnectTime = time.Now()
+	// Inicializar status de controle - USANDO MÉTODOS THREAD-SAFE
+	systemState.setLastPLCStatus(plcManager.IsPLCConnected())
+	if !systemState.getLastPLCStatus() {
+		systemState.setPLCDisconnectTime(time.Now())
 	}
 
 	// INICIAR MONITORAMENTO DE LOGS
@@ -108,7 +184,7 @@ func main() {
 	defer statusTicker.Stop()
 	defer logStatsTicker.Stop()
 
-	fmt.Println("✅ Sistema operacional")
+	fmt.Println("Sistema operacional")
 
 	for {
 		select {
@@ -128,27 +204,29 @@ func main() {
 			collectionActive := plcManager.IsCollectionActive()
 			emergencyStop := plcManager.IsEmergencyStop()
 
-			// DETECTAR MUDANÇAS DE STATUS PLC
+			// DETECTAR MUDANÇAS DE STATUS PLC - USANDO MÉTODOS THREAD-SAFE
+			lastStatus := systemState.getLastPLCStatus()
+
 			// PLC desconectou
-			if lastPLCStatus && !plcConnected {
-				plcDisconnectTime = time.Now()
+			if lastStatus && !plcConnected {
+				systemState.setPLCDisconnectTime(time.Now())
 				systemLogger.LogPLCDisconnected(0, fmt.Errorf("connection lost"))
 			}
 
 			// PLC reconectou
-			if !lastPLCStatus && plcConnected {
-				downtime := time.Since(plcDisconnectTime)
+			if !lastStatus && plcConnected {
+				downtime := time.Since(systemState.getPLCDisconnectTime())
 				systemLogger.LogPLCReconnected(downtime)
 
-				fmt.Println("🎉 PLC RECONECTADO - Iniciando reconexão de radares...")
-				lastPLCReconnectTime = time.Now()
-				radarsReconnectedAfterPLC = false
+				fmt.Println("PLC RECONECTADO - Iniciando reconexão de radares...")
+				systemState.setLastPLCReconnectTime(time.Now())
+				systemState.setRadarsReconnectedAfterPLC(false)
 
 				// FORÇAR RECONEXÃO IMEDIATA DOS RADARES
 				go forceRadarReconnectionAfterPLC(radarManager)
 			}
 
-			lastPLCStatus = plcConnected
+			systemState.setLastPLCStatus(plcConnected)
 
 			// DETECTAR MUDANÇAS DE STATUS RADARES
 			detectRadarStatusChanges(radarManager)
@@ -179,7 +257,7 @@ func main() {
 				plcManager.SetRadarsConnected(connectionStatus)
 			} else if !plcConnected {
 				// PLC desconectado - resetar flag de reconexão
-				radarsReconnectedAfterPLC = false
+				systemState.setRadarsReconnectedAfterPLC(false)
 			}
 
 		case <-statusTicker.C:
@@ -193,14 +271,13 @@ func main() {
 	}
 }
 
-// ✅ initializeLogger CORRIGIDO - SEM EnableCompression
 func initializeLogger() *logger.SystemLogger {
 	config := logger.LogConfig{
 		BasePath:         "backend/logs",
 		MaxFileSize:      50 * 1024 * 1024, // 50MB para rotação mais frequente
 		RetentionDays:    7,                // Manter 7 dias
 		RotationInterval: 24 * time.Hour,   // Rotação diária
-		EnableDebug:      false,            // ✅ DESABILITAR DEBUG PARA EVITAR LIXO
+		EnableDebug:      false,            // DESABILITAR DEBUG PARA EVITAR LIXO
 		CleanupInterval:  30 * time.Minute, // Limpeza a cada 30 minutos
 	}
 
@@ -235,13 +312,11 @@ func startLogMonitoring() {
 	}()
 }
 
-// ✅ displayLogStats CORRIGIDO - SEM ARCHIVE
 func displayLogStats() {
 	stats := systemLogger.GetLogStats()
 
-	// ✅ CORRIGIDO - SEM ARCHIVE COUNT
 	if errorCount, ok := stats["errors_file_count"].(int); ok && errorCount > 0 {
-		fmt.Printf("📊 Logs: %d erros, %d sistema, %d warnings\n",
+		fmt.Printf("Logs: %d erros, %d sistema, %d warnings\n",
 			errorCount,
 			getStatInt(stats, "system_file_count"),
 			getStatInt(stats, "warnings_file_count"))
@@ -265,10 +340,11 @@ func gracefulLoggerShutdown() {
 		// Fechar logger
 		systemLogger.Close()
 
-		fmt.Println("📝 Logger fechado com segurança")
+		fmt.Println("Logger fechado com segurança")
 	}
 }
 
+// CORREÇÃO: detectRadarStatusChanges usando métodos thread-safe
 func detectRadarStatusChanges(radarManager *radar.RadarManager) {
 	connectionStatus := radarManager.GetConnectionStatus()
 
@@ -280,25 +356,26 @@ func detectRadarStatusChanges(radarManager *radar.RadarManager) {
 
 		// Radar desconectou
 		if !isConnected {
-			if _, wasTracked := radarDisconnectTimes[radarID]; !wasTracked {
-				radarDisconnectTimes[radarID] = time.Now()
+			if _, wasTracked := systemState.getRadarDisconnectTime(radarID); !wasTracked {
+				systemState.setRadarDisconnectTime(radarID, time.Now())
 				systemLogger.LogRadarDisconnected(radarID, config.Name)
 			}
 		} else {
 			// Radar reconectou
-			if disconnectTime, wasDisconnected := radarDisconnectTimes[radarID]; wasDisconnected {
+			if disconnectTime, wasDisconnected := systemState.getRadarDisconnectTime(radarID); wasDisconnected {
 				downtime := time.Since(disconnectTime)
 				systemLogger.LogRadarReconnected(radarID, config.Name, downtime)
-				delete(radarDisconnectTimes, radarID)
+				systemState.deleteRadarDisconnectTime(radarID)
 			}
 		}
 	}
 }
 
+// CORREÇÃO: forceRadarReconnectionAfterPLC usando métodos thread-safe
 func forceRadarReconnectionAfterPLC(radarManager *radar.RadarManager) {
 	time.Sleep(2 * time.Second) // Aguardar PLC estabilizar
 
-	fmt.Println("🔄 Forçando reconexão de todos os radares após PLC...")
+	fmt.Println("Forçando reconexão de todos os radares após PLC...")
 
 	connectErrors := radarManager.ConnectAll()
 
@@ -307,17 +384,17 @@ func forceRadarReconnectionAfterPLC(radarManager *radar.RadarManager) {
 		config, _ := radarManager.GetRadarConfig(id)
 		if err != nil {
 			systemLogger.LogCriticalError("RADAR", "POST_PLC_RECONNECTION", fmt.Errorf("%s: %v", config.Name, err))
-			fmt.Printf("❌ Erro reconectar radar %s: %v\n", config.Name, err)
+			fmt.Printf("Erro reconectar radar %s: %v\n", config.Name, err)
 		} else {
 			successCount++
 		}
 	}
 
-	fmt.Printf("✅ Reconexão pós-PLC: %d/3 radares conectados\n", successCount)
-	radarsReconnectedAfterPLC = true
+	fmt.Printf("Reconexão pós-PLC: %d/3 radares conectados\n", successCount)
+	systemState.setRadarsReconnectedAfterPLC(true)
 }
 
-// ✅ ATUALIZADA PARA ACEITAR PLCManager
+// CORREÇÃO: displayConsolidatedStatus usando métodos thread-safe
 func displayConsolidatedStatus(plcManager *plc.PLCManager, radarManager *radar.RadarManager) {
 	fmt.Print("\033[12H\033[J") // Limpar a partir da linha 12
 
@@ -337,11 +414,12 @@ func displayConsolidatedStatus(plcManager *plc.PLCManager, radarManager *radar.R
 			fmt.Println("Coleta: PARADA")
 		}
 
-		// MOSTRAR STATUS DE RECONEXÃO PÓS-PLC
-		if !lastPLCReconnectTime.IsZero() {
-			timeSinceReconnect := time.Since(lastPLCReconnectTime)
+		// MOSTRAR STATUS DE RECONEXÃO PÓS-PLC - USANDO MÉTODOS THREAD-SAFE
+		lastReconnectTime := systemState.getLastPLCReconnectTime()
+		if !lastReconnectTime.IsZero() {
+			timeSinceReconnect := time.Since(lastReconnectTime)
 			if timeSinceReconnect < 30*time.Second {
-				if radarsReconnectedAfterPLC {
+				if systemState.getRadarsReconnectedAfterPLC() {
 					fmt.Printf("Reconexão: COMPLETA (há %s)\n", formatDuration(timeSinceReconnect))
 				} else {
 					fmt.Printf("Reconexão: EM ANDAMENTO (há %s)\n", formatDuration(timeSinceReconnect))
@@ -350,8 +428,9 @@ func displayConsolidatedStatus(plcManager *plc.PLCManager, radarManager *radar.R
 		}
 	} else {
 		fmt.Println("PLC: DESCONECTADO")
-		if !plcDisconnectTime.IsZero() {
-			downtime := time.Since(plcDisconnectTime)
+		disconnectTime := systemState.getPLCDisconnectTime()
+		if !disconnectTime.IsZero() {
+			downtime := time.Since(disconnectTime)
 			fmt.Printf("Downtime: %v\n", formatDuration(downtime))
 		}
 	}
@@ -386,7 +465,7 @@ func displayConsolidatedStatus(plcManager *plc.PLCManager, radarManager *radar.R
 			status = "DESABILITADO"
 		} else if isConnected {
 			status = "CONECTADO"
-		} else if disconnectTime, exists := radarDisconnectTimes[r.id]; exists {
+		} else if disconnectTime, exists := systemState.getRadarDisconnectTime(r.id); exists {
 			downtime := time.Since(disconnectTime)
 			status = fmt.Sprintf("DESCONECTADO (%v)", formatDuration(downtime))
 		}
@@ -404,7 +483,7 @@ func displayConsolidatedStatus(plcManager *plc.PLCManager, radarManager *radar.R
 }
 
 func gracefulShutdown() {
-	fmt.Println("🛑 Iniciando shutdown...")
+	fmt.Println("Iniciando shutdown...")
 	atomic.StoreInt64(&forceShutdown, 1)
 
 	if globalCancel != nil {
@@ -419,10 +498,10 @@ func gracefulShutdown() {
 
 	select {
 	case <-done:
-		fmt.Println("✅ Shutdown concluído")
+		fmt.Println("Shutdown concluído")
 		systemLogger.LogSystemShutdown(time.Since(startTime))
 	case <-time.After(10 * time.Second):
-		fmt.Println("⚠️ Timeout no shutdown - forçando")
+		fmt.Println("Timeout no shutdown - forçando")
 		systemLogger.LogCriticalError("MAIN", "SHUTDOWN_TIMEOUT", fmt.Errorf("shutdown timeout after 10s"))
 	}
 }

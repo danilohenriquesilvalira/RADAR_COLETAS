@@ -1,7 +1,9 @@
 // ============================================================================
-// ARQUIVO: backend/internal/plc/plc_manager.go - FINAL CORRIGIDO
+// ARQUIVO: backend/internal/plc/plc_manager.go - FINAL CORRIGIDO DEFINITIVO
+// CORREÇÕES: Race conditions, Memory leaks, Client thread-safe
 // PROTEÇÕES: Timeout, Overflow, Fallback, Validação, Panic Recovery
-// OTIMIZAÇÃO: Logging inteligente por estados de conexão - SEM ERRO FALSO
+// OTIMIZAÇÃO: Logging inteligente por estados de conexão
+// CORREÇÃO RACE CONDITION: SiemensPLC thread-safe completo
 // ============================================================================
 package plc
 
@@ -30,12 +32,13 @@ type PLCClient interface {
 
 // PLCManager - UNIFICADO E BLINDADO para 1 PLC + 3 Radares
 type PLCManager struct {
-	// Conexão PLC
+	// Conexão PLC - THREAD-SAFE CORRIGIDO
 	plcSiemens   *SiemensPLC
 	client       PLCClient
+	clientMutex  sync.RWMutex // NOVO: Protege pm.client
 	systemLogger *logger.SystemLogger
 
-	// 🛡️ ESTADOS ATÔMICOS (THREAD-SAFE)
+	// ESTADOS ATÔMICOS (THREAD-SAFE)
 	connected         int32 // atomic boolean (0/1)
 	liveBit           int32 // atomic boolean (0/1)
 	collectionActive  int32 // atomic boolean (0/1)
@@ -43,7 +46,7 @@ type PLCManager struct {
 	isShuttingDown    int32 // atomic boolean (0/1)
 	consecutiveErrors int32 // atomic counter com overflow protection
 
-	// 🛡️ ESTADOS DOS 3 RADARES (MUTEX PROTEGIDO)
+	// ESTADOS DOS 3 RADARES (MUTEX PROTEGIDO)
 	radarMutex                   sync.RWMutex
 	radarCaldeiraEnabled         bool
 	radarPortaJusanteEnabled     bool
@@ -55,31 +58,33 @@ type PLCManager struct {
 	lastRadarPortaJusanteUpdate  time.Time
 	lastRadarPortaMontanteUpdate time.Time
 	radarTimeoutDuration         time.Duration
+	reconnecting                 int32 // CORRIGIDO: atomic flag para evitar reconexões simultâneas
 
-	// 🛡️ SISTEMA DE CONTROLE COM CLEANUP GARANTIDO
+	// SISTEMA DE CONTROLE COM CLEANUP GARANTIDO
 	ctx         context.Context
 	cancel      context.CancelFunc
 	wg          sync.WaitGroup
 	commandChan chan models.SystemCommand
 	stopOnce    sync.Once
 
-	// 🛡️ TICKERS COM FALLBACK E LEAK PROTECTION
+	// TICKERS COM FALLBACK E LEAK PROTECTION CORRIGIDO
 	tickers struct {
 		mutex        sync.Mutex
 		liveBit      *time.Ticker
 		status       *time.Ticker
 		command      *time.Ticker
 		radarMonitor *time.Ticker
+		fallbacks    []*time.Ticker // Track fallback tickers para cleanup
 		allStopped   bool
 	}
 
-	// 🛡️ REBOOT SYSTEM THREAD-SAFE
+	// REBOOT SYSTEM THREAD-SAFE
 	rebootMutex          sync.Mutex
 	rebootTimer          *time.Timer
 	rebootTimerActive    bool
 	lastResetErrorsState bool
 
-	// 🛡️ SISTEMA DE LOGGING INTELIGENTE POR ESTADOS
+	// SISTEMA DE LOGGING INTELIGENTE POR ESTADOS
 	connectionLogging struct {
 		mutex                  sync.RWMutex
 		lastConnectionState    bool      // estado anterior da conexão
@@ -94,18 +99,19 @@ type PLCManager struct {
 		}
 	}
 
-	// 🛡️ ERROR HANDLING COM OVERFLOW PROTECTION (MANTIDO PARA COMPATIBILIDADE)
+	// ERROR HANDLING COM OVERFLOW PROTECTION
 	maxErrors int32
 }
 
 const (
 	REBOOT_TIMEOUT_SECONDS           = 10
 	RADAR_TIMEOUT_TOLERANCE          = 45 * time.Second
-	PLC_OPERATION_TIMEOUT            = 3 * time.Second  // 🛡️ TIMEOUT OBRIGATÓRIO
-	PLC_RECONNECT_TIMEOUT            = 15 * time.Second // 🛡️ TIMEOUT RECONEXÃO
-	MAX_ERROR_COUNT                  = 1000000          // 🛡️ OVERFLOW PROTECTION
-	CONNECTION_STATE_LOG_TIMEOUT     = 15 * time.Minute // Fallback para logs críticos
-	MAX_RECONNECTION_ATTEMPTS_REPORT = 10000            // Overflow protection para tentativas
+	PLC_OPERATION_TIMEOUT            = 5 * time.Second
+	PLC_RECONNECT_TIMEOUT            = 20 * time.Second
+	MAX_ERROR_COUNT                  = 1000000
+	CONNECTION_STATE_LOG_TIMEOUT     = 15 * time.Minute
+	MAX_RECONNECTION_ATTEMPTS_REPORT = 10000
+	MAX_FALLBACK_TICKERS             = 10 // NOVO: Limite para fallback tickers
 )
 
 // NewPLCManager cria gerenciador BLINDADO para 1 PLC + 3 Radares
@@ -126,20 +132,20 @@ func NewPLCManager(plcIP string) *PLCManager {
 		lastRadarPortaMontanteUpdate: now,
 	}
 
-	// 🛡️ ESTADOS INICIAIS ATÔMICOS
+	// ESTADOS INICIAIS ATÔMICOS
 	atomic.StoreInt32(&pm.collectionActive, 1) // true
 	atomic.StoreInt32(&pm.consecutiveErrors, 0)
 
-	// 🛡️ RADARES INICIALMENTE HABILITADOS
+	// RADARES INICIALMENTE HABILITADOS
 	pm.radarMutex.Lock()
 	pm.radarCaldeiraEnabled = true
 	pm.radarPortaJusanteEnabled = true
 	pm.radarPortaMontanteEnabled = true
 	pm.radarMutex.Unlock()
 
-	// 🛡️ INICIALIZAÇÃO DO SISTEMA DE LOGGING INTELIGENTE
+	// INICIALIZAÇÃO DO SISTEMA DE LOGGING INTELIGENTE
 	pm.connectionLogging.mutex.Lock()
-	pm.connectionLogging.lastConnectionState = false // assume desconectado inicialmente
+	pm.connectionLogging.lastConnectionState = false
 	pm.connectionLogging.isInDisconnectedPeriod = false
 	pm.connectionLogging.lastErrorTime = time.Time{}
 	atomic.StoreInt32(&pm.connectionLogging.reconnectionAttempts, 0)
@@ -153,9 +159,35 @@ func (pm *PLCManager) SetSystemLogger(logger *logger.SystemLogger) {
 	pm.systemLogger = logger
 }
 
-// 🛡️ CONNECT COM TIMEOUT E ERROR HANDLING - SEM LOG DE ERRO FALSO
+// ============================================================================
+// CORREÇÃO 1: CLIENT THREAD-SAFE
+// ============================================================================
+
+// setClient - Método seguro para definir client
+func (pm *PLCManager) setClient(client PLCClient) {
+	pm.clientMutex.Lock()
+	pm.client = client
+	pm.clientMutex.Unlock()
+}
+
+// getClient - Método seguro para obter client
+func (pm *PLCManager) getClient() PLCClient {
+	pm.clientMutex.RLock()
+	defer pm.clientMutex.RUnlock()
+	return pm.client
+}
+
+// ============================================================================
+// CONNECT COM TIMEOUT E ERROR HANDLING - CORRIGIDO THREAD-SAFE
+// ============================================================================
+
 func (pm *PLCManager) Connect() error {
-	// Timeout na conexão
+	// NOVA PROTEÇÃO: Evitar múltiplas conexões simultâneas
+	if !atomic.CompareAndSwapInt32(&pm.reconnecting, 0, 1) {
+		return fmt.Errorf("connection already in progress")
+	}
+	defer atomic.StoreInt32(&pm.reconnecting, 0)
+
 	done := make(chan error, 1)
 
 	go func() {
@@ -164,7 +196,24 @@ func (pm *PLCManager) Connect() error {
 				done <- fmt.Errorf("panic during connect: %v", r)
 			}
 		}()
-		done <- pm.plcSiemens.Connect()
+
+		if err := pm.plcSiemens.Connect(); err != nil {
+			done <- err
+			return
+		}
+
+		// CORREÇÃO: Usar novos métodos thread-safe
+		if !pm.plcSiemens.HasValidClient() {
+			done <- fmt.Errorf("client validation failed after connect")
+			return
+		}
+
+		// OPERAÇÃO ATÔMICA CORRIGIDA - THREAD-SAFE
+		pm.setClient(pm.plcSiemens.GetClient()) // CORRIGIDO: Thread-safe
+		atomic.StoreInt32(&pm.connected, 1)
+		atomic.StoreInt32(&pm.consecutiveErrors, 0)
+
+		done <- nil
 	}()
 
 	select {
@@ -174,15 +223,12 @@ func (pm *PLCManager) Connect() error {
 			pm.handleConnectionStateChangeSecure(false, err)
 			return err
 		}
-		pm.client = pm.plcSiemens.Client
-		atomic.StoreInt32(&pm.connected, 1)
-		atomic.StoreInt32(&pm.consecutiveErrors, 0)
 		pm.handleConnectionStateChangeSecure(true, nil)
 		return nil
 
-	case <-time.After(10 * time.Second): // 🛡️ TIMEOUT 10s
+	case <-time.After(PLC_RECONNECT_TIMEOUT):
 		atomic.StoreInt32(&pm.connected, 0)
-		err := fmt.Errorf("connection timeout (10s)")
+		err := fmt.Errorf("connection timeout (%v)", PLC_RECONNECT_TIMEOUT)
 		pm.handleConnectionStateChangeSecure(false, err)
 		return err
 	}
@@ -192,31 +238,26 @@ func (pm *PLCManager) IsPLCConnected() bool {
 	return atomic.LoadInt32(&pm.connected) == 1
 }
 
-// 🛡️ START COM PROTEÇÃO COMPLETA
+// START COM PROTEÇÃO COMPLETA
 func (pm *PLCManager) StartWithContext(parentCtx context.Context) {
 	if atomic.LoadInt32(&pm.isShuttingDown) == 1 {
-		fmt.Println("⚠️  PLC Manager já em shutdown")
+		fmt.Println("PLC Manager já em shutdown")
 		return
 	}
 
 	pm.ctx, pm.cancel = context.WithCancel(parentCtx)
 
-	// 🛡️ TENTAR CONECTAR COM TIMEOUT - SEM LOG DE ERRO FALSO
 	if err := pm.Connect(); err != nil {
-		// Apenas console - logging inteligente cuida dos logs
-		fmt.Printf("⚠️  PLC inicial não conectou: %v\n", err)
+		fmt.Printf("PLC inicial não conectou: %v\n", err)
 	} else {
-		// ✅ SUCESSO NO CONSOLE - SEM LOG DE ERRO
-		fmt.Println("✅ PLC conectado inicialmente")
+		fmt.Println("PLC conectado inicialmente")
 	}
 
-	// 🛡️ INICIALIZAR TICKERS COM PROTEÇÃO
 	if err := pm.initTickersSecure(); err != nil {
-		fmt.Printf("❌ Falha ao inicializar tickers: %v\n", err)
+		fmt.Printf("Falha ao inicializar tickers: %v\n", err)
 		return
 	}
 
-	// 🛡️ INICIAR GOROUTINES BLINDADAS
 	pm.wg.Add(5)
 	go pm.liveBitLoopSecure()
 	go pm.statusWriteLoopSecure()
@@ -224,17 +265,17 @@ func (pm *PLCManager) StartWithContext(parentCtx context.Context) {
 	go pm.commandProcessorSecure()
 	go pm.radarMonitorLoopSecure()
 
-	fmt.Println("✅ PLC Manager: Sistema BLINDADO iniciado (1 PLC + 3 Radares)")
+	fmt.Println("PLC Manager: Sistema BLINDADO iniciado (1 PLC + 3 Radares)")
 }
 
 func (pm *PLCManager) Start() {
 	pm.StartWithContext(context.Background())
 }
 
-// 🛡️ STOP COM CLEANUP GARANTIDO
+// STOP COM CLEANUP GARANTIDO
 func (pm *PLCManager) Stop() {
 	pm.stopOnce.Do(func() {
-		fmt.Println("🛑 PLC Manager: Parando sistema BLINDADO...")
+		fmt.Println("PLC Manager: Parando sistema BLINDADO...")
 
 		atomic.StoreInt32(&pm.isShuttingDown, 1)
 		pm.stopTickersSecure()
@@ -246,7 +287,6 @@ func (pm *PLCManager) Stop() {
 
 		pm.closeCommandChanSecure()
 
-		// 🛡️ AGUARDAR GOROUTINES COM TIMEOUT
 		done := make(chan struct{})
 		go func() {
 			pm.wg.Wait()
@@ -255,25 +295,23 @@ func (pm *PLCManager) Stop() {
 
 		select {
 		case <-done:
-			fmt.Println("✅ PLC Manager: Todas goroutines finalizadas")
+			fmt.Println("PLC Manager: Todas goroutines finalizadas")
 		case <-time.After(10 * time.Second):
-			fmt.Println("⚠️  PLC Manager: Timeout - forçando parada")
+			fmt.Println("PLC Manager: Timeout - forçando parada")
 		}
 
-		// 🛡️ CLEANUP FINAL
 		if pm.plcSiemens != nil {
 			pm.plcSiemens.Disconnect()
 		}
 		atomic.StoreInt32(&pm.isShuttingDown, 0)
-		fmt.Println("✅ PLC Manager: Sistema BLINDADO parado")
+		fmt.Println("PLC Manager: Sistema BLINDADO parado")
 	})
 }
 
 // ============================================================================
-// 🛡️ SISTEMA DE LOGGING INTELIGENTE POR ESTADOS DE CONEXÃO - SEM ERRO FALSO
+// SISTEMA DE LOGGING INTELIGENTE POR ESTADOS DE CONEXÃO
 // ============================================================================
 
-// handleConnectionStateChangeSecure - LÓGICA INTELIGENTE DE LOGGING CORRIGIDA
 func (pm *PLCManager) handleConnectionStateChangeSecure(connected bool, err error) {
 	pm.connectionLogging.mutex.Lock()
 	defer pm.connectionLogging.mutex.Unlock()
@@ -281,26 +319,21 @@ func (pm *PLCManager) handleConnectionStateChangeSecure(connected bool, err erro
 	now := time.Now()
 	previousState := pm.connectionLogging.lastConnectionState
 
-	// 🛡️ PRIMEIRA CONEXÃO (STARTUP) - SEM LOG DE ERRO
+	// PRIMEIRA CONEXÃO (STARTUP) - SEM LOG DE ERRO
 	if connected && !previousState && !pm.connectionLogging.isInDisconnectedPeriod {
-		// ✅ PRIMEIRA CONEXÃO BEM-SUCEDIDA - APENAS CONSOLE
-		// NÃO LOGAR COMO ERRO - é normal na inicialização
 		pm.connectionLogging.lastConnectionState = connected
 		return
 	}
 
-	// 🛡️ MUDANÇA DE ESTADO: DESCONECTADO → CONECTADO (RECONEXÃO)
+	// MUDANÇA DE ESTADO: DESCONECTADO → CONECTADO (RECONEXÃO)
 	if connected && !previousState && pm.connectionLogging.isInDisconnectedPeriod {
-		// Calculando duração da desconexão
 		disconnectionDuration := now.Sub(pm.connectionLogging.disconnectionStartTime)
 		attempts := atomic.LoadInt32(&pm.connectionLogging.reconnectionAttempts)
 
-		// 🛡️ OVERFLOW PROTECTION
 		if attempts > MAX_RECONNECTION_ATTEMPTS_REPORT {
 			attempts = MAX_RECONNECTION_ATTEMPTS_REPORT
 		}
 
-		// LOG INFORMATIVO DE RECONEXÃO
 		message := fmt.Sprintf("PLC reconectado após %v - %d tentativas",
 			pm.formatDurationSecure(disconnectionDuration), attempts)
 		fmt.Printf("✅ %s\n", message)
@@ -309,14 +342,12 @@ func (pm *PLCManager) handleConnectionStateChangeSecure(connected bool, err erro
 			pm.systemLogger.LogConfigurationChange("PLC_MANAGER", message)
 		}
 
-		// Reset do período de desconexão
 		pm.connectionLogging.isInDisconnectedPeriod = false
 		atomic.StoreInt32(&pm.connectionLogging.reconnectionAttempts, 0)
 	}
 
-	// 🛡️ MUDANÇA DE ESTADO: CONECTADO → DESCONECTADO
+	// MUDANÇA DE ESTADO: CONECTADO → DESCONECTADO
 	if !connected && previousState {
-		// INÍCIO DO PERÍODO DE DESCONEXÃO - LOG ÚNICO
 		message := "PLC desconectado - tentando reconectar"
 		if err != nil {
 			message = fmt.Sprintf("PLC desconectado (%v) - tentando reconectar", err)
@@ -332,28 +363,23 @@ func (pm *PLCManager) handleConnectionStateChangeSecure(connected bool, err erro
 		atomic.StoreInt32(&pm.connectionLogging.reconnectionAttempts, 0)
 	}
 
-	// 🛡️ PERÍODO DE DESCONEXÃO CONTÍNUA - SILÊNCIO
+	// PERÍODO DE DESCONEXÃO CONTÍNUA - SILÊNCIO
 	if !connected && !previousState && pm.connectionLogging.isInDisconnectedPeriod {
-		// SILÊNCIO TOTAL - apenas contabilizar tentativas se for erro de reconexão
 		if err != nil && pm.isConnectionError(err) {
 			atomic.AddInt32(&pm.connectionLogging.reconnectionAttempts, 1)
 		}
 
-		// 🛡️ FALLBACK DE SEGURANÇA: Log crítico após muito tempo
 		if now.Sub(pm.connectionLogging.disconnectionStartTime) > CONNECTION_STATE_LOG_TIMEOUT {
 			pm.logCriticalDisconnectionFallbackSecure(now)
 		}
-		return // SILÊNCIO - não loga durante período contínuo
+		return
 	}
 
-	// Atualizar estado
 	pm.connectionLogging.lastConnectionState = connected
 	pm.connectionLogging.lastErrorTime = now
 }
 
-// logCriticalDisconnectionFallbackSecure - FALLBACK para desconexões muito longas
 func (pm *PLCManager) logCriticalDisconnectionFallbackSecure(now time.Time) {
-	// Evitar spam do próprio fallback
 	if now.Sub(pm.connectionLogging.fallbackThrottle.lastLog) < 30*time.Minute {
 		return
 	}
@@ -373,7 +399,6 @@ func (pm *PLCManager) logCriticalDisconnectionFallbackSecure(now time.Time) {
 	pm.connectionLogging.fallbackThrottle.lastLog = now
 }
 
-// formatDurationSecure - Formatação legível de duração com proteção
 func (pm *PLCManager) formatDurationSecure(d time.Duration) string {
 	if d < 0 {
 		return "0s"
@@ -394,11 +419,10 @@ func (pm *PLCManager) formatDurationSecure(d time.Duration) string {
 }
 
 // ============================================================================
-// 🛡️ ERROR HANDLING OTIMIZADO COM ESTADOS DE CONEXÃO
+// ERROR HANDLING OTIMIZADO COM ESTADOS DE CONEXÃO
 // ============================================================================
 
 func (pm *PLCManager) markErrorSecure(err error) {
-	// 🛡️ OVERFLOW PROTECTION - resetar a cada 1 milhão
 	current := atomic.LoadInt32(&pm.consecutiveErrors)
 	if current >= MAX_ERROR_COUNT {
 		fmt.Printf("⚠️ Error count overflow protection: resetando de %d para 0\n", current)
@@ -410,21 +434,17 @@ func (pm *PLCManager) markErrorSecure(err error) {
 
 	if pm.isConnectionError(err) && errors >= pm.maxErrors {
 		atomic.StoreInt32(&pm.connected, 0)
-		// 🛡️ USAR SISTEMA INTELIGENTE DE LOGGING
 		pm.handleConnectionStateChangeSecure(false, err)
 	} else if !pm.isConnectionError(err) {
-		// Erros não relacionados à conexão - log normal (throttled para compatibilidade)
 		pm.logErrorThrottledSecure("PLC_MANAGER", err)
 	}
 }
 
 func (pm *PLCManager) markSuccess() {
-	// Reset erros consecutivos em sucesso
 	atomic.StoreInt32(&pm.consecutiveErrors, 0)
 
-	// Se estava desconectado e agora teve sucesso, marca como conectado
 	wasConnected := atomic.LoadInt32(&pm.connected) == 1
-	if !wasConnected {
+	if !wasConnected && pm.getClient() != nil { // CORRIGIDO: Thread-safe
 		atomic.StoreInt32(&pm.connected, 1)
 		pm.handleConnectionStateChangeSecure(true, nil)
 	}
@@ -439,6 +459,9 @@ func (pm *PLCManager) isConnectionError(err error) bool {
 		"i/o timeout", "connection reset", "broken pipe",
 		"connection refused", "invalid pdu", "invalid buffer",
 		"network unreachable", "connection timed out",
+		"timeout",       // ← ADICIONAR ESTA LINHA
+		"read timeout",  // ← ADICIONAR ESTA LINHA
+		"write timeout", // ← ADICIONAR ESTA LINHA
 	}
 	for _, connErr := range connectionErrors {
 		if strings.Contains(errStr, connErr) {
@@ -448,7 +471,6 @@ func (pm *PLCManager) isConnectionError(err error) bool {
 	return false
 }
 
-// 🛡️ LOG THROTTLING MANTIDO PARA ERROS NÃO-CONEXÃO
 func (pm *PLCManager) logErrorThrottledSecure(component string, err error) {
 	pm.connectionLogging.mutex.Lock()
 	defer pm.connectionLogging.mutex.Unlock()
@@ -490,7 +512,7 @@ func (pm *PLCManager) logErrorThrottledSecure(component string, err error) {
 }
 
 // ============================================================================
-// 🛡️ TICKERS COM FALLBACK E LEAK PROTECTION
+// CORREÇÃO 2: TICKERS COM FALLBACK E LEAK PROTECTION CORRIGIDO
 // ============================================================================
 
 func (pm *PLCManager) initTickersSecure() error {
@@ -501,7 +523,6 @@ func (pm *PLCManager) initTickersSecure() error {
 		return fmt.Errorf("tickers already stopped")
 	}
 
-	// 🛡️ CRIAR TICKERS COM VERIFICAÇÃO
 	pm.tickers.liveBit = time.NewTicker(3 * time.Second)
 	pm.tickers.status = time.NewTicker(1 * time.Second)
 	pm.tickers.command = time.NewTicker(2 * time.Second)
@@ -511,6 +532,8 @@ func (pm *PLCManager) initTickersSecure() error {
 		pm.tickers.command == nil || pm.tickers.radarMonitor == nil {
 		return fmt.Errorf("failed to create tickers")
 	}
+
+	pm.tickers.fallbacks = make([]*time.Ticker, 0)
 
 	return nil
 }
@@ -523,41 +546,62 @@ func (pm *PLCManager) stopTickersSecure() {
 		return
 	}
 
-	// 🛡️ PARAR TODOS COM VERIFICAÇÃO
-	if pm.tickers.liveBit != nil {
-		pm.tickers.liveBit.Stop()
-		pm.tickers.liveBit = nil
-	}
-	if pm.tickers.status != nil {
-		pm.tickers.status.Stop()
-		pm.tickers.status = nil
-	}
-	if pm.tickers.command != nil {
-		pm.tickers.command.Stop()
-		pm.tickers.command = nil
-	}
-	if pm.tickers.radarMonitor != nil {
-		pm.tickers.radarMonitor.Stop()
-		pm.tickers.radarMonitor = nil
+	tickers := []*time.Ticker{
+		pm.tickers.liveBit,
+		pm.tickers.status,
+		pm.tickers.command,
+		pm.tickers.radarMonitor,
 	}
 
+	var wg sync.WaitGroup
+	for i, ticker := range tickers {
+		if ticker != nil {
+			wg.Add(1)
+			go func(t *time.Ticker, index int) {
+				defer wg.Done()
+				done := make(chan struct{})
+
+				go func() {
+					t.Stop()
+					close(done)
+				}()
+
+				select {
+				case <-done:
+					// Sucesso
+				case <-time.After(1 * time.Second):
+					fmt.Printf("⚠️ Timeout stopping ticker %d\n", index)
+				}
+			}(ticker, i)
+		}
+	}
+
+	wg.Wait()
+
+	for _, fallback := range pm.tickers.fallbacks {
+		if fallback != nil {
+			go func(t *time.Ticker) {
+				t.Stop()
+			}(fallback)
+		}
+	}
+
+	pm.tickers.liveBit = nil
+	pm.tickers.status = nil
+	pm.tickers.command = nil
+	pm.tickers.radarMonitor = nil
+	pm.tickers.fallbacks = nil
 	pm.tickers.allStopped = true
+
 	fmt.Println("✅ Todos os tickers parados com segurança")
 }
 
-// 🛡️ GET TICKER COM FALLBACK GARANTIDO
 func (pm *PLCManager) getTickerSecure(name string) <-chan time.Time {
 	pm.tickers.mutex.Lock()
-	defer pm.tickers.mutex.Unlock()
 
 	if pm.tickers.allStopped {
-		// 🛡️ FALLBACK: criar ticker temporário
-		fallbackTicker := time.NewTicker(time.Hour)
-		go func() {
-			time.Sleep(100 * time.Millisecond)
-			fallbackTicker.Stop()
-		}()
-		return fallbackTicker.C
+		pm.tickers.mutex.Unlock()
+		return pm.createFallbackTickerSecure()
 	}
 
 	var ticker *time.Ticker
@@ -572,26 +616,46 @@ func (pm *PLCManager) getTickerSecure(name string) <-chan time.Time {
 		ticker = pm.tickers.radarMonitor
 	}
 
-	// 🛡️ VERIFICAÇÃO DE SEGURANÇA + FALLBACK
+	pm.tickers.mutex.Unlock()
+
 	if ticker == nil {
 		fmt.Printf("⚠️ Ticker %s é nil, criando fallback\n", name)
-		var interval time.Duration
-		switch name {
-		case "liveBit":
-			interval = 3 * time.Second
-		case "status":
-			interval = 1 * time.Second
-		case "command":
-			interval = 2 * time.Second
-		case "radarMonitor":
-			interval = 8 * time.Second
-		default:
-			interval = 5 * time.Second
-		}
-		ticker = time.NewTicker(interval)
+		return pm.createFallbackTickerSecure()
 	}
 
 	return ticker.C
+}
+
+// CORREÇÃO 3: FALLBACK TICKER SEM MEMORY LEAK
+func (pm *PLCManager) createFallbackTickerSecure() <-chan time.Time {
+	pm.tickers.mutex.Lock()
+	defer pm.tickers.mutex.Unlock()
+
+	// CORREÇÃO DO MEMORY LEAK - LIMITAR E LIMPAR TICKERS ANTIGOS
+	if len(pm.tickers.fallbacks) >= MAX_FALLBACK_TICKERS {
+		halfCount := len(pm.tickers.fallbacks) / 2
+		for i := 0; i < halfCount; i++ {
+			if pm.tickers.fallbacks[i] != nil {
+				pm.tickers.fallbacks[i].Stop()
+			}
+		}
+		pm.tickers.fallbacks = pm.tickers.fallbacks[halfCount:]
+		fmt.Printf("⚠️ Limpeza de fallback tickers: removidos %d tickers antigos\n", halfCount)
+	}
+
+	fallbackTicker := time.NewTicker(5 * time.Second)
+	pm.tickers.fallbacks = append(pm.tickers.fallbacks, fallbackTicker)
+
+	go func() {
+		select {
+		case <-pm.ctx.Done():
+			fallbackTicker.Stop()
+		case <-time.After(30 * time.Second):
+			fallbackTicker.Stop()
+		}
+	}()
+
+	return fallbackTicker.C
 }
 
 func (pm *PLCManager) closeCommandChanSecure() {
@@ -601,7 +665,6 @@ func (pm *PLCManager) closeCommandChanSecure() {
 		}
 	}()
 
-	// 🛡️ DRENAR CHANNEL ANTES DE FECHAR
 	drainTimer := time.NewTimer(1 * time.Second)
 	defer drainTimer.Stop()
 
@@ -621,16 +684,58 @@ DrainLoop:
 }
 
 // ============================================================================
-// 🛡️ PLC OPERATIONS COM TIMEOUT OBRIGATÓRIO E VALIDAÇÃO
+// VERIFICAÇÃO DE OPERAÇÕES CORRIGIDA - THREAD-SAFE
 // ============================================================================
 
-// 🛡️ READ TAG COM TIMEOUT E VALIDAÇÃO
-func (pm *PLCManager) readTagSecure(dbNumber, byteOffset int, dataType string, bitOffset ...int) (interface{}, error) {
-	if !pm.IsPLCConnected() || pm.client == nil {
-		return nil, fmt.Errorf("PLC not connected")
+// CORREÇÃO: Verificação de operação melhorada
+func (pm *PLCManager) isOperationSafe() bool {
+	if atomic.LoadInt32(&pm.isShuttingDown) == 1 {
+		return false
+	}
+	if atomic.LoadInt32(&pm.emergencyStop) == 1 {
+		return false
+	}
+	if atomic.LoadInt32(&pm.connected) == 0 {
+		return false
 	}
 
-	// 🛡️ VALIDAÇÃO DE PARÂMETROS
+	// CORREÇÃO: Usar método thread-safe do SiemensPLC
+	if pm.plcSiemens != nil && !pm.plcSiemens.HasValidClient() {
+		return false
+	}
+
+	// CORREÇÃO: Verificar se client está disponível de forma thread-safe
+	client := pm.getClient()
+	return client != nil
+}
+
+// NOVO: Método para verificar se sistema pode fazer operações PLC
+func (pm *PLCManager) canPerformPLCOperations() bool {
+	if !pm.isOperationSafe() {
+		return false
+	}
+
+	// CORREÇÃO: Verificar se não está em processo de reconexão
+	if atomic.LoadInt32(&pm.reconnecting) == 1 {
+		return false
+	}
+
+	return true
+}
+
+func (pm *PLCManager) shouldSkipOperation() bool {
+	return !pm.canPerformPLCOperations()
+}
+
+// ============================================================================
+// PLC OPERATIONS COM TIMEOUT E CLIENT THREAD-SAFE
+// ============================================================================
+
+func (pm *PLCManager) readTagSecure(dbNumber, byteOffset int, dataType string, bitOffset ...int) (interface{}, error) {
+	if !pm.canPerformPLCOperations() {
+		return nil, fmt.Errorf("PLC operation not available")
+	}
+
 	if dbNumber < 0 || dbNumber > 65535 {
 		return nil, fmt.Errorf("invalid dbNumber %d (must be 0-65535)", dbNumber)
 	}
@@ -650,7 +755,6 @@ func (pm *PLCManager) readTagSecure(dbNumber, byteOffset int, dataType string, b
 		return nil, fmt.Errorf("unsupported type: %s", dataType)
 	}
 
-	// 🛡️ OPERAÇÃO COM TIMEOUT OBRIGATÓRIO
 	done := make(chan struct{})
 	var buffer []byte
 	var readErr error
@@ -662,8 +766,14 @@ func (pm *PLCManager) readTagSecure(dbNumber, byteOffset int, dataType string, b
 			}
 			close(done)
 		}()
+
 		buffer = make([]byte, size)
-		readErr = pm.client.AGReadDB(dbNumber, byteOffset, size, buffer)
+		client := pm.getClient() // CORRIGIDO: Thread-safe
+		if client == nil {
+			readErr = fmt.Errorf("client not available")
+			return
+		}
+		readErr = client.AGReadDB(dbNumber, byteOffset, size, buffer)
 	}()
 
 	select {
@@ -674,13 +784,12 @@ func (pm *PLCManager) readTagSecure(dbNumber, byteOffset int, dataType string, b
 		}
 		pm.markSuccess()
 
-	case <-time.After(PLC_OPERATION_TIMEOUT): // 🛡️ TIMEOUT 3s
+	case <-time.After(PLC_OPERATION_TIMEOUT):
 		err := fmt.Errorf("PLC read timeout (%v)", PLC_OPERATION_TIMEOUT)
 		pm.markErrorSecure(err)
 		return nil, err
 	}
 
-	// 🛡️ CONVERTER DADOS COM VALIDAÇÃO
 	switch dataType {
 	case "real":
 		if len(buffer) < 4 {
@@ -739,13 +848,11 @@ func (pm *PLCManager) readTagSecure(dbNumber, byteOffset int, dataType string, b
 	return nil, fmt.Errorf("conversion failed for type %s", dataType)
 }
 
-// 🛡️ WRITE TAG COM TIMEOUT, VALIDAÇÃO E RANGE CHECK
 func (pm *PLCManager) writeTagSecure(dbNumber, byteOffset int, dataType string, value interface{}, bitOffset ...int) error {
-	if !pm.IsPLCConnected() || pm.client == nil {
-		return fmt.Errorf("PLC not connected")
+	if !pm.canPerformPLCOperations() {
+		return fmt.Errorf("PLC operation not available")
 	}
 
-	// 🛡️ VALIDAÇÃO DE PARÂMETROS
 	if dbNumber < 0 || dbNumber > 65535 {
 		return fmt.Errorf("invalid dbNumber %d (must be 0-65535)", dbNumber)
 	}
@@ -756,14 +863,12 @@ func (pm *PLCManager) writeTagSecure(dbNumber, byteOffset int, dataType string, 
 		return fmt.Errorf("value cannot be nil")
 	}
 
-	// 🛡️ VALIDAÇÃO DE ENTRADA COMPLETA
 	if err := pm.validateWriteValue(value, dataType); err != nil {
 		return fmt.Errorf("invalid value: %w", err)
 	}
 
 	var buffer []byte
 
-	// 🛡️ CONVERSÃO COM RANGE CHECK
 	switch dataType {
 	case "real":
 		buffer = make([]byte, 4)
@@ -783,7 +888,7 @@ func (pm *PLCManager) writeTagSecure(dbNumber, byteOffset int, dataType string, 
 			}
 			val = float32(v)
 		case int:
-			if v < -16777216 || v > 16777216 { // float32 safe integer range
+			if v < -16777216 || v > 16777216 {
 				return fmt.Errorf("int value %d may lose precision in float32", v)
 			}
 			val = float32(v)
@@ -875,7 +980,6 @@ func (pm *PLCManager) writeTagSecure(dbNumber, byteOffset int, dataType string, 
 		return fmt.Errorf("unsupported type: %s", dataType)
 	}
 
-	// 🛡️ WRITE COM TIMEOUT OBRIGATÓRIO
 	done := make(chan error, 1)
 
 	go func() {
@@ -884,7 +988,13 @@ func (pm *PLCManager) writeTagSecure(dbNumber, byteOffset int, dataType string, 
 				done <- fmt.Errorf("panic during write: %v", r)
 			}
 		}()
-		done <- pm.client.AGWriteDB(dbNumber, byteOffset, len(buffer), buffer)
+
+		client := pm.getClient() // CORRIGIDO: Thread-safe
+		if client == nil {
+			done <- fmt.Errorf("client not available")
+			return
+		}
+		done <- client.AGWriteDB(dbNumber, byteOffset, len(buffer), buffer)
 	}()
 
 	select {
@@ -896,14 +1006,13 @@ func (pm *PLCManager) writeTagSecure(dbNumber, byteOffset int, dataType string, 
 		pm.markSuccess()
 		return nil
 
-	case <-time.After(PLC_OPERATION_TIMEOUT): // 🛡️ TIMEOUT 3s
+	case <-time.After(PLC_OPERATION_TIMEOUT):
 		err := fmt.Errorf("PLC write timeout (%v)", PLC_OPERATION_TIMEOUT)
 		pm.markErrorSecure(err)
 		return err
 	}
 }
 
-// 🛡️ VALIDAÇÃO COMPLETA DE VALORES
 func (pm *PLCManager) validateWriteValue(value interface{}, dataType string) error {
 	if value == nil {
 		return fmt.Errorf("value cannot be nil")
@@ -954,57 +1063,86 @@ func (pm *PLCManager) validateWriteValue(value interface{}, dataType string) err
 }
 
 // ============================================================================
-// 🛡️ RECONNECTION COM TIMEOUT OBRIGATÓRIO E LOGGING INTELIGENTE
+// RECONNECTION COM TIMEOUT E CLIENT THREAD-SAFE
 // ============================================================================
 
+// CORREÇÃO PRINCIPAL: tryReconnectSecure COMPLETAMENTE CORRIGIDO
 func (pm *PLCManager) tryReconnectSecure() bool {
 	if pm.plcSiemens == nil {
 		return false
 	}
 
-	// 🛡️ RECONEXÃO COM TIMEOUT OBRIGATÓRIO
+	// CORREÇÃO CRÍTICA: Proteção mais robusta contra reconexões simultâneas
+	if !atomic.CompareAndSwapInt32(&pm.reconnecting, 0, 1) {
+		// Já está reconectando - aguardar um pouco e retornar false
+		time.Sleep(100 * time.Millisecond)
+		return atomic.LoadInt32(&pm.connected) == 1
+	}
+
+	// GARANTIR que o flag será limpo mesmo se houver panic
+	defer func() {
+		atomic.StoreInt32(&pm.reconnecting, 0)
+		if r := recover(); r != nil {
+			fmt.Printf("Panic na reconexão: %v\n", r)
+			atomic.StoreInt32(&pm.connected, 0)
+		}
+	}()
+
+	// TIMEOUT para toda a operação de reconexão
 	done := make(chan bool, 1)
 
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				fmt.Printf("🚨 Panic na reconexão: %v\n", r)
+				fmt.Printf("Panic na goroutine de reconexão: %v\n", r)
 				done <- false
 			}
 		}()
 
-		pm.plcSiemens.Disconnect()
+		// CORREÇÃO: Usar método thread-safe para cleanup
+		pm.plcSiemens.ForceCleanupResources()
 		time.Sleep(2 * time.Second)
 
 		if err := pm.plcSiemens.Connect(); err != nil {
-			// 🛡️ USAR SISTEMA INTELIGENTE - não loga aqui, só reporta erro
 			pm.handleConnectionStateChangeSecure(false, err)
 			done <- false
 			return
 		}
 
-		pm.client = pm.plcSiemens.Client
+		// CORREÇÃO: Validar conexão antes de continuar
+		if !pm.plcSiemens.HasValidClient() {
+			err := fmt.Errorf("client validation failed after reconnect")
+			pm.handleConnectionStateChangeSecure(false, err)
+			done <- false
+			return
+		}
+
+		// OPERAÇÃO ATÔMICA CORRIGIDA - THREAD-SAFE
+		pm.setClient(pm.plcSiemens.GetClient()) // CORRIGIDO: Thread-safe
 		atomic.StoreInt32(&pm.connected, 1)
 		atomic.StoreInt32(&pm.consecutiveErrors, 0)
 
-		// 🛡️ USAR SISTEMA INTELIGENTE - loga sucesso de reconexão
 		pm.handleConnectionStateChangeSecure(true, nil)
 		done <- true
 	}()
 
-	// 🛡️ TIMEOUT OBRIGATÓRIO 15s
 	select {
 	case success := <-done:
 		return success
 	case <-time.After(PLC_RECONNECT_TIMEOUT):
 		err := fmt.Errorf("reconnection timeout (%v)", PLC_RECONNECT_TIMEOUT)
 		pm.handleConnectionStateChangeSecure(false, err)
+		atomic.StoreInt32(&pm.connected, 0)
+		return false
+	case <-pm.ctx.Done():
+		// Sistema está sendo desligado
+		atomic.StoreInt32(&pm.connected, 0)
 		return false
 	}
 }
 
 // ============================================================================
-// 🛡️ GOROUTINES BLINDADAS COM FALLBACK E TIMEOUT
+// GOROUTINES BLINDADAS COM FALLBACK E TIMEOUT
 // ============================================================================
 
 func (pm *PLCManager) liveBitLoopSecure() {
@@ -1018,7 +1156,6 @@ func (pm *PLCManager) liveBitLoopSecure() {
 		pm.wg.Done()
 	}()
 
-	// 🛡️ FALLBACK: Se ticker falhar, usar time.Sleep
 	tickerFailed := false
 
 	for {
@@ -1034,18 +1171,16 @@ func (pm *PLCManager) liveBitLoopSecure() {
 		case <-pm.ctx.Done():
 			return
 
-		case <-time.After(5 * time.Second): // 🛡️ FALLBACK TIMEOUT
+		case <-time.After(5 * time.Second):
 			if atomic.LoadInt32(&pm.isShuttingDown) == 1 {
 				return
 			}
 
 			if tickerFailed {
-				// Usar fallback direto
 				current := atomic.LoadInt32(&pm.liveBit)
 				atomic.StoreInt32(&pm.liveBit, 1-current)
 				time.Sleep(3 * time.Second)
 			} else {
-				// Primeira falha do ticker
 				tickerFailed = true
 				fmt.Println("⚠️ LiveBit ticker falhou - usando fallback")
 			}
@@ -1053,6 +1188,7 @@ func (pm *PLCManager) liveBitLoopSecure() {
 	}
 }
 
+// CORREÇÃO: statusWriteLoopSecure com proteção melhorada
 func (pm *PLCManager) statusWriteLoopSecure() {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1064,8 +1200,11 @@ func (pm *PLCManager) statusWriteLoopSecure() {
 		pm.wg.Done()
 	}()
 
+	// CORREÇÃO: Usar mutex para proteger variáveis compartilhadas
+	var reconnectMutex sync.Mutex
 	reconnectAttempts := 0
 	lastReconnectTime := time.Time{}
+	reconnectThrottle := 3 * time.Second
 
 	for {
 		select {
@@ -1076,24 +1215,46 @@ func (pm *PLCManager) statusWriteLoopSecure() {
 
 			connected := pm.IsPLCConnected()
 
-			// 🛡️ RECONEXÃO COM TIMEOUT E LIMITE
-			if !connected && time.Since(lastReconnectTime) > 3*time.Second {
+			// CORREÇÃO: Proteger acesso às variáveis com mutex
+			reconnectMutex.Lock()
+			canTryReconnect := !connected && time.Since(lastReconnectTime) > reconnectThrottle
+			isReconnecting := atomic.LoadInt32(&pm.reconnecting) == 1
+			reconnectMutex.Unlock()
+
+			if canTryReconnect && !isReconnecting {
+
+				// CORREÇÃO: Atualizar variáveis de forma thread-safe
+				reconnectMutex.Lock()
 				reconnectAttempts++
 				lastReconnectTime = time.Now()
 
-				if reconnectAttempts > 20 { // Máximo 20 tentativas
-					time.Sleep(30 * time.Second)
-					reconnectAttempts = 0
-					continue
+				// Throttling progressivo
+				if reconnectAttempts > 10 {
+					reconnectThrottle = 30 * time.Second
+				} else if reconnectAttempts > 5 {
+					reconnectThrottle = 10 * time.Second
+				} else {
+					reconnectThrottle = 3 * time.Second
 				}
+				reconnectMutex.Unlock()
 
+				// CORREÇÃO: Fazer reconexão SEM goroutine para evitar race
 				if pm.tryReconnectSecure() {
+					// Reset counter apenas se reconexão foi bem-sucedida
+					reconnectMutex.Lock()
 					reconnectAttempts = 0
-					connected = true
+					reconnectThrottle = 3 * time.Second
+					reconnectMutex.Unlock()
 				}
+			} else if connected {
+				// Reset counter quando conexão está OK
+				reconnectMutex.Lock()
+				reconnectAttempts = 0
+				reconnectThrottle = 3 * time.Second
+				reconnectMutex.Unlock()
 			}
 
-			// Escrever status se conectado
+			// Escrever status apenas se conectado e operacional
 			if connected && !pm.shouldSkipOperation() {
 				pm.writeSystemStatusSecure()
 			}
@@ -1122,11 +1283,10 @@ func (pm *PLCManager) commandReadLoopSecure() {
 				return
 			}
 
-			if !pm.IsPLCConnected() || pm.shouldSkipOperation() {
+			if pm.shouldSkipOperation() {
 				continue
 			}
 
-			// 🛡️ LEITURA COM TIMEOUT
 			commands, err := pm.readCommandsSecure()
 			if err != nil {
 				continue
@@ -1162,11 +1322,10 @@ func (pm *PLCManager) commandProcessorSecure() {
 			}
 		case <-pm.ctx.Done():
 			return
-		case <-time.After(30 * time.Second): // 🛡️ TIMEOUT PARA EVITAR TRAVAMENTO
+		case <-time.After(30 * time.Second):
 			if atomic.LoadInt32(&pm.isShuttingDown) == 1 {
 				return
 			}
-			// Continue loop - é normal ficar sem comandos
 		}
 	}
 }
@@ -1197,13 +1356,12 @@ func (pm *PLCManager) radarMonitorLoopSecure() {
 }
 
 // ============================================================================
-// 🛡️ OPERAÇÕES DE COMANDO E STATUS COM TIMEOUT
+// OPERAÇÕES DE COMANDO E STATUS
 // ============================================================================
 
 func (pm *PLCManager) readCommandsSecure() (*models.PLCCommands, error) {
 	commands := &models.PLCCommands{}
 
-	// 🛡️ LEITURA COM TIMEOUT INDIVIDUAL
 	if val, err := pm.readTagSecure(100, 0, "bool", 0); err == nil {
 		commands.StartCollection = val.(bool)
 	} else {
@@ -1283,7 +1441,6 @@ func (pm *PLCManager) writeSystemStatusSecure() {
 		statusByte |= (1 << 3)
 	}
 
-	// 🛡️ RADAR STATUS COM LOCK MÍNIMO
 	pm.radarMutex.RLock()
 	caldeiraStatus := pm.radarCaldeiraConnected && pm.radarCaldeiraEnabled
 	jusanteStatus := pm.radarPortaJusanteConnected && pm.radarPortaJusanteEnabled
@@ -1300,17 +1457,14 @@ func (pm *PLCManager) writeSystemStatusSecure() {
 		statusByte |= (1 << 6)
 	}
 
-	// 🛡️ WRITE COM TIMEOUT
 	pm.writeTagSecure(100, 4, "byte", statusByte)
 }
 
-// WriteMultiRadarData com timeout para 3 radares
 func (pm *PLCManager) WriteMultiRadarData(data models.MultiRadarData) error {
-	if !pm.IsPLCConnected() || pm.shouldSkipOperation() {
+	if pm.shouldSkipOperation() {
 		return nil
 	}
 
-	// 🛡️ TIMEOUT GERAL DA OPERAÇÃO
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -1359,17 +1513,14 @@ func (pm *PLCManager) WriteMultiRadarData(data models.MultiRadarData) error {
 }
 
 func (pm *PLCManager) writeRadarDataSecure(data models.RadarData, baseOffset int) error {
-	// 🛡️ VALIDAÇÃO DE OFFSET
 	if baseOffset < 0 || baseOffset > 65500 {
 		return fmt.Errorf("invalid baseOffset %d", baseOffset)
 	}
 
-	// ObjectDetected
 	if err := pm.writeTagSecure(100, baseOffset+0, "bool", data.MainObject != nil, 0); err != nil {
 		return fmt.Errorf("failed to write ObjectDetected: %w", err)
 	}
 
-	// Amplitude
 	amplitude := float32(0)
 	if data.MainObject != nil {
 		amplitude = float32(data.MainObject.Amplitude)
@@ -1378,7 +1529,6 @@ func (pm *PLCManager) writeRadarDataSecure(data models.RadarData, baseOffset int
 		return fmt.Errorf("failed to write Amplitude: %w", err)
 	}
 
-	// Distance
 	distance := float32(0)
 	if data.MainObject != nil && data.MainObject.Distancia != nil {
 		distance = float32(*data.MainObject.Distancia)
@@ -1387,7 +1537,6 @@ func (pm *PLCManager) writeRadarDataSecure(data models.RadarData, baseOffset int
 		return fmt.Errorf("failed to write Distance: %w", err)
 	}
 
-	// Velocity
 	velocity := float32(0)
 	if data.MainObject != nil && data.MainObject.Velocidade != nil {
 		velocity = float32(*data.MainObject.Velocidade)
@@ -1396,16 +1545,14 @@ func (pm *PLCManager) writeRadarDataSecure(data models.RadarData, baseOffset int
 		return fmt.Errorf("failed to write Velocity: %w", err)
 	}
 
-	// ObjectsCount
 	count := int16(len(data.Amplitudes))
-	if count > 1000 { // 🛡️ LIMITE DE SEGURANÇA
+	if count > 1000 {
 		count = 1000
 	}
 	if err := pm.writeTagSecure(100, baseOffset+14, "int", count); err != nil {
 		return fmt.Errorf("failed to write ObjectsCount: %w", err)
 	}
 
-	// Positions Array (limitado a 10)
 	for i := 0; i < 10; i++ {
 		offset := baseOffset + 16 + (i * 4)
 		val := float32(0)
@@ -1417,7 +1564,6 @@ func (pm *PLCManager) writeRadarDataSecure(data models.RadarData, baseOffset int
 		}
 	}
 
-	// Velocities Array (limitado a 10)
 	for i := 0; i < 10; i++ {
 		offset := baseOffset + 56 + (i * 4)
 		val := float32(0)
@@ -1433,7 +1579,7 @@ func (pm *PLCManager) writeRadarDataSecure(data models.RadarData, baseOffset int
 }
 
 // ============================================================================
-// 🛡️ PROCESS COMMANDS E REBOOT SYSTEM
+// PROCESS COMMANDS E REBOOT SYSTEM
 // ============================================================================
 
 func (pm *PLCManager) processCommandsSecure(commands *models.PLCCommands) {
@@ -1447,7 +1593,6 @@ func (pm *PLCManager) processCommandsSecure(commands *models.PLCCommands) {
 		}
 	}()
 
-	// 🛡️ REBOOT LOGIC COM TIMEOUT
 	pm.rebootMutex.Lock()
 	lastState := pm.lastResetErrorsState
 	pm.rebootMutex.Unlock()
@@ -1457,7 +1602,7 @@ func (pm *PLCManager) processCommandsSecure(commands *models.PLCCommands) {
 			fmt.Println("🔄 DB100.0.3 ATIVADO - Timer de reboot iniciado")
 			pm.startRebootTimerSecure()
 		} else {
-			fmt.Println("⏹️  DB100.0.3 DESATIVADO - Timer cancelado")
+			fmt.Println("DB100.0.3 DESATIVADO - Timer cancelado")
 			pm.cancelRebootTimerSecure()
 		}
 		pm.rebootMutex.Lock()
@@ -1465,7 +1610,6 @@ func (pm *PLCManager) processCommandsSecure(commands *models.PLCCommands) {
 		pm.rebootMutex.Unlock()
 	}
 
-	// Process commands with timeout protection
 	timeout := time.NewTimer(5 * time.Second)
 	defer timeout.Stop()
 
@@ -1504,7 +1648,6 @@ func (pm *PLCManager) processCommandsSecure(commands *models.PLCCommands) {
 			}
 		}
 
-		// 🛡️ RADAR COMMANDS COM VERIFICAÇÃO
 		if commands.EnableRadarCaldeira != pm.IsRadarEnabled("caldeira") {
 			if commands.EnableRadarCaldeira {
 				select {
@@ -1546,7 +1689,6 @@ func (pm *PLCManager) processCommandsSecure(commands *models.PLCCommands) {
 		}
 	}()
 
-	// 🛡️ TIMEOUT PROTECTION
 	select {
 	case <-done:
 		// Commands processed successfully
@@ -1608,7 +1750,6 @@ func (pm *PLCManager) executeCommandSecure(cmd models.SystemCommand) {
 }
 
 func (pm *PLCManager) sendCleanRadarDataSecure() {
-	// 🛡️ CLEAN DATA PARA 3 RADARES COM TIMEOUT
 	offsets := []int{6, 102, 198} // caldeira, porta_jusante, porta_montante
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -1626,7 +1767,6 @@ func (pm *PLCManager) sendCleanRadarDataSecure() {
 }
 
 func (pm *PLCManager) writeCleanRadarDataSecure(baseOffset int) {
-	// 🛡️ WRITE ZEROS COM TIMEOUT INDIVIDUAL
 	pm.writeTagSecure(100, baseOffset+0, "bool", false, 0)
 	pm.writeTagSecure(100, baseOffset+2, "real", float32(0.0))
 	pm.writeTagSecure(100, baseOffset+6, "real", float32(0.0))
@@ -1640,7 +1780,7 @@ func (pm *PLCManager) writeCleanRadarDataSecure(baseOffset int) {
 }
 
 // ============================================================================
-// 🛡️ REBOOT TIMER COM TIMEOUT E PROTEÇÃO
+// REBOOT TIMER COM TIMEOUT E PROTEÇÃO
 // ============================================================================
 
 func (pm *PLCManager) startRebootTimerSecure() {
@@ -1683,11 +1823,9 @@ func (pm *PLCManager) executeRebootSecure() {
 			fmt.Errorf("full server reboot executed via reset errors"))
 	}
 
-	// 🛡️ RESET PLC BIT COM TIMEOUT
 	pm.writeTagSecure(100, 0, "bool", false, 3)
 	time.Sleep(2 * time.Second)
 
-	// 🛡️ TENTAR DIFERENTES COMANDOS DE REBOOT
 	commands := [][]string{
 		{"/bin/systemctl", "reboot"},
 		{"/sbin/reboot"},
@@ -1695,7 +1833,6 @@ func (pm *PLCManager) executeRebootSecure() {
 	}
 
 	for i, cmd := range commands {
-		// 🛡️ TIMEOUT NO COMANDO DE REBOOT
 		done := make(chan error, 1)
 		go func() {
 			done <- exec.Command(cmd[0], cmd[1:]...).Run()
@@ -1723,7 +1860,7 @@ func (pm *PLCManager) executeRebootSecure() {
 }
 
 // ============================================================================
-// 🛡️ RADAR MANAGEMENT PARA 3 RADARES
+// RADAR MANAGEMENT PARA 3 RADARES
 // ============================================================================
 
 func (pm *PLCManager) checkRadarTimeoutsSecure() {
@@ -1738,7 +1875,6 @@ func (pm *PLCManager) checkRadarTimeoutsSecure() {
 
 	now := time.Now()
 
-	// 🛡️ CHECK RADAR CALDEIRA
 	if pm.radarCaldeiraEnabled && pm.radarCaldeiraConnected {
 		if now.Sub(pm.lastRadarCaldeiraUpdate) > pm.radarTimeoutDuration {
 			pm.radarCaldeiraConnected = false
@@ -1749,7 +1885,6 @@ func (pm *PLCManager) checkRadarTimeoutsSecure() {
 		}
 	}
 
-	// 🛡️ CHECK RADAR PORTA JUSANTE
 	if pm.radarPortaJusanteEnabled && pm.radarPortaJusanteConnected {
 		if now.Sub(pm.lastRadarPortaJusanteUpdate) > pm.radarTimeoutDuration {
 			pm.radarPortaJusanteConnected = false
@@ -1760,7 +1895,6 @@ func (pm *PLCManager) checkRadarTimeoutsSecure() {
 		}
 	}
 
-	// 🛡️ CHECK RADAR PORTA MONTANTE
 	if pm.radarPortaMontanteEnabled && pm.radarPortaMontanteConnected {
 		if now.Sub(pm.lastRadarPortaMontanteUpdate) > pm.radarTimeoutDuration {
 			pm.radarPortaMontanteConnected = false
@@ -1779,7 +1913,6 @@ func (pm *PLCManager) updateRadarStatusSecure(radarID string, connected bool) {
 		}
 	}()
 
-	// 🛡️ VALIDAÇÃO DE RADAR ID
 	validRadarIDs := []string{"caldeira", "porta_jusante", "porta_montante"}
 	valid := false
 	for _, validID := range validRadarIDs {
@@ -1816,12 +1949,8 @@ func (pm *PLCManager) updateRadarStatusSecure(radarID string, connected bool) {
 	}
 }
 
-func (pm *PLCManager) shouldSkipOperation() bool {
-	return atomic.LoadInt32(&pm.emergencyStop) == 1
-}
-
 // ============================================================================
-// 🛡️ INTERFACE PÚBLICA THREAD-SAFE (MANTIDA IGUAL PARA COMPATIBILIDADE)
+// INTERFACE PÚBLICA THREAD-SAFE
 // ============================================================================
 
 func (pm *PLCManager) IsCollectionActive() bool {
@@ -1893,7 +2022,6 @@ func (pm *PLCManager) IsRadarTimingOut(radarID string) (bool, time.Duration) {
 	return timeSinceUpdate > warningThreshold, timeSinceUpdate
 }
 
-// COMPATIBILIDADE COM PLCCONTROLLER
 func (pm *PLCManager) SetSiemensPLC(siemens *SiemensPLC) {
 	// Compatibilidade - sistema interno gerencia automaticamente
 }
